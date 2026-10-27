@@ -360,7 +360,8 @@ const hasGSAP = typeof window.gsap !== 'undefined';
 // lab.silkRect(x0, x1, z0, z1)   lab.zone(text, x, z, color)   lab.label(html, cls, x, y, z, parent)
 // lab.busMat(color, {base, rest})  lab.trace([{x,z}...], lines, mat)  lab.glowBus(mat)
 // lab.fly([{x,z}...], text, color, {y, dur}) -> GSAP timeline (packet sphere + halo + pill label)
-// lab.hi(rec, color)  lab.clear()  lab.pop(rec)  lab.setView(name)  lab.intro()  lab.onPick(fn)  lab.clearPackets()
+// lab.hi(rec, color)  lab.clear()  lab.pop(rec)  lab.setView(name)  lab.zoom(factor)  lab.intro()  lab.onPick(fn)  lab.clearPackets()
+// Zoom buttons (+, -, FIT) and the + - 0 keys are added to the stage automatically (opts.zoomUI: false turns them off; opts.fitView picks the FIT view).
 function Lab3D(stage, opts) {
   opts = opts || {};
   const hasG = typeof window.gsap !== 'undefined';
@@ -389,6 +390,9 @@ function Lab3D(stage, opts) {
   const controls = new T.OrbitControls(camera, labelR.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08;
   controls.maxPolarAngle = Math.PI * 0.46; controls.minDistance = 5; controls.maxDistance = 42;
+  controls.zoomSpeed = 1.1;
+  // keep the mouse wheel inside the 3D view: zoom the board, do not scroll the page
+  stage.addEventListener('wheel', e => e.preventDefault(), {passive: false});
 
   scene.add(new T.HemisphereLight(0xd6efe6, 0x0b2a26, 0.6));
   const sun = new T.DirectionalLight(0xfff1dc, 1.0); sun.position.set(-7, 16, 9); sun.castShadow = true;
@@ -578,6 +582,40 @@ function Lab3D(stage, opts) {
     camera.aspect = w / h; camera.updateProjectionMatrix();
     stage.style.setProperty('--lab', Math.max(7, Math.min(12, w / 92)) + 'px');
   }
+  // zoom buttons (+, -, Fit) and keys (+, -, 0): the mouse wheel and pinch still work, but buttons always do
+  function zoom(f) {
+    const t = controls.target, off = camera.position.clone().sub(t);
+    off.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, off.length() * f)));
+    const p = t.clone().add(off), k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: p.x, y: p.y, z: p.z, duration: RM ? 0 : 0.45, ease: 'power2.out', overwrite: 'auto'}).timeScale(k);
+  }
+  if (opts.zoomUI !== false) {
+    if (!document.getElementById('lab3d-zoom-css')) {
+      const st = document.createElement('style'); st.id = 'lab3d-zoom-css';
+      st.textContent = '.zoomctl{position:absolute;z-index:4;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:4px;background:rgba(6,23,20,.82);border:1px solid #1e4a41;border-radius:6px;backdrop-filter:blur(6px)}' +
+        '.zoomctl button{width:38px;height:34px;border:0;border-radius:4px;background:transparent;color:#e8efe4;font:600 18px/1 "Martian Mono",ui-monospace,monospace;cursor:pointer;padding:0}' +
+        '.zoomctl button.fit{font-size:10px;letter-spacing:.06em;height:28px}.zoomctl button:hover{background:#0f2c27;color:#f2b33d}' +
+        '.zoomctl button:focus-visible{outline:2px solid #f2b33d;outline-offset:1px}@media(max-width:520px){.zoomctl{right:10px}.zoomctl button{width:34px;height:32px}}';
+      document.head.appendChild(st);
+    }
+    const box = document.createElement('div'); box.className = 'zoomctl'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Zoom');
+    box.innerHTML = '<button type="button" data-z="in" aria-label="Zoom in" title="Zoom in (+)">+</button>' +
+      '<button type="button" data-z="out" aria-label="Zoom out" title="Zoom out (-)">&minus;</button>' +
+      '<button type="button" class="fit" data-z="fit" aria-label="Show the whole board" title="Show the whole board (0)">FIT</button>';
+    stage.appendChild(box);
+    ['pointerdown', 'pointerup', 'wheel', 'click'].forEach(ev => box.addEventListener(ev, e => e.stopPropagation()));
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.z === 'in') zoom(0.75); else if (b.dataset.z === 'out') zoom(1.33); else setView(opts.fitView || 'overview');
+    });
+    document.addEventListener('keydown', e => {
+      const t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if (e.key === '+' || e.key === '=') zoom(0.75);
+      else if (e.key === '-' || e.key === '_') zoom(1.33);
+      else if (e.key === '0') setView(opts.fitView || 'overview');
+    });
+  }
   new ResizeObserver(resize).observe(stage); resize();
   (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); labelR.render(scene, camera); })();
 
@@ -600,10 +638,12 @@ function Lab3D(stage, opts) {
     gsap.from(Object.values(recs).map(r => r.g.position), {y: 2.2, duration: 0.7, ease: 'back.out(1.6)', stagger: 0.03, delay: 0.2});
   }
 
-  return {T: T, scene: scene, camera: camera, controls: controls, renderer: renderer, recs: recs,
+  const labApi = {T: T, scene: scene, camera: camera, controls: controls, renderer: renderer, recs: recs,
     chip: chip, finishPins: finishPins, silkRect: silkRect, zone: zone, label: label, busMat: busMat, trace: trace, glowBus: glowBus,
-    fly: fly, clearPackets: clearPackets, hi: hi, clear: clear, pop: pop, setView: setView, focusOn: focusOn, intro: intro,
+    fly: fly, clearPackets: clearPackets, hi: hi, clear: clear, pop: pop, setView: setView, focusOn: focusOn, intro: intro, zoom: zoom,
     onPick: cb => { pickCb = cb; }, unit: unit};
+  (window.__labs = window.__labs || []).push(labApi);   // lets tests reach the camera
+  return labApi;
 }
 // LAB3D END
 
