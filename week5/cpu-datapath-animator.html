@@ -350,6 +350,7 @@ const BAY4 = (function () {
       ln = ln.split('#')[0].trim();
       if (!ln) continue;
       const parts = ln.toUpperCase().replace(/,/g, ' ').split(/\s+/);
+      if (parts.length > 1 && /^\d+:?$/.test(parts[0])) parts.shift(); // allow a leading ROM address, as printed in the assignments
       const op = parts[0];
       if (!(op in OPC)) throw new Error('Unknown instruction "' + parts[0] + '"');
       if (HAS_OP[op] && parts.length < 2) throw new Error(op + ' needs a number from 0 to 15');
