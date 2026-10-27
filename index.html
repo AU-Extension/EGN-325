@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EGN 325 Interactives</title>
+<meta name="description" content="Interactive simulations for EGN 325 Computer Architecture.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .weeks{display:grid;gap:16px}
+  @media(min-width:760px){.weeks{grid-template-columns:1fr 1fr}}
+  .wk h2{font-size:18px;margin:6px 0 12px}
+  .wk a.item{display:flex;justify-content:space-between;gap:12px;align-items:center;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;transition:border-color .15s,background .15s}
+  .wk a.item:hover{border-color:var(--au-red);background:var(--au-red-soft)}
+  .wk a.item span.k{font-size:12px;color:var(--muted);white-space:nowrap}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University"><img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University"></a>
+<div class="crumb"><b>EGN 325</b> Computer Architecture · Course interactives</div></div></header>
+<main class="wrap">
+<section class="hero"><span class="eyebrow">8 weeks · Beginner</span><h1>EGN 325 course interactives</h1>
+<p class="lede">Interactive simulations for this course: an explorer that shows how each idea works, and a scored challenge that checks whether you can apply it.</p></section>
+<div class="weeks">
+<section class="card wk"><span class="eyebrow">Week 1</span><h2>Inside a computer: layers, parts, and performance</h2><a class="item" href="week1/layers-zoom.html">Computer layers zoom<span class="k">Explorer</span></a><a class="item" href="week1/build-the-right-computer.html">Build the right computer challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 2</span><h2>Data representation: how computers store numbers and text</h2><a class="item" href="week2/bit-pattern-explorer.html">Bit pattern explorer<span class="k">Explorer</span></a><a class="item" href="week2/overflow-challenge.html">Overflow and conversion challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 3</span><h2>Digital logic: gates and combinational circuits</h2><a class="item" href="week3/logic-gate-playground.html">Logic gate playground<span class="k">Explorer</span></a><a class="item" href="week3/circuit-builder-challenge.html">Circuit builder challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 4</span><h2>Sequential logic: clocks, memory, and state machines</h2><a class="item" href="week4/flip-flop-timing.html">Clock and flip-flop timing visualizer<span class="k">Explorer</span></a><a class="item" href="week4/state-machine-challenge.html">State machine challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 5</span><h2>The processor: datapath, control, and the instruction cycle</h2><a class="item" href="week5/cpu-datapath-animator.html">CPU datapath animator<span class="k">Explorer</span></a><a class="item" href="week5/fetch-decode-execute-challenge.html">Fetch, decode, execute challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 6</span><h2>Instruction sets and assembly language (RISC-V)</h2><a class="item" href="week6/riscv-step-through.html">RISC-V step-through simulator<span class="k">Explorer</span></a><a class="item" href="week6/assembly-puzzle-challenge.html">Assembly puzzle challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 7</span><h2>Memory hierarchy and performance</h2><a class="item" href="week7/cache-simulator.html">Cache simulator<span class="k">Explorer</span></a><a class="item" href="week7/performance-tuning-challenge.html">Performance tuning challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 8</span><h2>Pipelining, parallelism, and modern processors</h2><a class="item" href="week8/pipeline-visualizer.html">Pipeline visualizer<span class="k">Explorer</span></a><a class="item" href="week8/architecture-matchmaker.html">Architecture matchmaker challenge<span class="k">Challenge</span></a></section>
+</div>
+</main>
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+</body>
+</html>
