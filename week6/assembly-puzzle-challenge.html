@@ -7,170 +7,307 @@
 <meta name="description" content="EGN 325 Week 6 interactive: Predict what short RISC-V programs print, choose the missing instruction, and find the bug in code an AI assistant wrote.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wdth,wght@75..112.5,300..700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/renderers/CSS2DRenderer.js"></script>
 <style>
+  /* ===== EGN 325 "Bay-4 bench" theme v2 (reference: build/theme/reference/tiny-machine-lab.html). Paste as the first block of every page's <style>. ===== */
   :root{
-    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
-    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
-    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
-    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
-    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
-    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
-    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --au-red:#E1141E; --au-red-dark:#A3282B;
+    --board:#0d302a; --board-deep:#061714; --panel:#0a211d; --panel-2:#0f2c27; --line:#1e4a41; --line-2:#2a5c51;
+    --silk:#e8efe4; --silk-dim:#9db6ac; --copper:#d4a24c;
+    --addr:#f2b33d; --data:#4fd1e8; --ctrl:#ff7a9a; --alu:#8fe388; --oper:#a9b4ff; --out:#b9f5b0; --led:#8fe388;
+    --ok:#8fe388; --bad:#ff7a7a; --warn:#f2b33d; --neon:#39ff14;
+    --font-mono:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --font-body:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif;
+    --mono:var(--font-mono); --sans:var(--font-body); --display:var(--font-mono);
+    --r:6px; --lab:10px;
+    /* legacy names used by older page code, mapped to the dark theme */
+    --ink:#e8efe4; --ink-2:#c4d4cb; --muted:#9db6ac; --bg:#061714; --card:#0a211d; --edge:#1e4a41; --edge-2:#2a5c51; --dim:#9db6ac; --silk-2:#c4d4cb;
+    --code-bg:#04110e; --code-ink:#b9f5b0; --au-red-soft:rgba(225,20,30,.14);
+    --net-blue:#4fd1e8; --net-green:#8fe388; --net-amber:#f2b33d; --net-purple:#ff7a9a; --net-teal:#5fe0c8;
+    --ok-soft:rgba(143,227,136,.10); --bad-soft:rgba(255,122,122,.10); --warn-soft:rgba(242,179,61,.10);
+    --radius:6px; --shadow:none;
+    color-scheme:dark;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:var(--au-red-dark)}
-  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
-  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
-  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  html{background:var(--board-deep)}
+  [hidden]{display:none!important}
+  body{color:var(--silk);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
+    background:radial-gradient(1200px 600px at 30% -10%,#12423a 0%,transparent 60%),var(--board-deep)}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:var(--data)}
+  :focus-visible{outline:2px solid var(--addr);outline-offset:2px}
+  /* brand bar: white with the AU red rule (the logo PNG is cropped with a wrapper) */
+  .topbar{position:relative;z-index:5;background:#fff;border-bottom:3px solid var(--au-red)}
+  .topbar-inner{max-width:none;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
   .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
   .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
-  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
-  .crumb b{color:var(--ink);font-weight:600}
-  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
-  .hero{margin:4px 0 20px}
-  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
-  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
-  h2{font-size:20px;margin:0 0 10px}
-  h3{font-size:16px;margin:0 0 8px}
-  .lede{color:var(--ink-2);max-width:760px;margin:0}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
-  .grid{display:grid;gap:16px}
-  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  .crumb{font-size:13px;color:#6B7280;letter-spacing:.02em;border-left:1px solid #E3E6EB;padding-left:16px}
+  .crumb b{color:#16181D;font-weight:600}
+  .crumb a{color:#A3282B}
+  /* page mode (challenges and pages with a scrolling layout) */
+  main,.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:26px 16px 36px}
+  .hero{margin:0 0 20px}
+  .eyebrow{display:block;margin:0;font:500 10.5px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--copper);background:none;padding:0}
+  h1{margin:6px 0 8px;font-family:var(--font-mono);font-weight:600;font-stretch:112%;font-size:clamp(24px,3.4vw,36px);line-height:1.15;letter-spacing:-.01em;text-wrap:balance;color:var(--silk)}
+  h1 .num{color:var(--addr)}
+  h2{margin:0 0 10px;font-family:var(--font-mono);font-weight:500;font-size:13px;letter-spacing:.04em;color:var(--silk)}
+  h2 small,h3 small{color:var(--silk-dim);font-weight:400}
+  h3{margin:0 0 8px;font-family:var(--font-mono);font-weight:500;font-size:12.5px;letter-spacing:.04em;color:var(--silk)}
+  .lede{margin:0;color:var(--silk-dim);font-size:15px;max-width:68ch}
+  .muted{color:var(--silk-dim)}
+  .spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .spec div{background:var(--panel);padding:9px 11px}
+  .spec b{display:block;font:600 15px var(--font-mono);color:var(--silk)}
+  .spec span{font-size:12px;color:var(--silk-dim)}
+  @media(min-width:960px){.hero.split{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;align-items:end}}
+  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0;color:var(--silk);
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .card[data-ref]::after{content:attr(data-ref);position:absolute;top:9px;right:12px;font:500 9.5px var(--font-mono);letter-spacing:.12em;color:rgba(157,182,172,.55)}
+  .grid{display:grid;gap:14px}
+  .grid>*{min-width:0}
+  @media(min-width:900px){.grid.two{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}}
+  details,details.howto{border:1px solid var(--line);border-radius:5px;background:var(--panel)}
   details.howto{margin:0 0 16px}
-  details.howto summary{cursor:pointer;font-weight:600}
-  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
-  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
-  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
-  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
-  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
-  .btn[disabled]{opacity:.5;cursor:not-allowed}
-  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
-  .mono,code,kbd{font-family:var(--mono)}
-  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
-  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
-  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
-  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
-  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
-  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
-  .score .big{font-size:28px;color:var(--au-red-dark)}
-  table.data{border-collapse:collapse;width:100%;font-size:14px}
-  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
-  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-  .scroll-x{overflow-x:auto}
-  svg text{font-family:var(--sans)}
-  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
-  .stage3d canvas{display:block;width:100%!important;height:100%!important}
-  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
-  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
-  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
-  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
-  [hidden]{display:none!important}
+  summary{cursor:pointer;padding:10px 12px;font:500 12.5px var(--font-mono);color:var(--silk)}
+  details>*:not(summary){margin-left:12px;margin-right:12px}
+  details.howto ol,details.howto ul{margin:4px 12px 12px;padding-left:20px;color:var(--silk-dim)}
+  details.howto li{margin-bottom:5px}
+  details.howto li::marker{color:var(--copper)}
+  .btn{border:1px solid var(--line);background:var(--panel-2);border-radius:5px;padding:9px 12px;font:500 12px var(--font-mono);color:var(--silk);cursor:pointer;transition:border-color .2s,background .2s;display:inline-flex;gap:6px;align-items:center;justify-content:center}
+  .btn:hover:not(:disabled){border-color:var(--copper)}
+  .btn.primary,.btn.go{background:var(--copper);border-color:var(--copper);color:#1a1205;font-weight:600}
+  .btn.primary:hover:not(:disabled),.btn.go:hover:not(:disabled){background:#e3b461}
+  .btn[aria-pressed="true"],.btn.on{border-color:var(--data);color:var(--data)}
+  .btn:disabled,.btn[disabled]{opacity:.4;cursor:not-allowed}
+  input[type=text],input[type=number],select,textarea{background:var(--board-deep);border:1px solid var(--line);border-radius:5px;padding:8px 10px;font:500 13.5px var(--font-mono);color:var(--silk);min-width:0}
+  input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--copper)}
+  .mono,code,kbd{font-family:var(--font-mono);font-size:.92em}
+  code{background:rgba(232,239,228,.07);padding:1px 5px;border-radius:3px}
+  .cli{background:var(--code-bg);color:var(--code-ink);font:500 12.5px/1.6 var(--font-mono);border-radius:5px;padding:12px 14px;overflow:auto;white-space:pre;border:1px solid var(--line)}
+  .pill{display:inline-block;font:500 10.5px var(--font-mono);letter-spacing:.06em;padding:3px 8px;border-radius:3px;background:var(--panel-2);color:var(--silk-dim);border:1px solid var(--line)}
+  .feedback{border-radius:5px;padding:11px 13px;margin-top:12px;font-size:14.5px;color:var(--silk)}
+  .feedback.ok{background:rgba(143,227,136,.08);border:1px solid rgba(143,227,136,.45)}
+  .feedback.bad{background:rgba(255,122,122,.08);border:1px solid rgba(255,122,122,.45)}
+  .feedback.info{background:rgba(79,209,232,.07);border:1px solid rgba(79,209,232,.4)}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:500 12px var(--font-mono);color:var(--silk-dim)}
+  .score .big{font:600 34px/1 var(--font-mono);font-stretch:112%;color:var(--silk);font-variant-numeric:tabular-nums}
+  table,table.data{border-collapse:collapse;width:100%;font:500 12px var(--font-mono);font-variant-numeric:tabular-nums}
+  th,table.data th{font-weight:500;color:var(--silk-dim);text-align:left;font-size:10.5px;letter-spacing:.04em;padding:7px 8px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  td,table.data td{padding:4px 8px;border-bottom:1px solid rgba(30,74,65,.5)}
+  .scroll-x,.memwrap{overflow-x:auto}
+  .memwrap{border:1px solid var(--line);border-radius:5px}
+  svg text{font-family:var(--font-mono)}
+  /* step-by-step explanation (page mode and app mode) */
+  .stepper{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .caption,.narr{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:13px 15px;color:var(--silk)}
+  .caption{margin-top:12px;min-height:4.4em}
+  .caption .t{font:500 11px var(--font-mono);letter-spacing:.1em;color:var(--cap,var(--copper));margin-bottom:6px;text-transform:uppercase}
+  .narr{display:flex;flex-direction:column;gap:8px}
+  .narr-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:400 11px var(--font-mono);color:var(--silk-dim)}
+  .ptag{display:inline-flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.1em;color:var(--silk)}
+  .ptag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--pc,var(--silk-dim));box-shadow:0 0 8px var(--pc,transparent)}
+  .narr p{margin:0;font-size:15.5px;line-height:1.55;min-height:4.6em}
+  .controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .controls .btn{padding:10px 6px}
+  .speed{display:flex;align-items:center;gap:12px;font:400 11.5px var(--font-mono);color:var(--silk-dim)}
+  .speed input{flex:1;min-width:0}
+  .speed output{color:var(--silk);width:3.5em;text-align:right;font-variant-numeric:tabular-nums}
+  .hint{margin:0;font-size:12px;color:var(--silk-dim)}
+  .rail{display:flex;gap:2px;margin:4px 0 12px;padding:4px;list-style:none;background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px}
+  .rail>div,.rail>li{flex:1;text-align:center;font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .rail>div small{display:block;font:400 9.5px var(--font-body);letter-spacing:.02em;text-transform:none;margin-top:2px;opacity:.85}
+  .rail>.on{background:var(--c,var(--copper));color:#1a1205}
+  .rail>.done{color:var(--c,var(--copper))}
+  /* live state */
+  .regs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .reg{border:1px solid var(--line);border-radius:5px;padding:9px 11px;transition:border-color .3s,background .3s;min-width:0}
+  .reg.kv{display:grid;grid-template-columns:1fr auto;gap:1px 8px;align-items:baseline}
+  .reg.on,.reg.flash{border-color:var(--hc,var(--copper));background:rgba(212,162,76,.07)}
+  .reg .rn{font:600 12px var(--font-mono)}
+  .reg .rv{font:600 17px var(--font-mono);text-align:right;font-variant-numeric:tabular-nums}
+  .reg .rf{font-size:11.5px;color:var(--silk-dim)}
+  .reg .rs{font:400 10.5px var(--font-mono);color:var(--silk-dim);text-align:right;font-variant-numeric:tabular-nums}
+  .reg.wide{grid-column:1/-1}
+  .reg .n{display:flex;justify-content:space-between;align-items:baseline;font:600 12px var(--font-mono);color:var(--silk)}
+  .reg .n b{font:600 17px var(--font-mono);font-variant-numeric:tabular-nums}
+  .bits{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--nb,8),1fr);gap:4px;margin-top:8px}
+  .bit{display:flex;flex-direction:column;align-items:center;gap:3px;font:400 9.5px var(--font-mono);color:var(--silk-dim)}
+  .bit i{width:100%;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);transition:background .25s,box-shadow .25s}
+  .bit.one i{background:var(--led);border-color:var(--led);box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .ledbits{display:flex;gap:4px;margin:6px 0 2px;flex-wrap:wrap}
+  .ledbits i{width:16px;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);font:600 9px/14px var(--font-mono);font-style:normal;color:#3d5f50;text-align:center}
+  .ledbits i.on{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .tape{display:flex;flex-wrap:wrap;gap:4px;min-height:34px;align-content:flex-start}
+  .tape span{font:600 13px var(--font-mono);color:var(--out);background:#0b2a1a;border:1px solid #1f5a37;border-radius:3px;padding:3px 7px;font-variant-numeric:tabular-nums}
+  .tape em{font-style:normal;font-size:12px;color:var(--silk-dim)}
+  .notice{margin:0;padding-left:18px;color:var(--silk-dim);font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+  .notice li::marker{color:var(--copper)}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font:400 10.5px var(--font-mono);color:var(--silk-dim);letter-spacing:.04em}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:16px;height:3px;border-radius:2px;background:var(--c);box-shadow:0 0 8px var(--c)}
+  /* app mode: the 3D board fills the left, a control rail sits on the right (stacks under the board on phones) */
+  .app{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,410px);height:calc(100vh - 55px);min-height:560px}
+  .stage{position:relative;min-width:0;min-height:320px;overflow:hidden;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);touch-action:none}
+  .stage .gl{position:absolute;inset:0;display:block;z-index:1}
+  .stage .labels{position:absolute!important;top:0;left:0;z-index:2}
+  .stage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+  .nogl{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;text-align:center;color:var(--silk-dim);font-size:12.5px;z-index:4;background:rgba(6,23,20,.85)}
+  .hud{position:absolute;z-index:3;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hud button,.hud a{pointer-events:auto}
+  .hud-top{top:14px;left:16px;right:16px}
+  .hud-bottom{bottom:14px;left:16px;right:16px;justify-content:space-between;align-items:flex-end}
+  .hud .phases,.hud .ticks,.hud .legend,.hud .views{background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px;backdrop-filter:blur(6px)}
+  .phases{list-style:none;margin:0;padding:4px;display:flex;gap:2px}
+  .phases li{font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .phases li.on{background:var(--c,var(--copper));color:#1a1205}
+  .ticks{font:400 11px var(--font-mono);color:var(--silk-dim);padding:9px 10px;font-variant-numeric:tabular-nums}
+  .ticks b{color:var(--silk);font-weight:600}
+  .hud .legend{padding:8px 12px}
+  .views{display:flex;gap:2px;padding:4px}
+  .views button{border:0;background:transparent;font:400 11px var(--font-mono);padding:6px 10px;border-radius:4px;color:var(--silk-dim);cursor:pointer}
+  .views button:hover{color:var(--silk)}
+  .views button.on{background:var(--panel-2);color:var(--silk)}
+  .credit{flex-basis:100%;margin:2px 0 0 2px;font:600 14px var(--font-mono);letter-spacing:.08em;color:var(--neon);text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.75),0 0 26px rgba(57,255,20,.45)}
+  .tag,.stage3d .label3d{pointer-events:none;display:flex;flex-direction:column;align-items:center;font-family:var(--font-mono);line-height:1.1;text-align:center;color:var(--silk);text-shadow:0 1px 2px rgba(0,0,0,.8)}
+  .tag .nm{font-size:calc(var(--lab) * .85);letter-spacing:.1em;color:var(--silk-dim)}
+  .tag .vl{font-size:calc(var(--lab) * 1.3);font-weight:600;font-variant-numeric:tabular-nums}
+  .tag .sb{font-size:calc(var(--lab) * .72);color:var(--silk-dim);letter-spacing:.04em}
+  .tag .sb:empty{display:none}
+  .tag.on .nm{color:var(--silk)}
+  .tag.on .vl{color:#fff4d6}
+  .cell .nm{font-size:calc(var(--lab) * .75)}
+  .cell .vl{font-size:calc(var(--lab) * 1.15)}
+  .zone{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * .82);letter-spacing:.14em;text-transform:uppercase;color:var(--c,var(--silk-dim));opacity:.85;white-space:nowrap;text-align:center;line-height:1.3}
+  .lcd{pointer-events:none;font-family:var(--font-mono);font-weight:600;color:var(--out);font-size:calc(var(--lab) * 2);text-shadow:0 0 10px rgba(143,227,136,.8);font-variant-numeric:tabular-nums}
+  .pkt{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * 1.1);font-weight:700;color:#06120f;background:var(--c);padding:2px 6px;border-radius:3px;box-shadow:0 0 14px var(--c);white-space:nowrap}
+  .panel{min-width:0;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:20px 18px 28px;display:flex;flex-direction:column;gap:22px;
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .panel h1{font-size:24px;margin:4px 0 6px}
+  /* the older make3D stage (page mode) */
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:280px;border-radius:6px;overflow:hidden;touch-action:none;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);border:1px solid var(--line)}
+  @media(max-width:640px){.stage3d{aspect-ratio:4/3}}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:12px;color:var(--silk-dim);background:rgba(6,23,20,.85);text-align:center}
+  .stage3d .label3d{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:11px;font-weight:600}
+  .stage3d .label3d.pkt{color:#06120f;text-shadow:none;background:var(--c,currentColor);padding:2px 6px;border-radius:3px}
+  footer.foot{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:16px;color:var(--silk-dim);font-size:12.5px;border-top:1px solid var(--line)}
+  footer.foot .byline,.byline{margin-top:4px;font:600 13px var(--font-mono)!important;letter-spacing:.08em;color:var(--neon)!important;text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.6)}
+  .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media(max-width:860px){
+    .app{grid-template-columns:1fr;height:auto}
+    .app .stage{height:62vh;min-height:360px}
+    .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  }
+  @media(max-width:520px){
+    .hud .legend{font-size:9.5px;gap:3px 10px}
+    .phases li{padding:5px 7px;font-size:10px}
+    .controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
   @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  .muted{color:var(--muted)} .small{font-size:14px}
-  .prog-row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
-  .prog-row .field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
-  .prog-row p{margin:0;flex:1;min-width:220px}
-  .editbox{margin-top:12px} .editbox summary{cursor:pointer;font-weight:600}
-  textarea{width:100%;font-family:var(--mono);font-size:14px;border:1px solid #CBD2DA;border-radius:8px;padding:10px;margin-top:8px}
-  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .phases{display:flex;gap:6px;flex-wrap:wrap}
-  .phase{font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .phase.on{background:var(--au-red);color:#fff}
-  .svgwrap{width:100%}
-  #dp{width:100%;height:auto;display:block}
-  #dp .wire{fill:none;stroke:#CBD2DA;stroke-width:2.5;transition:stroke .2s}
-  #dp .wire.ctrlw{stroke-dasharray:6 5;stroke-width:2}
-  #dp .wire.on{stroke:var(--au-red);stroke-width:4;marker-end:url(#arrOn)}
-  #dp .wire.ctrlw.on{stroke:#7C3AED;stroke-width:3}
-  #dp .box rect,#dp .box path{fill:#fff;stroke:#94A3B8;stroke-width:2;transition:fill .2s,stroke .2s}
-  #dp .box.on rect,#dp .box.on path{fill:var(--au-red-soft);stroke:var(--au-red);stroke-width:3}
-  #dp .lbl{font-size:13px;font-weight:600;fill:var(--ink-2);text-anchor:middle}
-  #dp .val{font-size:20px;font-weight:700;fill:var(--ink);text-anchor:middle;font-family:var(--mono)}
-  #dp .small-val{font-size:13px;font-weight:600}
-  #dp .tiny{font-size:11px;fill:var(--muted)}
-  .legend{margin-top:8px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .lg{display:inline-block;width:22px;height:4px;border-radius:2px;background:var(--au-red)}
-  .lg.ctl{background:repeating-linear-gradient(90deg,#7C3AED 0 6px,transparent 6px 10px)}
-  .explain{min-height:96px}
-  h3{font-size:15px;margin:14px 0 6px}
-  table.sig td:first-child{font-family:var(--mono);font-weight:600;width:45%}
-  table.sig tr.active td{background:#F3EEFF;color:#4C1D95;font-weight:700}
-  .outlist{background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:10px 12px;min-height:40px;word-break:break-word}
-  table.rom td,table.rom th{white-space:nowrap}
-  table.rom tr.pc td{background:var(--au-red-soft);font-weight:700}
-  table.rom td.mono, .mono{font-family:var(--mono)}
-  .q{border-top:1px solid var(--line);padding:12px 0}
-  .q p{margin:0 0 8px;font-weight:600}
-  .opts{display:flex;flex-direction:column;gap:6px}
-  .opts button{text-align:left}
-  .opts button.right{background:var(--ok-soft);border-color:#BBE5C8}
-  .opts button.wrong{background:var(--bad-soft);border-color:#F5C2C2}
-  .head-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  /* ===== end of theme ===== */
+
+  /* ===== page: assembly puzzle challenge ===== */
+  .small{font-size:14px}
+  .hero{display:grid;gap:18px;align-items:end}
+  @media(min-width:960px){.hero{grid-template-columns:1.35fr 1fr}}
+  .stack{display:grid;gap:16px}
+  .qhead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-right:96px}
+  .qhead .pill{font-size:11px;padding:4px 10px}
+  .qhead .pill.kind{color:var(--ctrl);border-color:color-mix(in srgb,var(--ctrl) 50%,transparent);background:color-mix(in srgb,var(--ctrl) 8%,transparent)}
+  .score-now{margin-left:auto;font:600 13px var(--mono);color:var(--addr);text-shadow:0 0 12px color-mix(in srgb,var(--addr) 45%,transparent)}
+  .progress{height:4px;background:#0B2018;border-radius:2px;margin:6px 0 4px;overflow:hidden}
+  .progress div{height:100%;width:0;background:linear-gradient(90deg,var(--addr),var(--led));transition:width .3s}
+  .segs{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;margin:12px 0 2px}
+  .segs i{height:8px;border-radius:3px;background:#0B2018;border:1px solid var(--edge);transition:all .25s}
+  .segs i.cur{background:var(--addr);border-color:var(--addr);box-shadow:0 0 10px color-mix(in srgb,var(--addr) 60%,transparent)}
+  .segs i.ok{background:var(--led);border-color:var(--led);box-shadow:0 0 8px color-mix(in srgb,var(--led) 50%,transparent)}
+  .segs i.bad{background:var(--bad);border-color:var(--bad);box-shadow:0 0 8px color-mix(in srgb,var(--bad) 45%,transparent)}
+  .qgrid{align-items:start;margin-top:12px}
+  @media(min-width:900px){.qgrid{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}}
+  #qText{color:var(--silk);margin:0 0 6px}
+  #qText b{color:var(--data)}
+  .opts{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+  .opts .btn{text-align:left;justify-content:flex-start;white-space:normal;line-height:1.45;font:500 14px var(--sans);letter-spacing:0;padding:11px 14px}
+  .opts .btn.mono{font:500 13px var(--mono)}
+  .opts .btn.right{background:color-mix(in srgb,var(--led) 12%,transparent);border-color:var(--led);color:var(--led);box-shadow:0 0 14px color-mix(in srgb,var(--led) 18%,transparent)}
+  .opts .btn.wrong{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:var(--bad);color:var(--bad)}
+  .opts .btn:disabled{opacity:1;cursor:default}
+  .opts .btn:disabled:not(.right):not(.wrong){opacity:.55}
+  .feedback.ok b:first-child{color:var(--led)}
+  .feedback.bad b:first-child{color:var(--bad)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .listcard{border:1px solid var(--edge);border-radius:12px;background:rgba(6,19,14,.55);padding:12px;min-width:0}
+  .listcard h3{margin:0 0 8px}
+  .listkey{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--silk-2);margin-top:8px}
+  .listkey i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  pre.code{background:#040C08;color:var(--silk);font:500 13px/1.6 var(--mono);border:1px solid var(--edge);border-radius:8px;padding:10px 0;margin:0;min-width:max-content}
+  pre.code .ln{display:block;padding:0 14px 0 6px;white-space:pre;transition:background .2s}
+  pre.code .no{display:inline-block;width:2.4em;color:#4F6E60;user-select:none}
+  pre.code .ln.mark{background:color-mix(in srgb,var(--bad) 18%,transparent);box-shadow:inset 3px 0 0 var(--bad)}
+  pre.code .ln.cur{background:color-mix(in srgb,var(--addr) 16%,transparent);box-shadow:inset 3px 0 0 var(--addr);color:var(--addr)}
+  .head-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding-right:90px}
   .head-row h2{margin:0}
   .viewtog{display:flex;gap:6px}
-  .small-btn{padding:6px 10px;font-size:13px}
-  .viewtog .btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .phases{margin:10px 0}
-  .lg.pk{width:10px;height:10px;border-radius:50%;background:#FACC15;box-shadow:0 0 0 2px #FDE68A}
-  .label3d.pkt{background:#FACC15;color:#16181D;font-family:var(--mono);font-weight:700}
-  .follow{display:inline-flex;align-items:center;gap:6px;margin-left:4px}
-  .stage3d{margin-bottom:6px}
-  @media(max-width:520px){.stage3d .label3d{font-size:10px;padding:1px 4px}}
-  .grid>*{min-width:0}
-  .stage3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
-  .card > .fallback{font-size:14px;color:var(--muted);background:#F5F7FA;border-radius:8px;padding:8px 12px;margin:6px 0}
-  .pill{font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .lg.rd{background:#60A5FA} .lg.wr{background:#F87171}
-  .console{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);border-radius:8px;padding:10px 12px;min-height:44px;margin:0;white-space:pre-wrap;word-break:break-word}
-  .listing-wrap{max-height:520px;overflow:auto}
-  table.listing td,table.listing th{white-space:nowrap;font-size:13px}
-  table.listing tr.cur td{background:var(--au-red-soft);font-weight:700}
-  table.listing td.src{color:var(--muted)}
-  .regs{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:6px;margin-top:10px}
-  .reg{display:flex;justify-content:space-between;align-items:baseline;gap:6px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:#fff;transition:background .3s}
-  .reg .rn{font-weight:600;font-size:14px} .reg .rn small{color:var(--muted);font-weight:400}
-  .reg .rv{font-size:14px;overflow:hidden;text-overflow:ellipsis}
-  .reg.rd{background:#EFF6FF;border-color:#93C5FD} .reg.wr{background:#FEF2F2;border-color:#F87171}
-  table.mem tr.rd td{background:#EFF6FF} table.mem tr.wr td{background:#FEF2F2;font-weight:700}
-  .stage3d .label3d.reglbl{font-size:10.5px;padding:1px 5px}
-  .stage3d .label3d.reglbl.on{background:rgba(220,38,38,.95)} .stage3d .label3d.reglbl.rd{background:rgba(37,99,235,.95)}
-  .stage3d .label3d.memlbl{font-size:10.5px;padding:1px 5px;font-family:var(--mono)}
-  .stage3d .label3d.title3d{background:transparent;color:#CBD5E1;font-size:11px;box-shadow:none}
-  .stage3d .label3d.pclbl{background:rgba(225,20,30,.95);font-family:var(--mono);font-size:11px;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  @media(max-width:520px){.stage3d .label3d.pclbl{max-width:150px}.stage3d .label3d.memlbl,.stage3d .label3d.title3d{display:none!important}.regs{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  .isa summary{cursor:pointer;font-weight:600}
-  .topbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .pill{font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .score-now{margin-left:auto;font-weight:700;font-family:var(--mono)}
-  .progress{height:6px;background:#EEF1F5;border-radius:3px;margin:10px 0 4px;overflow:hidden}
-  .progress div{height:100%;width:0;background:var(--au-red);transition:width .3s}
-  .qgrid{align-items:start}
-  .bigword{font-size:28px;font-weight:700;letter-spacing:.06em;background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:10px 14px;display:inline-block}
-  .opts{display:flex;flex-direction:column;gap:8px;margin:12px 0}
-  .opts .btn{text-align:left;white-space:normal;line-height:1.35}
-  .opts .btn.right{background:var(--ok-soft);border-color:#BBE5C8}
-  .opts .btn.wrong{background:var(--bad-soft);border-color:#F5C2C2}
-  .opts .btn:disabled{opacity:1;cursor:default}
-  table.prog td,table.trace td{white-space:nowrap}
-  table.trace tr.cur td{background:var(--au-red-soft);font-weight:700}
-  .watchgrid{align-items:start} .watchgrid h3:first-child{margin-top:0}
-  pre.code{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.55;border-radius:8px;padding:10px 0;margin:0;min-width:max-content}
-  pre.code .ln{display:block;padding:0 14px 0 6px;white-space:pre}
-  pre.code .no{display:inline-block;width:2.4em;color:#64748B;user-select:none}
-  pre.code .ln.mark{background:rgba(225,20,30,.28)}
-  pre.code .ln.cur{background:rgba(250,204,21,.25);box-shadow:inset 3px 0 0 #FACC15}
-  .opts .btn.mono{font-family:var(--mono);font-size:14px}
-  .regs{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+  .small-btn{padding:6px 10px;font-size:11px}
+  #lockMsg{margin:0 0 10px;color:var(--addr);font:500 13px var(--mono)}
+  .watchgrid{align-items:start}
+  @media(min-width:900px){.watchgrid{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}}
+  .chk{display:inline-flex;gap:8px;align-items:center;cursor:pointer;font-size:13.5px;color:var(--silk-dim)}
+  .predict{border:1px dashed var(--ctrl);border-radius:6px;padding:12px;background:rgba(255,122,154,.06)}
+  .predict .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .fb{margin-top:10px;padding:10px 12px;border-radius:5px;font-size:14px}
+  .info{font-size:13.5px;color:var(--silk-dim);border:1px solid var(--line);border-radius:5px;padding:10px 12px}
+  .info b{color:var(--silk)}
+  .panel footer{font-size:12px;color:var(--silk-dim);border-top:1px solid var(--line);padding-top:12px}
+  .views[hidden]{display:none!important}
+  .narr .mono{color:var(--data)}
+  /* RISC-V board labels: registers the program does not use are dimmed (and hidden on phones) */
+  .stage .tag.idle{opacity:.38}
+  .stage .rvlcd{font-size:calc(var(--lab) * 1.3);white-space:pre;max-width:none}
+  .stage .flat text{font-family:var(--font-mono)}
+  .stage .flat g.idle text{opacity:.4}
+  .stage .nogl{bottom:62px;background:rgba(6,23,20,.72)}
+  @media(max-width:700px){.stage .tag.idle{display:none}.stage .tag.cell .sb{display:none}.stage .zone.minor{display:none}.stage .nogl{bottom:118px;font-size:11.5px;padding:6px 10px}}
+  .stage .tag .vl.long{font-size:calc(var(--lab) * .8)}
+  .stage .tag.icell .sb{display:none}
+  .stage .tag.icell.on .sb{display:block}
+  .cardstage .views{flex-wrap:wrap}
+  @media(max-width:700px){.cardstage .views button{padding:6px 7px}.cardstage .legend{font-size:9.5px}}
 
+  .nogl.out{position:static;margin-top:8px;border:1px dashed var(--line);border-radius:5px}
+  .cardstage{height:520px;border:1px solid var(--line);border-radius:6px}
+  @media(max-width:700px){.cardstage{height:440px}}
+  .cardstage .hud-top{top:10px;left:10px;right:10px}
+  .cardstage .hud-bottom{bottom:10px;left:10px;right:10px}
+  .caption{min-height:6em;margin-top:12px}
+  .speed{margin-top:10px}
+  .info{margin-top:12px}
+  .caption .mono{color:var(--data)}
+  h3{margin:0 0 8px}
+  .side h3{margin-top:14px}
+  .side h3:first-child{margin-top:0}
+  .console{background:#040C08;color:var(--out);font:600 14px var(--mono);text-shadow:0 0 10px color-mix(in srgb,var(--out) 45%,transparent);border:1px solid var(--edge);border-radius:10px;padding:10px 12px;min-height:44px;margin:0;white-space:pre-wrap;word-break:break-word}
+  #status{font:500 12px var(--mono);color:var(--dim);margin:8px 0 0}
+  .regs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:8px}
+  .regs .reg{display:flex;justify-content:space-between;align-items:baseline;gap:6px;padding:6px 10px;transition:background .3s,border-color .3s,box-shadow .3s}
+  .regs .reg .rn{font:600 13px var(--mono);color:var(--silk)}
+  .regs .reg .rv{font:600 13px var(--mono);color:var(--led);overflow:hidden;text-overflow:ellipsis}
+  .regs .reg.rd{border-color:var(--data);background:color-mix(in srgb,var(--data) 10%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--data) 25%,transparent)}
+  .regs .reg.rd .rv{color:var(--data)}
+  .regs .reg.wr{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--bad) 30%,transparent)}
+  .regs .reg.wr .rv{color:var(--bad)}
+  @media(max-width:520px){.regs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .final-top{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .final-top .score .big{font-size:64px}
+  #finalMsg{color:var(--silk);font-size:16px;margin:8px 0 12px}
+  #sumTable td.r-ok{color:var(--led)}
+  #sumTable td.r-bad{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -185,12 +322,20 @@
 
 <main class="wrap">
   <section class="hero">
-    <span class="eyebrow">Week 6 · Challenge</span>
-    <h1>Assembly puzzle challenge</h1>
-    <p class="lede">Predict what short RISC-V programs print, choose the missing instruction, and find the bug in code an AI assistant wrote.</p>
+    <div class="reveal" style="--i:0">
+      <span class="eyebrow">Week 6 · Challenge</span>
+      <h1>Assembly <span class="num">puzzle</span> challenge</h1>
+      <p class="lede">Predict what short RISC-V programs print, choose the missing instruction, and find the bug in code an AI assistant wrote.</p>
+    </div>
+    <div class="spec reveal" style="--i:1" aria-label="Challenge at a glance">
+      <div><b>10</b><span>puzzles, 10 points each</span></div>
+      <div><b>3</b><span>bug hunts in AI-written code</span></div>
+      <div><b>RV32I</b><span>every listing runs in RARS</span></div>
+      <div><b>New</b><span>numbers every game</span></div>
+    </div>
   </section>
 
-    <details class="howto card">
+  <details class="howto reveal" style="--i:2">
     <summary>How to use this challenge</summary>
     <ol>
       <li>Ten puzzles worth 10 points each: predict what a program prints, choose a missing instruction, and find the bug in code an AI assistant wrote.</li>
@@ -200,70 +345,103 @@
     </ol>
   </details>
 
-  <section class="card" id="playCard">
-    <div class="topbar">
+  <div class="stack">
+  <section class="card reveal" style="--i:3" id="playCard" data-ref="U1 · PUZZLE">
+    <div class="qhead">
       <span class="pill" id="roundNo">Puzzle 1 of 10</span>
-      <span class="pill" id="kindTag">Predict</span>
+      <span class="pill kind" id="kindTag">Predict</span>
       <span class="score-now" id="scoreNow">Score: 0</span>
     </div>
+    <div class="segs" id="segs" aria-hidden="true"></div>
     <div class="progress" aria-hidden="true"><div id="progBar"></div></div>
-    <div class="grid two qgrid">
+    <div class="grid qgrid">
       <div>
         <h2 id="qTitle">Question</h2>
         <p id="qText"></p>
         <div id="opts" class="opts" role="group" aria-label="Answer choices"></div>
         <div id="fb" class="feedback" hidden aria-live="polite"></div>
-        <div class="btnrow"><button class="btn primary" id="nextBtn" hidden>Next puzzle</button></div>
+        <div class="btnrow"><button class="btn primary" id="nextBtn" type="button" hidden>Next puzzle</button></div>
       </div>
-      <div>
+      <div class="listcard">
         <h3>Program listing</h3>
         <div class="scroll-x"><pre class="code" id="listing"></pre></div>
+        <div class="listkey"><span><i style="background:var(--bad)"></i>the line the puzzle is about</span><span><i style="background:var(--addr)"></i>the line that runs next</span></div>
       </div>
     </div>
   </section>
 
-  <section class="card" id="watchCard">
+  <section class="card reveal" style="--i:4" id="watchCard" data-ref="U2 · RUN">
     <div class="head-row">
       <h2>Run it</h2>
       <div class="viewtog" role="group" aria-label="Which version to run">
-        <button class="btn small-btn" id="runAsWritten" aria-pressed="true">As written</button>
-        <button class="btn small-btn" id="runFixed" aria-pressed="false" hidden>Fixed version</button>
+        <button class="btn small-btn" id="runAsWritten" type="button" aria-pressed="true">As written</button>
+        <button class="btn small-btn" id="runFixed" type="button" aria-pressed="false" hidden>Fixed version</button>
       </div>
     </div>
-    <p class="small muted" id="lockMsg">Answer the puzzle first, then run the program here to check your thinking.</p>
-    <div class="grid two watchgrid">
+    <p id="lockMsg">Answer the puzzle first, then run the program here to check your thinking.</p>
+    <div class="grid watchgrid">
       <div>
-        <div class="stage3d" id="stage"></div>
-        <div class="caption" id="explain" aria-live="polite">Each step runs one instruction: registers that are read glow blue, the register written glows red, and values travel through the ALU.</div>
-        <div class="stepper">
-          <button class="btn" id="backBtn" disabled>&#9664; Step back</button>
-          <button class="btn primary" id="stepBtn" disabled>Step forward &#9654;</button>
-          <button class="btn" id="runBtn" disabled>Play</button>
-          <button class="btn" id="resetBtn" disabled>Restart</button>
-          <label class="small follow"><input type="checkbox" id="follow" checked> Camera follows</label>
+        <div class="stage cardstage" id="stage" aria-label="3D view of a RISC-V board. Drag to orbit, scroll or pinch to zoom, click a chip to see its value.">
+          <div class="hud hud-top">
+            <ol class="phases" id="rail" aria-label="Instruction format of the last instruction">
+              <li data-t="R" style="--c:var(--alu)">R</li>
+              <li data-t="I" style="--c:var(--oper)">I</li>
+              <li data-t="S" style="--c:var(--bad)">S</li>
+              <li data-t="B" style="--c:var(--addr)">B</li>
+              <li data-t="U" style="--c:var(--data)">U</li>
+              <li data-t="J" style="--c:var(--ctrl)">J</li>
+            </ol>
+          </div>
+          <div class="hud hud-bottom">
+            <div class="legend" aria-label="Colors">
+              <span style="--c:var(--data)"><i></i>read</span>
+              <span style="--c:var(--bad)"><i></i>written</span>
+              <span style="--c:var(--oper)"><i></i>operand</span>
+              <span style="--c:var(--addr)"><i></i>address or pc</span>
+              <span style="--c:var(--alu)"><i></i>result</span>
+            </div>
+            <div class="views" id="camViews" role="group" aria-label="Camera views">
+              <button type="button" data-view="overview" class="on" id="overview">Overview</button>
+              <button type="button" data-view="regs">Registers</button>
+              <button type="button" data-view="text">Program</button>
+              <button type="button" data-view="mem">Memory</button>
+              <button type="button" id="follow" class="on" aria-pressed="true" title="Move the camera to each step">Follow</button>
+            </div>
+          </div>
+          <div class="nogl" id="nogl" hidden>The 3D board needs WebGL and the 3D libraries, which are not available here. The flat board shows the same steps.</div>
         </div>
+        <div class="caption" id="cap" aria-live="polite"><div class="t" id="capT">Locked</div><div id="explain">Each step runs one instruction: registers that are read glow blue, the register written glows red, and values travel through the ALU.</div></div>
+        <div class="stepper">
+          <button class="btn" id="resetBtn" type="button" disabled>Restart</button>
+          <button class="btn" id="backBtn" type="button" disabled>&#9664; Step back</button>
+          <button class="btn" id="runBtn" type="button" disabled>Play</button>
+          <button class="btn primary" id="stepBtn" type="button" disabled>Step forward &#9654;</button>
+        </div>
+        <div class="speed"><label for="speed">Speed</label><input type="range" id="speed" min="0" max="5" step="1" value="2"><output id="speedOut" for="speed">1×</output></div>
+        <div class="info" id="info">Click any register cube, memory block, or program plate to see its value.</div>
       </div>
-      <div>
+      <div class="side">
         <h3>Console output</h3>
         <pre class="console" id="console"> </pre>
-        <p class="small muted" id="status"></p>
+        <p id="status"></p>
         <h3>Registers used</h3>
         <div class="regs" id="regs"></div>
       </div>
     </div>
   </section>
 
-  <section class="card" id="final" hidden>
+  <section class="card" id="final" hidden data-ref="U3 · RESULT">
     <h2>Your result</h2>
-    <div class="score" id="finalScore"></div>
+    <div class="final-top"><div class="score" id="finalScore"></div><div class="segs" id="finalSegs" style="flex:1;min-width:200px;margin:0" aria-hidden="true"></div></div>
     <p id="finalMsg"></p>
     <div class="scroll-x"><table class="data" id="sumTable"><thead><tr><th>Puzzle</th><th>Skill</th><th>Result</th></tr></thead><tbody></tbody></table></div>
-    <div class="btnrow"><button class="btn primary" id="againBtn">Try again with new numbers</button></div>
+    <div class="btnrow"><button class="btn primary" id="againBtn" type="button">Try again with new numbers</button></div>
   </section>
+  </div>
 
 </main>
 
-<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline">By Professor De Leon</div></footer>
 
 <script>
 // All logic inline. Guard GSAP so the page still works if the CDN fails:
@@ -540,7 +718,6 @@ const RV = (function () {
 })();
 // ENGINE END
 
-
 // ---------- Assembly puzzle generators (every answer is computed by running the code in the RV simulator) ----------
 const PZ = (function () {
   const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -691,8 +868,6 @@ const PZ = (function () {
   const ORDER = ['arith', 'branch', 'memory', 'loopMul', 'blankStep', 'blankExit', 'blankRet', 'bugOffByOne', 'bugReg', 'bugRet'];
   return {G: G, ORDER: ORDER, run: out};
 })();
-
-
 // ---------------- Assembly puzzle challenge ----------------
 const $ = id => document.getElementById(id);
 const hex = RV.hex, ABI = RV.ABI;
@@ -744,181 +919,531 @@ function explain(info, before) {
   if (info.error) t += ' <b>Error:</b> ' + info.error;
   return t;
 }
+// LAB3D START: EGN 325 3D kit (modeled on the professor's "Tiny Machine Lab" reference). Paste as one block.
+// Needs Three.js r147 (three.min.js), examples/js/controls/OrbitControls.js, examples/js/renderers/CSS2DRenderer.js and GSAP 3.12.5.
+// Returns null when any of them (or WebGL) is missing: then draw the 2D fallback.
+//
+// const lab = Lab3D(stageEl, {
+//   board: {w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: 'BAY-4  REV 1.0  ...', seed: 11},
+//   views: {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}, cpu: {...}},
+//   colors: {copper: '#d4a24c'}
+// });
+// lab.chip(key, {x, z, w, d, h, nm, body, metal, cell})  -> rec {g, mat, el, val, sub, h, key}
+// lab.silkRect(x0, x1, z0, z1)   lab.zone(text, x, z, color)   lab.label(html, cls, x, y, z, parent)
+// lab.busMat(color, {base, rest})  lab.trace([{x,z}...], lines, mat)  lab.glowBus(mat)
+// lab.fly([{x,z}...], text, color, {y, dur}) -> GSAP timeline (packet sphere + halo + pill label)
+// lab.hi(rec, color)  lab.clear()  lab.pop(rec)  lab.setView(name)  lab.zoom(factor)  lab.intro()  lab.onPick(fn)  lab.clearPackets()
+// Zoom buttons (+, -, FIT) and the + - 0 keys are added to the stage automatically (opts.zoomUI: false turns them off; opts.fitView picks the FIT view).
+function Lab3D(stage, opts) {
+  opts = opts || {};
+  const hasG = typeof window.gsap !== 'undefined';
+  if (!window.THREE || !THREE.OrbitControls || !THREE.CSS2DRenderer || !hasG) return null;
+  try { const t = document.createElement('canvas'); if (!(t.getContext('webgl') || t.getContext('experimental-webgl'))) return null; } catch (e) { return null; }
+  const T = THREE;
+  const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const B = Object.assign({w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: '', seed: 11}, opts.board || {});
+  const COPPER = (opts.colors && opts.colors.copper) || '#d4a24c';
 
+  const renderer = new T.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = T.sRGBEncoding;
+  renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.setClearColor(0x061714, 0);
+  renderer.domElement.className = 'gl';
+  stage.prepend(renderer.domElement);
+  const labelR = new T.CSS2DRenderer();
+  labelR.domElement.className = 'labels';
+  renderer.domElement.after(labelR.domElement);
 
-// ---------- the 3D model: code column, register bank, ALU, memory column, console ----------
-function makeScene() {
-  const st = make3D($('stage'), {camera: [0, 9.5, 10.5], target: [0, 0, 0.4]});
-  if (!st) return null;
-  const T = st.THREE, scene = st.scene, cam = st.camera;
-  const narrow = () => ($('stage').clientWidth || 600) < 520;
-  if (st.controls) { st.controls.enablePan = false; st.controls.minDistance = 5; st.controls.maxDistance = 26; st.controls.maxPolarAngle = Math.PI * 0.48; }
-  const floor = new T.Mesh(new T.BoxGeometry(18, 0.2, 10.5), new T.MeshStandardMaterial({color: 0x1f2937, roughness: 0.95}));
-  floor.position.y = -0.11; scene.add(floor);
-  const grid = new T.GridHelper(18, 18, 0x334155, 0x273244); scene.add(grid);
-  const pickables = [];
-  // register bank
-  const regMesh = [], regLbl = [], RX = c => -2.9 + c * 0.9, RZ = r => -2.6 + r * 1.05;
-  for (let i = 0; i < 32; i++) {
-    const mat = new T.MeshStandardMaterial({color: 0xcbd5e1, roughness: 0.45, emissive: 0x000000});
-    const mesh = new T.Mesh(new T.BoxGeometry(0.66, 1, 0.66), mat);
-    mesh.position.set(RX(i % 8), 0.15, RZ(Math.floor(i / 8))); mesh.scale.y = 0.3;
-    mesh.userData = {kind: 'reg', i: i}; scene.add(mesh); regMesh.push(mesh); pickables.push(mesh);
-    const anchor = new T.Object3D(); scene.add(anchor); anchor.position.set(mesh.position.x, 0.5, mesh.position.z);
-    regLbl.push({anchor: anchor, div: null});
+  const scene = new T.Scene();
+  scene.fog = new T.Fog(0x061714, 34, 70);
+  const camera = new T.PerspectiveCamera(40, 1, 0.1, 200);
+  const controls = new T.OrbitControls(camera, labelR.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.maxPolarAngle = Math.PI * 0.46; controls.minDistance = 5; controls.maxDistance = 42;
+  controls.zoomSpeed = 1.1;
+  // keep the mouse wheel inside the 3D view: zoom the board, do not scroll the page
+  stage.addEventListener('wheel', e => e.preventDefault(), {passive: false});
+
+  scene.add(new T.HemisphereLight(0xd6efe6, 0x0b2a26, 0.6));
+  const sun = new T.DirectionalLight(0xfff1dc, 1.0); sun.position.set(-7, 16, 9); sun.castShadow = true;
+  sun.shadow.mapSize.set(1536, 1536);
+  Object.assign(sun.shadow.camera, {left: -B.w / 2 - 2, right: B.w / 2 + 2, top: B.d / 2 + 2, bottom: -B.d / 2 - 2, near: 1, far: 44});
+  sun.shadow.bias = -0.0005; scene.add(sun);
+  const rim = new T.DirectionalLight(0x4fd1e8, 0.35); rim.position.set(12, 6, -10); scene.add(rim);
+
+  // board: a canvas texture with a dot grid, random copper traces, vias, mounting holes and silkscreen
+  function rng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const cv = document.createElement('canvas'); cv.width = 2048; cv.height = Math.round(2048 * B.d / B.w);
+  function drawBoard() {
+    const g = cv.getContext('2d'), W = cv.width, H = cv.height, rnd = rng(B.seed);
+    const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#10372f'); grd.addColorStop(1, '#0a2823');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(232,239,228,0.035)';
+    for (let x = 0; x < W; x += 28) for (let y = 0; y < H; y += 28) g.fillRect(x, y, 2, 2);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let i = 0; i < 85; i++) {
+      let x = rnd() * W, y = rnd() * H, dir = Math.floor(rnd() * 8);
+      g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 4; k++) { dir = (dir + (rnd() < .5 ? 1 : 7)) % 8; const len = 30 + rnd() * 170, a = dir * Math.PI / 4; x += Math.cos(a) * len; y += Math.sin(a) * len; g.lineTo(x, y); }
+      g.strokeStyle = 'rgba(212,162,76,' + (0.06 + rnd() * 0.09) + ')'; g.lineWidth = 2 + rnd() * 3; g.stroke();
+      g.beginPath(); g.arc(x, y, 5.5, 0, Math.PI * 2); g.fillStyle = 'rgba(212,162,76,0.22)'; g.fill();
+      g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fillStyle = '#071c19'; g.fill();
+    }
+    [[60, 60], [W - 60, 60], [60, H - 60], [W - 60, H - 60]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 26, 0, Math.PI * 2); g.fillStyle = 'rgba(212,162,76,0.35)'; g.fill(); g.beginPath(); g.arc(x, y, 15, 0, Math.PI * 2); g.fillStyle = '#04100e'; g.fill(); });
+    g.font = '500 24px "Martian Mono", ui-monospace, monospace';
+    g.fillStyle = 'rgba(232,239,228,0.32)';
+    if (B.silk) g.fillText(B.silk, 120, H - 48);
+    g.fillText('U1', 120, 92);
   }
-  const bankLbl = new T.Object3D(); bankLbl.position.set(0.25, 0.2, -3.5); scene.add(bankLbl); st.label(bankLbl, 'Registers x0 to x31').classList.add('title3d');
-  // ALU
-  const alu = new T.Mesh(new T.CylinderGeometry(0.75, 1.05, 0.6, 6), new T.MeshStandardMaterial({color: 0xe2e8f0, roughness: 0.4, emissive: 0x000000}));
-  alu.position.set(0.25, 0.3, 2.65); scene.add(alu); alu.userData = {kind: 'alu'}; pickables.push(alu);
-  const aluA = new T.Object3D(); aluA.position.set(0.25, 0.75, 2.65); scene.add(aluA); st.label(aluA, 'ALU');
-  // console screen
-  const con = new T.Mesh(new T.BoxGeometry(1.8, 0.9, 0.12), new T.MeshStandardMaterial({color: 0x0f172a, emissive: 0x0b1220}));
-  con.position.set(3.4, 0.55, 3.4); scene.add(con); con.userData = {kind: 'console'}; pickables.push(con);
-  const conA = new T.Object3D(); conA.position.set(3.4, 1.2, 3.4); scene.add(conA); const conLbl = st.label(conA, 'Console');
-  // code column and pc pointer
-  const codeGrp = new T.Group(); scene.add(codeGrp);
-  const ptr = new T.Mesh(new T.ConeGeometry(0.22, 0.55, 16), new T.MeshStandardMaterial({color: 0xe1141e, emissive: 0x5a0a0e}));
-  ptr.rotation.z = -Math.PI / 2; ptr.position.set(-8.05, 0.3, 0); scene.add(ptr);
-  const ptrA = new T.Object3D(); ptrA.position.set(-5.4, 0.75, 0); scene.add(ptrA); const ptrLbl = st.label(ptrA, 'pc');
-  ptrLbl.classList.add('pclbl');
-  if (narrow()) ptrA.position.x = -4.4;
-  const codeTitle = new T.Object3D(); codeTitle.position.set(-6.2, 0.2, -4.6); scene.add(codeTitle); st.label(codeTitle, 'Program (text segment)').classList.add('title3d');
-  let plates = [];
-  const CZ = 0.62;
-  // memory column
-  const memGrp = new T.Group(); scene.add(memGrp);
-  const memTitle = new T.Object3D(); memTitle.position.set(6.2, 0.2, -4.6); scene.add(memTitle); st.label(memTitle, 'Memory (words)').classList.add('title3d');
-  let memPlates = {}, memList = [];
-  const packets = [];
-  st.onFrame(() => {
-    packets.forEach(p => { const v = p.g.position.clone(); v.y += 0.4; v.project(cam); p.div.style.left = ((v.x + 1) / 2 * $('stage').clientWidth) + 'px'; p.div.style.top = ((1 - v.y) / 2 * $('stage').clientHeight) + 'px'; });
+  drawBoard();
+  const tex = new T.CanvasTexture(cv); tex.encoding = T.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawBoard(); tex.needsUpdate = true; });
+  const edge = new T.MeshStandardMaterial({color: 0x0a241f, roughness: .8});
+  const topM = new T.MeshStandardMaterial({map: tex, roughness: .62, metalness: .05});
+  const board = new T.Mesh(new T.BoxGeometry(B.w, 0.36, B.d), [edge, edge, topM, edge, edge, edge]);
+  board.position.set(B.cx, -0.18, B.cz); board.receiveShadow = true; scene.add(board);
+
+  const unit = new T.BoxGeometry(1, 1, 1);
+  const silk = new T.MeshBasicMaterial({color: 0xe8efe4, transparent: true, opacity: .5});
+  function silkRect(x0, x1, z0, z1) {
+    const t = 0.05;
+    [[x0, x1, z0, z0], [x0, x1, z1, z1], [x0, x0, z0, z1], [x1, x1, z0, z1]].forEach(([a, b, c, d]) => {
+      const m = new T.Mesh(unit, silk); m.scale.set(Math.abs(b - a) + t, 0.01, Math.abs(d - c) + t);
+      m.position.set((a + b) / 2, 0.006, (c + d) / 2); scene.add(m);
+    });
+  }
+  function busMat(color, o) {
+    o = o || {};
+    const m = new T.MeshStandardMaterial({color: new T.Color(o.base || color).multiplyScalar(o.base ? 1 : 0.55), emissive: new T.Color(color), emissiveIntensity: o.rest != null ? o.rest : 0.22, roughness: .35, metalness: .65});
+    m.userData.rest = m.emissiveIntensity; return m;
+  }
+  const nrm = (a, b) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return {x: -dz / L, z: dx / L}; };
+  function offsetLine(p, o) {
+    return p.map((q, i) => {
+      const nIn = i > 0 ? nrm(p[i - 1], q) : null, nOut = i < p.length - 1 ? nrm(q, p[i + 1]) : null;
+      let n = nIn || nOut;
+      if (nIn && nOut) { const k = 1 / (1 + nIn.x * nOut.x + nIn.z * nOut.z); n = {x: (nIn.x + nOut.x) * k, z: (nIn.z + nOut.z) * k}; }
+      return {x: q.x + n.x * o, z: q.z + n.z * o};
+    });
+  }
+  function trace(points, lines, mat) {
+    const gap = 0.075, w = 0.04;
+    for (let li = 0; li < lines; li++) {
+      const pts = offsetLine(points, (li - (lines - 1) / 2) * gap);
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
+        const m = new T.Mesh(unit, mat); m.scale.set(L + w, 0.03, w); m.position.set((a.x + b.x) / 2, 0.016, (a.z + b.z) / 2); m.rotation.y = -Math.atan2(dz, dx);
+        m.receiveShadow = true; scene.add(m);
+      }
+      [pts[0], pts[pts.length - 1]].forEach(p => { const pad = new T.Mesh(unit, mat); pad.scale.set(0.07, 0.032, 0.07); pad.position.set(p.x, 0.016, p.z); scene.add(pad); });
+    }
+  }
+  function glowBus(m) {
+    if (!m) return;
+    gsap.killTweensOf(m);
+    gsap.timeline().to(m, {emissiveIntensity: 1.8, duration: 0.2}).to(m, {emissiveIntensity: m.userData.rest, duration: 1.4});
+  }
+  function label(html, cls, x, y, z, parent) {
+    const el = document.createElement('div'); el.className = cls; el.innerHTML = html;
+    const o = new T.CSS2DObject(el); o.position.set(x, y, z); (parent || scene).add(o); el._obj = o; return el;
+  }
+  function zone(text, x, z, color) { const el = label(text, 'zone', x, 0.05, z); if (color) el.style.setProperty('--c', color); return el; }
+
+  const pinSpots = [], recs = {}, pickables = [];
+  const dotMat = new T.MeshBasicMaterial({color: 0x6c7a78});
+  function chip(key, o) {
+    const w = o.w || 1.4, d = o.d || 1.2, h = o.h || (o.cell ? 0.28 : 0.34);
+    const g = new T.Group(); g.position.set(o.x, 0, o.z);
+    const mat = new T.MeshStandardMaterial({color: o.body || (o.cell ? '#1b2124' : '#15191b'), roughness: .42, metalness: o.metal || .22, emissive: new T.Color(0xffffff), emissiveIntensity: 0});
+    const body = new T.Mesh(unit, mat); body.scale.set(w, h, d); body.position.y = h / 2 + 0.03; body.castShadow = true; body.receiveShadow = true; g.add(body);
+    body.userData.key = key; pickables.push(body);
+    if (!o.metal) { const dot = new T.Mesh(new T.CircleGeometry(0.05, 16), dotMat); dot.rotation.x = -Math.PI / 2; dot.position.set(-w / 2 + 0.14, h + 0.035, -d / 2 + 0.14); g.add(dot); }
+    if (!o.noPins) {
+      const n = Math.max(2, Math.floor((w - 0.2) / 0.22));
+      for (let i = 0; i < n; i++) { const px = -w / 2 + 0.14 + i * ((w - 0.28) / (n - 1)); pinSpots.push([o.x + px, o.z - d / 2 - 0.07], [o.x + px, o.z + d / 2 + 0.07]); }
+    }
+    scene.add(g);
+    const el = label('<span class="nm">' + (o.nm || key) + '</span><span class="vl"></span><span class="sb"></span>', 'tag' + (o.cell ? ' cell' : ''), 0, h + 0.08, 0, g);
+    const rec = {key: key, cell: !!o.cell, g: g, mat: mat, el: el, val: el.querySelector('.vl'), sub: el.querySelector('.sb'), h: h, x: o.x, z: o.z};
+    recs[key] = rec; return rec;
+  }
+  function finishPins() {
+    const pinGeo = new T.BoxGeometry(0.07, 0.05, 0.16), pinMat = new T.MeshStandardMaterial({color: 0xc9ced1, metalness: .9, roughness: .3});
+    const pins = new T.InstancedMesh(pinGeo, pinMat, Math.max(1, pinSpots.length)), mtx = new T.Matrix4();
+    pinSpots.forEach(([x, z], i) => { mtx.makeTranslation(x, 0.045, z); pins.setMatrixAt(i, mtx); });
+    scene.add(pins);
+  }
+
+  // packets: a small sphere with an additive halo and a pill label
+  const haloCv = document.createElement('canvas'); haloCv.width = haloCv.height = 64;
+  const hg = haloCv.getContext('2d'), rg = hg.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(.35, 'rgba(255,255,255,.35)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  hg.fillStyle = rg; hg.fillRect(0, 0, 64, 64);
+  const haloTex = new T.CanvasTexture(haloCv);
+  const pktGeo = new T.SphereGeometry(0.13, 20, 14);
+  const live = new Set();
+  function removePacket(p) {
+    scene.remove(p.mesh); if (p.el.parentNode) p.el.parentNode.removeChild(p.el);
+    p.mesh.material.dispose(); p.halo.material.dispose(); live.delete(p);
+  }
+  function fly(path, text, color, o) {
+    o = o || {};
+    const y = o.y != null ? o.y : 0.8;
+    const v = path.map(p => new T.Vector3(p.x, y, p.z));
+    const mesh = new T.Mesh(pktGeo, new T.MeshBasicMaterial({color: new T.Color(color)}));
+    const halo = new T.Sprite(new T.SpriteMaterial({map: haloTex, color: new T.Color(color), blending: T.AdditiveBlending, depthWrite: false, transparent: true}));
+    halo.scale.set(1.1, 1.1, 1.1); mesh.add(halo);
+    const el = document.createElement('div'); el.className = 'pkt'; el.style.setProperty('--c', color); el.textContent = text;
+    const lab = new T.CSS2DObject(el); lab.position.set(0, 0.42, 0); mesh.add(lab);
+    mesh.position.copy(v[0]); mesh.scale.setScalar(0.01); mesh.visible = false; scene.add(mesh);
+    const p = {mesh: mesh, halo: halo, el: el}; live.add(p);
+    let L = 0; for (let i = 1; i < v.length; i++) L += v[i].distanceTo(v[i - 1]);
+    const total = o.dur || Math.max(0.5, Math.min(2.2, L / 7));
+    const tl = gsap.timeline({onComplete: () => removePacket(p)});
+    tl.call(() => { mesh.visible = true; });
+    tl.to(mesh.scale, {x: 1, y: 1, z: 1, duration: 0.18, ease: 'back.out(2)'});
+    for (let i = 1; i < v.length; i++) { const seg = v[i].distanceTo(v[i - 1]); tl.to(mesh.position, {x: v[i].x, y: v[i].y, z: v[i].z, duration: L ? total * seg / L : 0.1, ease: 'none'}); }
+    tl.to(mesh.scale, {x: 0.01, y: 0.01, z: 0.01, duration: 0.18, ease: 'power2.in'});
+    return tl;
+  }
+  function clearPackets() { Array.from(live).forEach(removePacket); }
+
+  const active = new Set();
+  function hi(rec, color) {
+    if (!rec) return;
+    rec.mat.emissive.set(color); gsap.to(rec.mat, {emissiveIntensity: rec.cell ? 0.6 : 0.5, duration: 0.3, overwrite: 'auto'});
+    rec.el.classList.add('on'); active.add(rec);
+  }
+  function clear() {
+    active.forEach(r => { gsap.to(r.mat, {emissiveIntensity: 0, duration: 0.5, overwrite: 'auto'}); r.el.classList.remove('on'); });
+    active.clear();
+  }
+  function pop(rec, big) {
+    if (!rec || RM) return;
+    gsap.fromTo(rec.g.scale, {x: 1.12, y: big ? 1.8 : 1.5, z: 1.12}, {x: 1, y: 1, z: 1, duration: 0.65, ease: 'elastic.out(1,0.5)'});
+  }
+
+  // camera views keep the whole subject in frame on narrow screens
+  const views = opts.views || {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}};
+  function viewFor(name) {
+    const b = views[name] || views.overview;
+    const tgt = new T.Vector3(...b.tgt), pos = new T.Vector3(...b.pos);
+    const want = b.want || 1.25, f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    pos.sub(tgt).multiplyScalar(f).add(tgt);
+    return {pos: pos, tgt: tgt};
+  }
+  function setView(name, instant) {
+    const v = viewFor(name), d = (RM || instant) ? 0 : 1.2;
+    const k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: v.pos.x, y: v.pos.y, z: v.pos.z, duration: d, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+    gsap.to(controls.target, {x: v.tgt.x, y: v.tgt.y, z: v.tgt.z, duration: d, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+  }
+  function focusOn(x, z, dist) {
+    const d = (dist || 7) * (camera.aspect < 1.2 ? Math.min(2.2, 1.25 / camera.aspect) : 1);
+    const k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: x * 0.8, y: d * 1.15, z: z + d, duration: RM ? 0 : 1.0, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+    gsap.to(controls.target, {x: x, y: 0, z: z, duration: RM ? 0 : 1.0, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+  }
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); renderer.domElement.style.width = w + 'px'; renderer.domElement.style.height = h + 'px';
+    labelR.setSize(w, h);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    stage.style.setProperty('--lab', Math.max(7, Math.min(12, w / 92)) + 'px');
+  }
+  // zoom buttons (+, -, Fit) and keys (+, -, 0): the mouse wheel and pinch still work, but buttons always do
+  function zoom(f) {
+    const t = controls.target, off = camera.position.clone().sub(t);
+    off.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, off.length() * f)));
+    const p = t.clone().add(off), k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: p.x, y: p.y, z: p.z, duration: RM ? 0 : 0.45, ease: 'power2.out', overwrite: 'auto'}).timeScale(k);
+  }
+  if (opts.zoomUI !== false) {
+    if (!document.getElementById('lab3d-zoom-css')) {
+      const st = document.createElement('style'); st.id = 'lab3d-zoom-css';
+      st.textContent = '.zoomctl{position:absolute;z-index:4;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:4px;background:rgba(6,23,20,.82);border:1px solid #1e4a41;border-radius:6px;backdrop-filter:blur(6px)}' +
+        '.zoomctl button{width:38px;height:34px;border:0;border-radius:4px;background:transparent;color:#e8efe4;font:600 18px/1 "Martian Mono",ui-monospace,monospace;cursor:pointer;padding:0}' +
+        '.zoomctl button.fit{font-size:10px;letter-spacing:.06em;height:28px}.zoomctl button:hover{background:#0f2c27;color:#f2b33d}' +
+        '.zoomctl button:focus-visible{outline:2px solid #f2b33d;outline-offset:1px}@media(max-width:520px){.zoomctl{right:10px}.zoomctl button{width:34px;height:32px}}';
+      document.head.appendChild(st);
+    }
+    const box = document.createElement('div'); box.className = 'zoomctl'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Zoom');
+    box.innerHTML = '<button type="button" data-z="in" aria-label="Zoom in" title="Zoom in (+)">+</button>' +
+      '<button type="button" data-z="out" aria-label="Zoom out" title="Zoom out (-)">&minus;</button>' +
+      '<button type="button" class="fit" data-z="fit" aria-label="Show the whole board" title="Show the whole board (0)">FIT</button>';
+    stage.appendChild(box);
+    ['pointerdown', 'pointerup', 'wheel', 'click'].forEach(ev => box.addEventListener(ev, e => e.stopPropagation()));
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.z === 'in') zoom(0.75); else if (b.dataset.z === 'out') zoom(1.33); else setView(opts.fitView || 'overview');
+    });
+    document.addEventListener('keydown', e => {
+      const t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if (e.key === '+' || e.key === '=') zoom(0.75);
+      else if (e.key === '-' || e.key === '_') zoom(1.33);
+      else if (e.key === '0') setView(opts.fitView || 'overview');
+    });
+  }
+  new ResizeObserver(resize).observe(stage); resize();
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); labelR.render(scene, camera); })();
+
+  // picking: click (not drag) on a chip body
+  const ray = new T.Raycaster(), mouse = new T.Vector2(); let down = null, pickCb = null;
+  labelR.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  labelR.domElement.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || !pickCb) return;
+    const r = labelR.domElement.getBoundingClientRect();
+    mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (hit) pickCb(hit.object.userData.key);
   });
 
-  function regTop(i) { return new T.Vector3(regMesh[i].position.x, 0.15 + regMesh[i].scale.y, regMesh[i].position.z); }
-  function heightFor(v) { return v === 0 ? 0.12 : Math.min(0.3 + Math.log2(1 + Math.abs(v)) * 0.16, 2.4); }
-  function build() {
-    plates.forEach(p => { codeGrp.remove(p); p.geometry.dispose(); p.material.dispose(); }); plates = [];
-    asm.prog.forEach((p, k) => {
-      const mat = new T.MeshStandardMaterial({color: p.op === 'ecall' ? 0x86efac : ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu', 'jal', 'jalr'].includes(p.op) ? 0xfde68a : (p.op === 'lw' || p.op === 'sw') ? 0x93c5fd : 0xe2e8f0, roughness: 0.6, emissive: 0x000000});
-      const pl = new T.Mesh(new T.BoxGeometry(2.6, 0.16, 0.48), mat);
-      pl.position.set(-6.4, 0.08, k * CZ); pl.userData = {kind: 'code', k: k}; codeGrp.add(pl); plates.push(pl); pickables.push(pl);
-    });
-    // labels only on registers this program uses
-    const used = usedRegs();
-    regLbl.forEach((r, i) => { if (r.div) { r.div.remove(); r.div = null; } });
-    // remove stale entries from make3D's label list is not possible, so hidden labels are reused instead
-    regLbl.forEach((r, i) => {
-      if (used.has(i) || i === 2) { r.div = st.label(r.anchor, ABI[i]); r.div.classList.add('reglbl'); }
-    });
-    Object.values(memPlates).forEach(o => { memGrp.remove(o.mesh); if (o.div) o.div.remove(); }); memPlates = {}; memList = [];
-    codeGrp.position.z = 0;
+  function intro() {
+    const v = viewFor('overview'); camera.position.copy(v.pos); controls.target.copy(v.tgt);
+    if (RM) return;
+    gsap.from(camera.position, {x: v.pos.x - 4, y: v.pos.y + 12, z: v.pos.z + 10, duration: 1.8, ease: 'power3.out'});
+    gsap.from(Object.values(recs).map(r => r.g.position), {y: 2.2, duration: 0.7, ease: 'back.out(1.6)', stagger: 0.03, delay: 0.2});
   }
-  function memPlate(a) {
-    if (memPlates[a]) return memPlates[a];
-    const k = memList.length; if (k >= 10) return null;
-    memList.push(a);
-    const mesh = new T.Mesh(new T.BoxGeometry(2.2, 0.3, 0.6), new T.MeshStandardMaterial({color: a >= 0x7fff0000 ? 0xfbcfe8 : 0xbfdbfe, roughness: 0.5, emissive: 0x000000}));
-    mesh.position.set(6.2, 0.15, -3.8 + k * 0.8); mesh.userData = {kind: 'mem', a: a}; memGrp.add(mesh); pickables.push(mesh);
-    const an = new T.Object3D(); an.position.set(6.2, 0.45, -3.8 + k * 0.8); memGrp.add(an);
-    const div = st.label(an, ''); div.classList.add('memlbl');
-    memPlates[a] = {mesh: mesh, div: div};
-    return memPlates[a];
-  }
-  function flash(mat, hexCol) {
-    if (!hasGSAP) { mat.emissive.setHex(hexCol); return; }
-    const c = new T.Color(hexCol);
-    gsap.fromTo(mat.emissive, {r: c.r, g: c.g, b: c.b}, {r: c.r * 0.35, g: c.g * 0.35, b: c.b * 0.35, duration: 1.2});
-  }
-  function update(info) {
-    const used = usedRegs(), reads = (info && info.reads) || [], wr = info && info.write ? info.write.reg : -1;
-    regMesh.forEach((mesh, i) => {
-      const v = m.regs[i], h = heightFor(v);
-      if (hasGSAP) { gsap.to(mesh.scale, {y: h, duration: 0.5, ease: 'power2.out'}); gsap.to(mesh.position, {y: h / 2, duration: 0.5, ease: 'power2.out'}); }
-      else { mesh.scale.y = h; mesh.position.y = h / 2; }
-      const base = used.has(i) || i === 2 ? (v < 0 ? 0xfca5a5 : 0xe2e8f0) : 0x64748b;
-      mesh.material.color.setHex(i === wr ? 0xf87171 : reads.includes(i) ? 0x60a5fa : base);
-      if (i !== wr && !reads.includes(i)) mesh.material.emissive.setHex(0x000000);
-      const r = regLbl[i];
-      if (r.div) { r.div.textContent = ABI[i] + ' ' + (Math.abs(v) > 9999 ? hex(v) : v); r.div.classList.toggle('on', i === wr); r.div.classList.toggle('rd', reads.includes(i)); }
-      r.anchor.position.y = 0.3 + h;
-    });
-    if (wr > 0) flash(regMesh[wr].material, 0xb91c1c);
-    reads.forEach(i => { if (i !== wr) regMesh[i].material.emissive.setHex(0x1e3a8a); });
-    memWords().forEach(a => { const o = memPlate(a); if (o) o.div.textContent = hex(a) + ': ' + RV.readWord(m, a); });
-    Object.keys(memPlates).forEach(a => { const o = memPlates[a], hit = info && info.mem && info.mem.addr === +a; o.mesh.material.emissive.setHex(hit ? (info.mem.kind === 'store' ? 0x7f1d1d : 0x1e3a8a) : 0x000000); });
-    // code column: move the program so the pc plate sits by the pointer
-    const k = asm.prog.findIndex(p => p.addr === m.pc), idx = k < 0 ? asm.prog.length - 1 : k;
-    const z = -idx * CZ + 0.0;
-    if (hasGSAP) gsap.to(codeGrp.position, {z: z, duration: 0.5, ease: 'power2.inOut'}); else codeGrp.position.z = z;
-    plates.forEach((pl, j) => { pl.visible = Math.abs(j - idx) <= 7; pl.material.emissive.setHex(j === idx && !m.halted ? 0x5a0a0e : 0x000000); });
-    const cur = asm.prog[idx];
-    ptrLbl.textContent = m.halted ? (m.error ? 'stopped' : 'finished') : 'pc ' + hex(m.pc).replace('0x00', '0x') + '  ' + (cur ? cur.basic : '');
-    conLbl.textContent = 'Console: ' + (m.out.length > 14 ? '...' + m.out.slice(-14) : m.out || '(empty)');
-  }
-  function packet(from, to, text, color, delay) {
-    if (!hasGSAP) return;
-    const g = new T.Mesh(new T.SphereGeometry(0.17, 16, 12), new T.MeshStandardMaterial({color: color, emissive: color, emissiveIntensity: 0.6}));
-    g.position.copy(from); g.visible = false; scene.add(g);
-    const div = document.createElement('div'); div.className = 'label3d pkt'; div.textContent = text; div.style.display = 'none'; $('stage').appendChild(div);
-    const rec = {g: g, div: div}; packets.push(rec);
-    const o = {t: 0};
-    gsap.to(o, {t: 1, duration: 0.7, delay: delay || 0, ease: 'power1.inOut',
-      onStart: () => { g.visible = true; div.style.display = ''; },
-      onUpdate: () => { g.position.lerpVectors(from, to, o.t); g.position.y = from.y + (to.y - from.y) * o.t + Math.sin(Math.PI * o.t) * 1.2; },
-      onComplete: () => { scene.remove(g); g.geometry.dispose(); g.material.dispose(); div.remove(); packets.splice(packets.indexOf(rec), 1); }});
-  }
-  function animate(info, before) {
-    if (!info || !info.ins) return;
-    const p = info.ins, aluP = new T.Vector3(0.25, 0.7, 2.65), codeP = new T.Vector3(-5.1, 0.4, 0), conP = new T.Vector3(3.4, 1.0, 3.4);
-    const Y = 0xfacc15, G = 0x22c55e, B = 0x60a5fa;
-    const val = i => String(i === 0 ? 0 : before[i]);
-    const short = v => Math.abs(v) > 9999 ? hex(v) : String(v);
-    const memP = a => { const o = memPlates[a]; return o ? o.mesh.position.clone().setY(0.6) : new T.Vector3(6.2, 0.6, 0); };
-    const wr = info.write;
-    if (p.op === 'lw') {
-      packet(regTop(p.rs1), aluP, short(before[p.rs1]) + ' + ' + p.imm, Y, 0);
-      packet(aluP, memP(info.mem.addr), hex(info.mem.addr), B, 0.6);
-      packet(memP(info.mem.addr), regTop(p.rd), String(info.mem.value), G, 1.2);
-    } else if (p.op === 'sw') {
-      packet(regTop(p.rs1), aluP, short(before[p.rs1]) + ' + ' + p.imm, Y, 0);
-      packet(aluP, memP(info.mem.addr), hex(info.mem.addr), B, 0.6);
-      packet(regTop(p.rs2), memP(info.mem.addr), String(info.mem.value), G, 0.6);
-    } else if (p.op === 'ecall') {
-      packet(regTop(17), conP, 'a7 = ' + val(17), Y, 0);
-      if (info.out) packet(regTop(10), conP, info.out === ' ' ? 'space' : info.out.replace(/\n/g, '\\n'), G, 0.3);
-    } else if (p.op === 'jal' || p.op === 'jalr' || ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'].includes(p.op)) {
-      if (p.rs1 !== undefined) packet(regTop(p.rs1), aluP, val(p.rs1).length > 6 ? hex(before[p.rs1]) : val(p.rs1), Y, 0);
-      if (p.rs2 !== undefined) packet(regTop(p.rs2), aluP, val(p.rs2), Y, 0);
-      if (wr && wr.reg) packet(codeP, regTop(wr.reg), hex(wr.value), G, 0.2);
-      packet(aluP, codeP, info.taken ? 'jump' : 'pc + 4', B, 0.6);
-    } else if (wr) {
-      if (p.rs1 !== undefined) packet(regTop(p.rs1), aluP, short(p.rs1 === 0 ? 0 : before[p.rs1]), Y, 0);
-      if (p.rs2 !== undefined) packet(regTop(p.rs2), aluP, short(p.rs2 === 0 ? 0 : before[p.rs2]), Y, 0);
-      if (p.imm !== undefined && p.rs2 === undefined) packet(codeP, aluP, 'imm ' + p.imm, B, 0);
-      if (wr.reg !== 0) packet(aluP, regTop(wr.reg), short(wr.value), G, 0.7);
-    }
-    if (hasGSAP) gsap.fromTo(alu.material.emissive, {r: 0.5, g: 0.35, b: 0}, {r: 0, g: 0, b: 0, duration: 1.2});
-    if ($('follow').checked && hasGSAP) {
-      const focus = p.op === 'lw' || p.op === 'sw' ? [2.4, 8.5, 8.5] : p.op === 'ecall' ? [1.5, 8.5, 9.5] : ['beq', 'bne', 'blt', 'bge', 'jal', 'jalr'].includes(p.op) ? [-2.8, 9, 9.5] : [0, 9.5, 10.5];
-      const nf = narrow() ? [focus[0] * 0.5, focus[1] * 1.35, focus[2] * 1.3] : focus;
-      gsap.to(cam.position, {x: nf[0], y: nf[1], z: nf[2], duration: 0.9, ease: 'power2.inOut'});
-    }
-  }
-  function pick(cb) {
-    const ray = new T.Raycaster(), v = new T.Vector2();
-    st.renderer.domElement.addEventListener('click', e => {
-      const r = st.renderer.domElement.getBoundingClientRect();
-      v.x = ((e.clientX - r.left) / r.width) * 2 - 1; v.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-      ray.setFromCamera(v, cam);
-      const hit = ray.intersectObjects(pickables.filter(o => o.visible !== false))[0];
-      if (hit) cb(hit.object.userData);
-    });
-  }
-  if (narrow()) cam.position.set(0, 13, 13.5);
-  return {build: build, update: update, animate: animate, pick: pick};
+
+  const labApi = {T: T, scene: scene, camera: camera, controls: controls, renderer: renderer, recs: recs,
+    chip: chip, finishPins: finishPins, silkRect: silkRect, zone: zone, label: label, busMat: busMat, trace: trace, glowBus: glowBus,
+    fly: fly, clearPackets: clearPackets, hi: hi, clear: clear, pop: pop, setView: setView, focusOn: focusOn, intro: intro, zoom: zoom,
+    onPick: cb => { pickCb = cb; }, unit: unit};
+  (window.__labs = window.__labs || []).push(labApi);   // lets tests reach the camera
+  return labApi;
+}
+// LAB3D END
+
+
+// ---------------- the RISC-V board: register file, instruction memory, ALU, data memory, console ----------------
+// Built with the Lab3D kit; when 3D is unavailable the same layout is drawn as a flat SVG board with the same API.
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const RC = {read: css('--data') || '#4fd1e8', write: css('--bad') || '#ff7a7a', oper: css('--oper') || '#a9b4ff', addr: css('--addr') || '#f2b33d',
+  result: css('--alu') || '#8fe388', out: css('--out') || '#b9f5b0', ctrl: css('--ctrl') || '#ff7a9a', copper: css('--copper') || '#d4a24c'};
+let speed = 1;
+// geometry (x to the right, z toward the viewer)
+const RV_G = {
+  regX: c => -4.3 + c * 1.22, regZ: r => -3.3 + r * 1.12,
+  imX: -8.5, imZ: k => -4.0 + k * 1.02, IMN: 8,
+  dmX: c => 7.55 + c * 1.95, dmZ: r => -3.3 + r * 1.12, DMN: 8,
+  pc: {x: -8.5, z: -5.45, w: 1.6, d: 0.8}, alu: {x: 0, z: 3.4, w: 2.2, d: 1.3}, con: {x: 8.5, z: 4.4, w: 3.4, d: 1.5},
+  readZ: 1.0, writeZ: 1.6, immX: -6.4, memX: 5.9, outX: 5.3, nextZ: 5.1, nextX: -10.5, addrX: -10.0
+};
+const regPos = i => ({x: RV_G.regX(i % 8), z: RV_G.regZ(i >> 3)});
+const imPos = k => ({x: RV_G.imX, z: RV_G.imZ(k)});
+const dmPos = k => ({x: RV_G.dmX(k >> 2), z: RV_G.dmZ(k & 3)});
+const RV_PATH = {
+  regToAlu: (i, side) => { const p = regPos(i), ax = side ? 0.5 : -0.5; return [p, {x: p.x, z: RV_G.readZ}, {x: ax, z: RV_G.readZ}, {x: ax, z: RV_G.alu.z}]; },
+  aluToReg: i => { const p = regPos(i); return [{x: 0.9, z: RV_G.alu.z}, {x: 0.9, z: RV_G.writeZ}, {x: p.x, z: RV_G.writeZ}, p]; },
+  imm: k => { const c = imPos(k); return [c, {x: RV_G.immX, z: c.z}, {x: RV_G.immX, z: RV_G.alu.z}, {x: RV_G.alu.x, z: RV_G.alu.z}]; },
+  cellToReg: (k, i) => { const c = imPos(k), p = regPos(i); return [c, {x: RV_G.immX, z: c.z}, {x: RV_G.immX, z: RV_G.writeZ}, {x: p.x, z: RV_G.writeZ}, p]; },
+  aluToMem: k => { const d = dmPos(k); return [{x: RV_G.alu.x, z: RV_G.alu.z}, {x: RV_G.memX, z: RV_G.alu.z}, {x: RV_G.memX, z: d.z}, d]; },
+  memToReg: (k, i) => { const d = dmPos(k), p = regPos(i); return [d, {x: RV_G.memX, z: d.z}, {x: RV_G.memX, z: RV_G.writeZ}, {x: p.x, z: RV_G.writeZ}, p]; },
+  regToMem: (i, k) => { const p = regPos(i), d = dmPos(k); return [p, {x: p.x, z: RV_G.readZ}, {x: RV_G.outX, z: RV_G.readZ}, {x: RV_G.outX, z: d.z}, d]; },
+  regToCon: i => { const p = regPos(i); return [p, {x: p.x, z: RV_G.readZ}, {x: RV_G.outX, z: RV_G.readZ}, {x: RV_G.outX, z: RV_G.con.z}, {x: RV_G.con.x, z: RV_G.con.z}]; },
+  nextPc: () => [{x: RV_G.alu.x, z: RV_G.alu.z}, {x: RV_G.alu.x, z: RV_G.nextZ}, {x: RV_G.nextX, z: RV_G.nextZ}, {x: RV_G.nextX, z: RV_G.pc.z}, {x: RV_G.pc.x, z: RV_G.pc.z}],
+  pcToCell: k => { const c = imPos(k); return [{x: RV_G.pc.x, z: RV_G.pc.z}, {x: RV_G.addrX, z: RV_G.pc.z}, {x: RV_G.addrX, z: c.z}, c]; }
+};
+const RV_TRACES = [
+  {pts: [{x: RV_G.regX(0), z: RV_G.readZ}, {x: RV_G.outX, z: RV_G.readZ}, {x: RV_G.outX, z: RV_G.con.z}, {x: RV_G.con.x - 1.7, z: RV_G.con.z}], lines: 6, bus: 'read'},
+  {pts: [{x: -0.5, z: RV_G.readZ}, {x: -0.5, z: RV_G.alu.z - 0.65}], lines: 3, bus: 'read'},
+  {pts: [{x: 0.5, z: RV_G.readZ}, {x: 0.5, z: RV_G.alu.z - 0.65}], lines: 3, bus: 'read'},
+  {pts: [{x: RV_G.regX(0), z: RV_G.writeZ}, {x: RV_G.memX, z: RV_G.writeZ}], lines: 6, bus: 'write'},
+  {pts: [{x: 0.9, z: RV_G.alu.z - 0.65}, {x: 0.9, z: RV_G.writeZ}], lines: 3, bus: 'write'},
+  {pts: [{x: RV_G.immX, z: RV_G.imZ(0)}, {x: RV_G.immX, z: RV_G.alu.z}, {x: RV_G.alu.x - 1.1, z: RV_G.alu.z}], lines: 3, bus: 'imm'},
+  {pts: [{x: RV_G.alu.x + 1.1, z: RV_G.alu.z}, {x: RV_G.memX, z: RV_G.alu.z}, {x: RV_G.memX, z: RV_G.dmZ(0)}], lines: 4, bus: 'addr'},
+  {pts: [{x: RV_G.alu.x, z: RV_G.alu.z + 0.65}, {x: RV_G.alu.x, z: RV_G.nextZ}, {x: RV_G.nextX, z: RV_G.nextZ}, {x: RV_G.nextX, z: RV_G.pc.z}, {x: RV_G.pc.x - 0.8, z: RV_G.pc.z}], lines: 4, bus: 'next'},
+  {pts: [{x: RV_G.pc.x - 0.8, z: RV_G.pc.z - 0.2}, {x: RV_G.addrX, z: RV_G.pc.z - 0.2}, {x: RV_G.addrX, z: RV_G.imZ(RV_G.IMN - 1)}], lines: 4, bus: 'pc'}
+].concat(Array.from({length: 8}, (_, c) => ({pts: [{x: RV_G.regX(c), z: RV_G.regZ(0)}, {x: RV_G.regX(c), z: RV_G.writeZ}], lines: 1, bus: 'int'})))
+  .concat(Array.from({length: RV_G.IMN}, (_, k) => ({pts: [{x: RV_G.imX + 1.25, z: RV_G.imZ(k)}, {x: RV_G.immX, z: RV_G.imZ(k)}], lines: 2, bus: 'int'})))
+  .concat(Array.from({length: 4}, (_, r) => ({pts: [{x: RV_G.memX, z: RV_G.dmZ(r)}, {x: RV_G.dmX(1), z: RV_G.dmZ(r)}], lines: 2, bus: 'int'})));
+const RV_BUSCOL = {read: RC.read, write: RC.write, imm: RC.oper, addr: RC.addr, next: RC.addr, pc: RC.addr, int: RC.copper};
+const RV_VIEWS = {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.3], want: 1.55}, regs: {pos: [0, 10.5, 9.5], tgt: [0, 0, -0.6]},
+  text: {pos: [-6.5, 10, 8.5], tgt: [-7.4, 0, -0.6]}, mem: {pos: [7.5, 10, 8.5], tgt: [7.8, 0, 0.2]}};
+
+// low-level drawing primitives: Lab3D, or SVG with the same calls
+function rvPrims3D(stage, silk) {
+  const lab = Lab3D(stage, {board: {w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: silk, seed: 23}, views: RV_VIEWS});
+  if (!lab) return null;
+  const mats = {};
+  Object.keys(RV_BUSCOL).forEach(k => { mats[k] = k === 'int' ? lab.busMat(RC.copper, {base: RC.copper, rest: 0.08}) : lab.busMat(RV_BUSCOL[k]); });
+  return {
+    kind: '3d', lab: lab,
+    chip: (key, o) => { const r = lab.chip(key, o); return {r: r, set(nm, v, s) { if (nm != null) r.el.querySelector('.nm').textContent = nm; r.val.textContent = v; r.val.classList.toggle('long', String(v).length > 5); r.sub.textContent = s || ''; }, cls(c, on) { r.el.classList.toggle(c, on); }, show(on) { r.g.visible = on; r.el.style.display = on ? '' : 'none'; }}; },
+    trace: t => lab.trace(t.pts, t.lines, mats[t.bus]),
+    zone: (t, x, z, c, minor) => { const e = lab.zone(t, x, z, c); if (minor) e.classList.add('minor'); return e; },
+    silk: (a, b, c, d) => lab.silkRect(a, b, c, d),
+    finish: () => { lab.finishPins(); lab.intro(); },
+    hi: (h, c) => lab.hi(h.r, c), clear: () => lab.clear(), pop: h => lab.pop(h.r),
+    glow: bus => lab.glowBus(mats[bus]),
+    fly: (path, text, color, dur) => lab.fly(path, text, color, {dur: dur}),
+    clearPackets: () => lab.clearPackets(),
+    view: name => lab.setView(name),
+    onPick: cb => lab.onPick(cb),
+    lcd: (x, z) => { const T = lab.T, m = new T.MeshStandardMaterial({color: 0x0b2416, emissive: new T.Color(RC.result), emissiveIntensity: 0.12, roughness: .25}); const s = new T.Mesh(lab.unit, m); s.scale.set(3.0, 0.02, 1.15); s.position.set(x, 0.385, z); lab.scene.add(s); const el = lab.label('', 'lcd rvlcd', x, 0.5, z); return {set: t => { el.textContent = t; }, flash: () => gsap.fromTo(m, {emissiveIntensity: 0.9}, {emissiveIntensity: 0.12, duration: 1.2})}; }
+  };
+}
+function rvPrims2D(stage) {
+  const NS = 'http://www.w3.org/2000/svg', S = 40, X = x => (x + 11.2) * S, Y = z => (z + 6.6) * S;
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 896 544'); svg.setAttribute('class', 'flat'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Flat diagram of the RISC-V board');
+  stage.appendChild(svg);
+  const el = (tag, at, parent) => { const e = document.createElementNS(NS, tag); Object.keys(at).forEach(k => e.setAttribute(k, at[k])); (parent || svg).appendChild(e); return e; };
+  el('rect', {x: 4, y: 4, width: 888, height: 536, rx: 12, fill: '#0d302a', stroke: '#2a5c51'});
+  const layer = {traces: el('g', {}), chips: el('g', {}), pk: el('g', {})};
+  const lines = {}, active = new Set();
+  let pickCb = null;
+  return {
+    kind: '2d',
+    chip(key, o) {
+      const g = el('g', {style: 'cursor:pointer'}, layer.chips), cell = !!o.cell;
+      const r = el('rect', {x: X(o.x - o.w / 2), y: Y(o.z - o.d / 2), width: o.w * S, height: o.d * S, rx: 4, fill: o.body || '#15191b', stroke: '#3c5a52', 'stroke-width': 1.5}, g);
+      const nm = el('text', {x: X(o.x), y: Y(o.z) - (cell ? 7 : 9), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': cell ? 8.5 : 9.5, 'letter-spacing': 1}, g); nm.textContent = o.nm || '';
+      const v = el('text', {x: X(o.x), y: Y(o.z) + 5, 'text-anchor': 'middle', fill: '#e8efe4', 'font-size': cell ? 11 : 13, 'font-weight': 600}, g);
+      const sb = el('text', {x: X(o.x), y: Y(o.z) + (cell ? 15 : 17), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 8}, g);
+      g.addEventListener('click', () => pickCb && pickCb(key));
+      return {r: r, g: g, set(n, val, s) { if (n != null) nm.textContent = n; v.textContent = val; v.setAttribute('font-size', String(val).length > 5 ? (cell ? 8.5 : 10) : (cell ? 11 : 13)); sb.textContent = s || ''; }, cls(c, on) { g.classList.toggle(c, on); }, show(on) { g.style.display = on ? '' : 'none'; }};
+    },
+    trace(t) { const pl = el('polyline', {points: t.pts.map(p => X(p.x) + ',' + Y(p.z)).join(' '), fill: 'none', stroke: RV_BUSCOL[t.bus], 'stroke-opacity': t.bus === 'int' ? .3 : .45, 'stroke-width': Math.max(1.5, t.lines * 1.1), 'stroke-linejoin': 'round'}, layer.traces); (lines[t.bus] = lines[t.bus] || []).push(pl); },
+    zone(t, x, z, c) { el('text', {x: X(x), y: Y(z) + 4, 'text-anchor': 'middle', fill: c || '#9db6ac', 'font-size': 9.5, 'letter-spacing': 1.5}, layer.traces).textContent = t.toUpperCase(); },
+    silk(x0, x1, z0, z1) { el('rect', {x: X(x0), y: Y(z0), width: (x1 - x0) * S, height: (z1 - z0) * S, fill: 'none', stroke: 'rgba(232,239,228,.3)'}, layer.traces); },
+    finish() {},
+    hi(h, c) { h.r.setAttribute('stroke', c); h.r.setAttribute('stroke-width', 3); active.add(h); },
+    clear() { active.forEach(h => { h.r.setAttribute('stroke', '#3c5a52'); h.r.setAttribute('stroke-width', 1.5); }); active.clear(); },
+    pop() {},
+    glow(bus) { (lines[bus] || []).forEach(l => { l.setAttribute('stroke-opacity', 1); setTimeout(() => l.setAttribute('stroke-opacity', .45), 900); }); },
+    fly(path, text, color, dur) {
+      if (!hasGSAP) return null;
+      const g = el('g', {opacity: 0, class: 'pk'}, layer.pk);
+      el('circle', {r: 6, fill: color, style: 'filter:drop-shadow(0 0 5px ' + color + ')'}, g);
+      el('text', {y: -11, 'text-anchor': 'middle', fill: color, 'font-size': 11, 'font-weight': 700, 'paint-order': 'stroke', stroke: '#061714', 'stroke-width': 4}, g).textContent = text;
+      let L = 0; for (let i = 1; i < path.length; i++) L += Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z);
+      const o = {t: 0}, total = dur || Math.max(0.5, Math.min(2.2, L / 7));
+      const at = t => { let d = L * t, acc = 0; for (let i = 1; i < path.length; i++) { const s = Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z); if (acc + s >= d) { const k = s ? (d - acc) / s : 0; return [path[i - 1].x + (path[i].x - path[i - 1].x) * k, path[i - 1].z + (path[i].z - path[i - 1].z) * k]; } acc += s; } const q = path[path.length - 1]; return [q.x, q.z]; };
+      return gsap.timeline({onComplete: () => g.remove()}).set(g, {attr: {opacity: 1}}).to(o, {t: 1, duration: total, ease: 'none', onUpdate: () => { const q = at(o.t); g.setAttribute('transform', 'translate(' + X(q[0]) + ',' + Y(q[1]) + ')'); }});
+    },
+    clearPackets() { layer.pk.innerHTML = ''; },
+    view() {},
+    onPick(cb) { pickCb = cb; },
+    lcd(x, z) { const t = el('text', {x: X(x), y: Y(z) + 6, 'text-anchor': 'middle', fill: RC.out, 'font-size': 16, 'font-weight': 600}, layer.chips); return {set: s => { t.textContent = s; }, flash() {}}; }
+  };
 }
 
+// the board itself; the page calls build(), update(info), animate(info, before), pick(cb), overview(), view(name)
+function makeScene(silk) {
+  const stage = $('stage');
+  let P = null;
+  try { P = rvPrims3D(stage, silk || 'RV32I  REV 1.0  32 x 32-BIT REGISTERS  EGN 325'); } catch (e) { console.error(e); P = null; }
+  if (!P) { const n = $('nogl'); if (n) n.hidden = false; P = rvPrims2D(stage); }
+  const narrow = () => (stage.clientWidth || 600) < 700;
+  P.silk(-5.0, 4.95, -3.95, 0.7);
+  P.silk(6.55, 10.45, -3.95, 0.7);
+  P.silk(-9.95, -7.05, -4.55, 3.65);
+  RV_TRACES.forEach(t => P.trace(t));
+  const regs = [], cells = [], data = [];
+  for (let i = 0; i < 32; i++) { const p = regPos(i); regs.push(P.chip('r' + i, {x: p.x, z: p.z, w: 1.0, d: 0.88, nm: ABI[i], cell: true})); }
+  for (let k = 0; k < RV_G.IMN; k++) { const p = imPos(k); cells.push(P.chip('i' + k, {x: p.x, z: p.z, w: 2.5, d: 0.85, nm: '', cell: true})); cells[k].cls('icell', true); }
+  for (let k = 0; k < RV_G.DMN; k++) { const p = dmPos(k); data.push(P.chip('d' + k, {x: p.x, z: p.z, w: 1.75, d: 0.88, nm: '', cell: true})); }
+  const pcChip = P.chip('pc', Object.assign({nm: 'PC'}, RV_G.pc));
+  const alu = P.chip('alu', Object.assign({nm: 'ALU'}, RV_G.alu));
+  const con = P.chip('con', Object.assign({nm: 'CONSOLE', body: '#1b2326'}, RV_G.con));
+  con.set('CONSOLE', '', '');
+  if (P.kind === '3d') { con.r.el._obj.visible = false; }
+  const lcd = P.lcd(RV_G.con.x, RV_G.con.z);
+  P.zone('registers x0 to x31 · 32 bits each', -0.05, -4.55);
+  P.zone('text segment', -8.5, 4.15);
+  P.zone('data memory · words', 8.5, -4.55);
+  P.zone('console · Run I/O', RV_G.con.x, RV_G.con.z + 1.15);
+  P.zone('read ports rs1 rs2', -2.6, RV_G.readZ - 0.3, RC.read, true);
+  P.zone('write back rd', -2.6, RV_G.writeZ + 0.3, RC.write, true);
+  P.zone('immediate', RV_G.immX + 0.1, RV_G.alu.z + 0.35, RC.oper, true);
+  P.zone('address', 3.5, RV_G.alu.z + 0.35, RC.addr, true);
+  P.zone('next pc', -5.0, RV_G.nextZ + 0.35, RC.addr, true);
+  P.finish();
+  let start = 0, words = [];
+  const short = v => Math.abs(v) > 9999 ? (v >>> 0).toString(16) : String(v);
+  const kidx = a => { const i = asm.prog.findIndex(p => p.addr === a); return i < 0 ? -1 : i - start; };
+  const cellOf = a => Math.max(0, Math.min(RV_G.IMN - 1, kidx(a)));
+  const memCell = a => words.indexOf(a);
+  const api = {
+    kind: P.kind,
+    build() { start = 0; words = []; P.clear(); P.clearPackets(); api.update(null); },
+    update(info) {
+      P.clear();
+      const used = usedRegs(), reads = (info && info.reads) || [], wr = info && info.write ? info.write.reg : -1;
+      regs.forEach((h, i) => { h.set(null, short(i === 0 ? 0 : m.regs[i]), 'x' + i); h.cls('idle', !used.has(i) && i !== 2); });
+      reads.forEach(i => { if (i !== wr) P.hi(regs[i], RC.read); });
+      if (wr > 0) P.hi(regs[wr], RC.write);
+      const n = asm.prog.length, idx = Math.max(0, asm.prog.findIndex(p => p.addr === m.pc));
+      start = Math.max(0, Math.min(idx - 3, n - RV_G.IMN));
+      cells.forEach((h, k) => {
+        const p = asm.prog[start + k];
+        h.show(!!p);
+        if (p) { const sp = p.basic.indexOf(' '); h.set(hex(p.addr).slice(-4), sp < 0 ? p.basic : p.basic.slice(0, sp), sp < 0 ? '' : p.basic.slice(sp + 1)); }
+        if (p && p.addr === m.pc && !m.halted) P.hi(h, RC.addr);
+      });
+      pcChip.set('PC', hex(m.pc).slice(2), m.halted ? (m.error ? 'stopped' : 'finished') : '');
+      words = memWords().slice(0, RV_G.DMN);
+      data.forEach((h, k) => {
+        const a = words[k];
+        if (a === undefined) { h.set('', '', ''); h.cls('idle', true); return; }
+        h.cls('idle', false);
+        h.set(labelAt(a) || (a >= 0x7fff0000 ? 'stack' : ''), short(RV.readWord(m, a)), hex(a).slice(-4));
+        if (info && info.mem && info.mem.addr === a) P.hi(h, info.mem.kind === 'store' ? RC.write : RC.read);
+      });
+      lcd.set(m.out ? (m.out.length > 12 ? m.out.slice(-12) : m.out) : '');
+      alu.set('ALU', '', '');
+    },
+    animate(info, before) {
+      if (!info || !info.ins || !hasGSAP) return;
+      const p = info.ins, tl = gsap.timeline(), add = (x, t) => { if (x) tl.add(x, t); };
+      const fly = (path, text, color, at, bus) => { if (bus) tl.call(() => P.glow(bus), null, at); add(P.fly(path, text, color, 0.7), at); };
+      const val = i => i === 0 ? 0 : before[i];
+      const k = cellOf(info.pc), wr = info.write;
+      P.hi(alu, RC.result);
+      if (p.op === 'lw' || p.op === 'sw') {
+        const mk = Math.max(0, memCell(info.mem.addr));
+        fly(RV_PATH.regToAlu(p.rs1, 0), short(val(p.rs1)) + ' + ' + p.imm, RC.oper, 0, 'read');
+        fly(RV_PATH.aluToMem(mk), hex(info.mem.addr), RC.addr, 0.7, 'addr');
+        if (p.op === 'lw') fly(RV_PATH.memToReg(mk, p.rd), String(info.mem.value), RC.result, 1.4, 'write');
+        else fly(RV_PATH.regToMem(p.rs2, mk), String(info.mem.value), RC.result, 0.7, 'read');
+      } else if (p.op === 'ecall') {
+        fly(RV_PATH.regToCon(17), 'a7 = ' + val(17), RC.read, 0, 'read');
+        if (info.out) fly(RV_PATH.regToCon(10), info.out === ' ' ? 'space' : info.out.replace(/\n/g, '\\n'), RC.out, 0.35);
+        tl.call(() => lcd.flash(), null, 0.9);
+      } else if (['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu', 'jal', 'jalr'].includes(p.op)) {
+        if (p.rs1 !== undefined) fly(RV_PATH.regToAlu(p.rs1, 0), short(val(p.rs1)), RC.oper, 0, 'read');
+        if (p.rs2 !== undefined) fly(RV_PATH.regToAlu(p.rs2, 1), short(val(p.rs2)), RC.oper, 0);
+        if (wr && wr.reg) fly(RV_PATH.cellToReg(k, wr.reg), hex(wr.value), RC.result, 0.2, 'write');
+        fly(RV_PATH.nextPc(), info.taken || p.op === 'jal' || p.op === 'jalr' ? 'jump' : 'pc + 4', RC.addr, 0.75, 'next');
+      } else if (wr) {
+        if (p.rs1 !== undefined) fly(RV_PATH.regToAlu(p.rs1, 0), short(val(p.rs1)), RC.oper, 0, 'read');
+        if (p.rs2 !== undefined) fly(RV_PATH.regToAlu(p.rs2, 1), short(val(p.rs2)), RC.oper, 0);
+        if (p.imm !== undefined && p.rs2 === undefined) fly(RV_PATH.imm(k), 'imm ' + p.imm, RC.oper, 0, 'imm');
+        if (wr.reg !== 0) fly(RV_PATH.aluToReg(wr.reg), short(wr.value), RC.result, 0.75, 'write');
+      }
+      if (wr && wr.reg > 0) tl.call(() => P.pop(regs[wr.reg]), null, 1.4);
+      tl.timeScale(speed);
+      if (P.kind === '3d' && $('follow') && api.follow) P.view(p.op === 'lw' || p.op === 'sw' ? 'mem' : p.op === 'ecall' ? 'overview' : ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu', 'jal', 'jalr'].includes(p.op) ? 'text' : 'regs');
+    },
+    pick(cb) {
+      P.onPick(key => {
+        if (key[0] === 'r' && /^r\d+$/.test(key)) cb({kind: 'reg', i: +key.slice(1)});
+        else if (/^i\d+$/.test(key)) { const p = start + +key.slice(1); if (asm.prog[p]) cb({kind: 'code', k: p}); }
+        else if (/^d\d+$/.test(key)) { const a = words[+key.slice(1)]; if (a !== undefined) cb({kind: 'mem', a: a}); }
+        else cb({kind: key === 'con' ? 'console' : key});
+      });
+    },
+    overview() { P.view('overview'); },
+    view(name) { P.view(name); },
+    follow: !narrow()
+  };
+  return api;
+}
 
 
 function usedRegs() {
@@ -1051,30 +1576,72 @@ function toggleRun() {
   $('runBtn').textContent = 'Pause'; stepOnce();
   runTimer = setInterval(() => { if (!stepOnce()) stopRun(); }, scene3 && hasGSAP ? 1400 : 600);
 }
+// ---------- redesign helpers: progress segments, instruction format rail, caption title, speed ----------
+const FMT = op => ['add', 'sub', 'and', 'or', 'xor', 'sll', 'srl', 'sra', 'slt', 'sltu'].includes(op) ? 'R' : op === 'sw' ? 'S' : ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'].includes(op) ? 'B' : op === 'lui' || op === 'auipc' ? 'U' : op === 'jal' ? 'J' : 'I';
+const FMT_COLOR = {R: 'var(--alu)', I: 'var(--oper)', S: 'var(--bad)', B: 'var(--addr)', U: 'var(--data)', J: 'var(--ctrl)'};
+function paintSegs() {
+  const n = rounds.length || 10;
+  const html = Array.from({length: n}, (_, i) => '<i class="' + (i < results.length ? (results[i].good ? 'ok' : 'bad') : (i === cur && $('final').hidden ? 'cur' : '')) + '"></i>').join('');
+  $('segs').innerHTML = html; $('finalSegs').innerHTML = html;
+}
+function paintMeta(info) {
+  const f = info && info.ins ? FMT(info.ins.op) : null;
+  document.querySelectorAll('#rail li').forEach(d => d.classList.toggle('on', d.dataset.t === f));
+  $('capT').textContent = !m ? 'Locked' : !info ? 'Ready' : info.ins ? 'Step ' + m.steps + ' · ' + f + '-type · ' + info.ins.basic : 'Stopped';
+  $('cap').style.setProperty('--cap', f ? FMT_COLOR[f] : 'var(--addr)');
+}
+const _showRound = showRound, _answer = answer, _next = next, _renderRun = renderRun, _lock = lock;
+showRound = function () { _showRound(); paintSegs(); };
+answer = function (i) { _answer(i); paintSegs(); };
+next = function () {
+  _next(); paintSegs();
+  if (!$('final').hidden) document.querySelectorAll('#sumTable tbody tr').forEach((tr, i) => { tr.cells[2].className = results[i].good ? 'r-ok' : 'r-bad'; });
+};
+renderRun = function (info) { _renderRun(info); paintMeta(info); };
+lock = function (on) {
+  _lock(on);
+  if (on) { document.querySelectorAll('#rail li').forEach(d => d.classList.remove('on')); $('capT').textContent = 'Locked'; $('cap').style.setProperty('--cap', 'var(--addr)'); }
+};
+function startRun() {
+  if (!m || m.halted) return;
+  $('runBtn').textContent = 'Pause';
+  if (!stepOnce()) return;
+  runTimer = setInterval(() => { if (!stepOnce()) stopRun(); }, (scene3 && scene3.kind === '3d' && hasGSAP ? 1400 : 600) / speed);
+}
+toggleRun = function () { if (runTimer) { stopRun(); return; } startRun(); };
 
 // ---------- start ----------
-scene3 = makeScene();
-if (!scene3) {
-  const fb = document.querySelector('#stage .fallback'); if (fb) $('stage').before(fb);
-  $('stage').hidden = true; $('follow').parentElement.hidden = true;
-} else {
-  scene3.pick(u => {
-    if (!m) return;
-    if (u.kind === 'reg') $('explain').innerHTML = `<b>${ABI[u.i]}</b> (x${u.i}) = ${m.regs[u.i]} = ${hex(m.regs[u.i])}.`;
-    else if (u.kind === 'mem') $('explain').innerHTML = `Memory word at <b>${hex(u.a)}</b> = ${RV.readWord(m, u.a)}.`;
-    else if (u.kind === 'code') { const p = asm.prog[u.k]; $('explain').innerHTML = `Instruction at <b>${hex(p.addr)}</b>: <span class="mono">${p.basic}</span> (listing line ${p.line}).`; }
-  });
-}
+const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
+scene3 = makeScene('RV32I  REV 1.0  WEEK 6  ASSEMBLY PUZZLES  EGN 325');
+if (scene3.kind !== '3d') $('camViews').hidden = true;
+if (!$('nogl').hidden) { $('nogl').classList.add('out'); $('stage').after($('nogl')); }
+scene3.pick(u => {
+  if (!m) return;
+  if (u.kind === 'reg') $('info').innerHTML = `<b>${ABI[u.i]}</b> (x${u.i}) = ${m.regs[u.i]} = ${hex(m.regs[u.i])}.`;
+  else if (u.kind === 'mem') $('info').innerHTML = `Memory word at <b>${hex(u.a)}</b> = ${RV.readWord(m, u.a)}.`;
+  else if (u.kind === 'code') { const p = asm.prog[u.k]; $('info').innerHTML = `Instruction at <b>${hex(p.addr)}</b>: <span class="mono">${p.basic}</span> (listing line ${p.line}).`; }
+  else if (u.kind === 'alu') $('info').innerHTML = 'The <b>ALU</b> does the arithmetic and logic, computes load and store addresses, and compares registers for branches.';
+  else if (u.kind === 'console') $('info').innerHTML = 'The <b>console</b> is the Run I/O pane in RARS. ecall services 1, 4, and 11 print here.';
+  else if (u.kind === 'pc') $('info').innerHTML = `The <b>program counter</b> (pc) holds the address of the next instruction, now ${hex(m.pc)}. It adds 4 after each instruction; branches and jumps load a new address.`;
+});
+const setFollow = on => { scene3.follow = on; $('follow').classList.toggle('on', on); $('follow').setAttribute('aria-pressed', on); };
+setFollow(scene3.follow);
+$('follow').addEventListener('click', () => setFollow(!scene3.follow));
+document.querySelectorAll('#camViews button[data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('#camViews button[data-view]').forEach(x => x.classList.toggle('on', x === b)); scene3.view(b.dataset.view); }));
 $('stepBtn').addEventListener('click', () => { stopRun(); stepOnce(); });
-$('backBtn').addEventListener('click', stepBack);
-$('runBtn').addEventListener('click', toggleRun);
-$('resetBtn').addEventListener('click', () => { const f = $('runFixed').getAttribute('aria-pressed') === 'true'; loadRun(f ? rounds[cur].fixed : rounds[cur].code); });
+$('backBtn').addEventListener('click', () => stepBack());
+$('runBtn').addEventListener('click', () => toggleRun());
+$('resetBtn').addEventListener('click', () => { const f = $('runFixed').getAttribute('aria-pressed') === 'true'; loadRun(f ? rounds[cur].fixed : rounds[cur].code); if (scene3) scene3.overview(); });
 $('runAsWritten').addEventListener('click', () => { if (!rounds[cur].done) return; setVersion(false); loadRun(rounds[cur].code); });
 $('runFixed').addEventListener('click', () => { if (!rounds[cur].fixed || !rounds[cur].done) return; setVersion(true); loadRun(rounds[cur].fixed); });
-$('nextBtn').addEventListener('click', next);
-$('againBtn').addEventListener('click', () => { newGame(); window.scrollTo({top: 0, behavior: 'smooth'}); });
+$('nextBtn').addEventListener('click', () => next());
+$('againBtn').addEventListener('click', () => { newGame(); paintSegs(); window.scrollTo({top: 0, behavior: 'smooth'}); });
+$('speed').addEventListener('input', e => {
+  speed = SPEEDS[+e.target.value]; $('speedOut').textContent = speed + '×';
+  if (runTimer) { clearInterval(runTimer); runTimer = setInterval(() => { if (!stepOnce()) stopRun(); }, (scene3 && scene3.kind === '3d' && hasGSAP ? 1400 : 600) / speed); }
+});
+if (!hasGSAP) $('info').insertAdjacentHTML('beforeend', ' <span class="muted">(Animations are off because the animation library did not load; every step still works.)</span>');
 newGame();
-
 </script>
 </body>
 </html>

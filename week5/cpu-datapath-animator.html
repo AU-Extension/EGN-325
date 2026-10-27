@@ -7,128 +7,282 @@
 <meta name="description" content="EGN 325 Week 5 interactive: Watch the Bay-4 processor run a program one phase at a time: fetch the instruction, decode it into control signals, and execute it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wdth,wght@75..112.5,300..700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/renderers/CSS2DRenderer.js"></script>
 <style>
+  /* ===== EGN 325 "Bay-4 bench" theme v2 (reference: build/theme/reference/tiny-machine-lab.html). Paste as the first block of every page's <style>. ===== */
   :root{
-    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
-    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
-    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
-    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
-    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
-    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
-    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --au-red:#E1141E; --au-red-dark:#A3282B;
+    --board:#0d302a; --board-deep:#061714; --panel:#0a211d; --panel-2:#0f2c27; --line:#1e4a41; --line-2:#2a5c51;
+    --silk:#e8efe4; --silk-dim:#9db6ac; --copper:#d4a24c;
+    --addr:#f2b33d; --data:#4fd1e8; --ctrl:#ff7a9a; --alu:#8fe388; --oper:#a9b4ff; --out:#b9f5b0; --led:#8fe388;
+    --ok:#8fe388; --bad:#ff7a7a; --warn:#f2b33d; --neon:#39ff14;
+    --font-mono:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --font-body:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif;
+    --mono:var(--font-mono); --sans:var(--font-body); --display:var(--font-mono);
+    --r:6px; --lab:10px;
+    /* legacy names used by older page code, mapped to the dark theme */
+    --ink:#e8efe4; --ink-2:#c4d4cb; --muted:#9db6ac; --bg:#061714; --card:#0a211d; --edge:#1e4a41; --edge-2:#2a5c51; --dim:#9db6ac; --silk-2:#c4d4cb;
+    --code-bg:#04110e; --code-ink:#b9f5b0; --au-red-soft:rgba(225,20,30,.14);
+    --net-blue:#4fd1e8; --net-green:#8fe388; --net-amber:#f2b33d; --net-purple:#ff7a9a; --net-teal:#5fe0c8;
+    --ok-soft:rgba(143,227,136,.10); --bad-soft:rgba(255,122,122,.10); --warn-soft:rgba(242,179,61,.10);
+    --radius:6px; --shadow:none;
+    color-scheme:dark;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:var(--au-red-dark)}
-  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
-  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
-  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  html{background:var(--board-deep)}
+  [hidden]{display:none!important}
+  body{color:var(--silk);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
+    background:radial-gradient(1200px 600px at 30% -10%,#12423a 0%,transparent 60%),var(--board-deep)}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:var(--data)}
+  :focus-visible{outline:2px solid var(--addr);outline-offset:2px}
+  /* brand bar: white with the AU red rule (the logo PNG is cropped with a wrapper) */
+  .topbar{position:relative;z-index:5;background:#fff;border-bottom:3px solid var(--au-red)}
+  .topbar-inner{max-width:none;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
   .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
   .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
-  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
-  .crumb b{color:var(--ink);font-weight:600}
-  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
-  .hero{margin:4px 0 20px}
-  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
-  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
-  h2{font-size:20px;margin:0 0 10px}
-  h3{font-size:16px;margin:0 0 8px}
-  .lede{color:var(--ink-2);max-width:760px;margin:0}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
-  .grid{display:grid;gap:16px}
-  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  .crumb{font-size:13px;color:#6B7280;letter-spacing:.02em;border-left:1px solid #E3E6EB;padding-left:16px}
+  .crumb b{color:#16181D;font-weight:600}
+  .crumb a{color:#A3282B}
+  /* page mode (challenges and pages with a scrolling layout) */
+  main,.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:26px 16px 36px}
+  .hero{margin:0 0 20px}
+  .eyebrow{display:block;margin:0;font:500 10.5px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--copper);background:none;padding:0}
+  h1{margin:6px 0 8px;font-family:var(--font-mono);font-weight:600;font-stretch:112%;font-size:clamp(24px,3.4vw,36px);line-height:1.15;letter-spacing:-.01em;text-wrap:balance;color:var(--silk)}
+  h1 .num{color:var(--addr)}
+  h2{margin:0 0 10px;font-family:var(--font-mono);font-weight:500;font-size:13px;letter-spacing:.04em;color:var(--silk)}
+  h2 small,h3 small{color:var(--silk-dim);font-weight:400}
+  h3{margin:0 0 8px;font-family:var(--font-mono);font-weight:500;font-size:12.5px;letter-spacing:.04em;color:var(--silk)}
+  .lede{margin:0;color:var(--silk-dim);font-size:15px;max-width:68ch}
+  .muted{color:var(--silk-dim)}
+  .spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .spec div{background:var(--panel);padding:9px 11px}
+  .spec b{display:block;font:600 15px var(--font-mono);color:var(--silk)}
+  .spec span{font-size:12px;color:var(--silk-dim)}
+  @media(min-width:960px){.hero.split{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;align-items:end}}
+  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0;color:var(--silk);
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .card[data-ref]::after{content:attr(data-ref);position:absolute;top:9px;right:12px;font:500 9.5px var(--font-mono);letter-spacing:.12em;color:rgba(157,182,172,.55)}
+  .grid{display:grid;gap:14px}
+  .grid>*{min-width:0}
+  @media(min-width:900px){.grid.two{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}}
+  details,details.howto{border:1px solid var(--line);border-radius:5px;background:var(--panel)}
   details.howto{margin:0 0 16px}
-  details.howto summary{cursor:pointer;font-weight:600}
-  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
-  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
-  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
-  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
-  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
-  .btn[disabled]{opacity:.5;cursor:not-allowed}
-  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
-  .mono,code,kbd{font-family:var(--mono)}
-  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
-  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
-  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
-  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
-  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
-  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
-  .score .big{font-size:28px;color:var(--au-red-dark)}
-  table.data{border-collapse:collapse;width:100%;font-size:14px}
-  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
-  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-  .scroll-x{overflow-x:auto}
-  svg text{font-family:var(--sans)}
-  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
-  .stage3d canvas{display:block;width:100%!important;height:100%!important}
-  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
-  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
-  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
-  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
-  [hidden]{display:none!important}
+  summary{cursor:pointer;padding:10px 12px;font:500 12.5px var(--font-mono);color:var(--silk)}
+  details>*:not(summary){margin-left:12px;margin-right:12px}
+  details.howto ol,details.howto ul{margin:4px 12px 12px;padding-left:20px;color:var(--silk-dim)}
+  details.howto li{margin-bottom:5px}
+  details.howto li::marker{color:var(--copper)}
+  .btn{border:1px solid var(--line);background:var(--panel-2);border-radius:5px;padding:9px 12px;font:500 12px var(--font-mono);color:var(--silk);cursor:pointer;transition:border-color .2s,background .2s;display:inline-flex;gap:6px;align-items:center;justify-content:center}
+  .btn:hover:not(:disabled){border-color:var(--copper)}
+  .btn.primary,.btn.go{background:var(--copper);border-color:var(--copper);color:#1a1205;font-weight:600}
+  .btn.primary:hover:not(:disabled),.btn.go:hover:not(:disabled){background:#e3b461}
+  .btn[aria-pressed="true"],.btn.on{border-color:var(--data);color:var(--data)}
+  .btn:disabled,.btn[disabled]{opacity:.4;cursor:not-allowed}
+  input[type=text],input[type=number],select,textarea{background:var(--board-deep);border:1px solid var(--line);border-radius:5px;padding:8px 10px;font:500 13.5px var(--font-mono);color:var(--silk);min-width:0}
+  input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--copper)}
+  .mono,code,kbd{font-family:var(--font-mono);font-size:.92em}
+  code{background:rgba(232,239,228,.07);padding:1px 5px;border-radius:3px}
+  .cli{background:var(--code-bg);color:var(--code-ink);font:500 12.5px/1.6 var(--font-mono);border-radius:5px;padding:12px 14px;overflow:auto;white-space:pre;border:1px solid var(--line)}
+  .pill{display:inline-block;font:500 10.5px var(--font-mono);letter-spacing:.06em;padding:3px 8px;border-radius:3px;background:var(--panel-2);color:var(--silk-dim);border:1px solid var(--line)}
+  .feedback{border-radius:5px;padding:11px 13px;margin-top:12px;font-size:14.5px;color:var(--silk)}
+  .feedback.ok{background:rgba(143,227,136,.08);border:1px solid rgba(143,227,136,.45)}
+  .feedback.bad{background:rgba(255,122,122,.08);border:1px solid rgba(255,122,122,.45)}
+  .feedback.info{background:rgba(79,209,232,.07);border:1px solid rgba(79,209,232,.4)}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:500 12px var(--font-mono);color:var(--silk-dim)}
+  .score .big{font:600 34px/1 var(--font-mono);font-stretch:112%;color:var(--silk);font-variant-numeric:tabular-nums}
+  table,table.data{border-collapse:collapse;width:100%;font:500 12px var(--font-mono);font-variant-numeric:tabular-nums}
+  th,table.data th{font-weight:500;color:var(--silk-dim);text-align:left;font-size:10.5px;letter-spacing:.04em;padding:7px 8px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  td,table.data td{padding:4px 8px;border-bottom:1px solid rgba(30,74,65,.5)}
+  .scroll-x,.memwrap{overflow-x:auto}
+  .memwrap{border:1px solid var(--line);border-radius:5px}
+  svg text{font-family:var(--font-mono)}
+  /* step-by-step explanation (page mode and app mode) */
+  .stepper{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .caption,.narr{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:13px 15px;color:var(--silk)}
+  .caption{margin-top:12px;min-height:4.4em}
+  .caption .t{font:500 11px var(--font-mono);letter-spacing:.1em;color:var(--cap,var(--copper));margin-bottom:6px;text-transform:uppercase}
+  .narr{display:flex;flex-direction:column;gap:8px}
+  .narr-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:400 11px var(--font-mono);color:var(--silk-dim)}
+  .ptag{display:inline-flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.1em;color:var(--silk)}
+  .ptag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--pc,var(--silk-dim));box-shadow:0 0 8px var(--pc,transparent)}
+  .narr p{margin:0;font-size:15.5px;line-height:1.55;min-height:4.6em}
+  .controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .controls .btn{padding:10px 6px}
+  .speed{display:flex;align-items:center;gap:12px;font:400 11.5px var(--font-mono);color:var(--silk-dim)}
+  .speed input{flex:1;min-width:0}
+  .speed output{color:var(--silk);width:3.5em;text-align:right;font-variant-numeric:tabular-nums}
+  .hint{margin:0;font-size:12px;color:var(--silk-dim)}
+  .rail{display:flex;gap:2px;margin:4px 0 12px;padding:4px;list-style:none;background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px}
+  .rail>div,.rail>li{flex:1;text-align:center;font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .rail>div small{display:block;font:400 9.5px var(--font-body);letter-spacing:.02em;text-transform:none;margin-top:2px;opacity:.85}
+  .rail>.on{background:var(--c,var(--copper));color:#1a1205}
+  .rail>.done{color:var(--c,var(--copper))}
+  /* live state */
+  .regs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .reg{border:1px solid var(--line);border-radius:5px;padding:9px 11px;transition:border-color .3s,background .3s;min-width:0}
+  .reg.kv{display:grid;grid-template-columns:1fr auto;gap:1px 8px;align-items:baseline}
+  .reg.on,.reg.flash{border-color:var(--hc,var(--copper));background:rgba(212,162,76,.07)}
+  .reg .rn{font:600 12px var(--font-mono)}
+  .reg .rv{font:600 17px var(--font-mono);text-align:right;font-variant-numeric:tabular-nums}
+  .reg .rf{font-size:11.5px;color:var(--silk-dim)}
+  .reg .rs{font:400 10.5px var(--font-mono);color:var(--silk-dim);text-align:right;font-variant-numeric:tabular-nums}
+  .reg.wide{grid-column:1/-1}
+  .reg .n{display:flex;justify-content:space-between;align-items:baseline;font:600 12px var(--font-mono);color:var(--silk)}
+  .reg .n b{font:600 17px var(--font-mono);font-variant-numeric:tabular-nums}
+  .bits{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--nb,8),1fr);gap:4px;margin-top:8px}
+  .bit{display:flex;flex-direction:column;align-items:center;gap:3px;font:400 9.5px var(--font-mono);color:var(--silk-dim)}
+  .bit i{width:100%;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);transition:background .25s,box-shadow .25s}
+  .bit.one i{background:var(--led);border-color:var(--led);box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .ledbits{display:flex;gap:4px;margin:6px 0 2px;flex-wrap:wrap}
+  .ledbits i{width:16px;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);font:600 9px/14px var(--font-mono);font-style:normal;color:#3d5f50;text-align:center}
+  .ledbits i.on{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .tape{display:flex;flex-wrap:wrap;gap:4px;min-height:34px;align-content:flex-start}
+  .tape span{font:600 13px var(--font-mono);color:var(--out);background:#0b2a1a;border:1px solid #1f5a37;border-radius:3px;padding:3px 7px;font-variant-numeric:tabular-nums}
+  .tape em{font-style:normal;font-size:12px;color:var(--silk-dim)}
+  .notice{margin:0;padding-left:18px;color:var(--silk-dim);font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+  .notice li::marker{color:var(--copper)}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font:400 10.5px var(--font-mono);color:var(--silk-dim);letter-spacing:.04em}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:16px;height:3px;border-radius:2px;background:var(--c);box-shadow:0 0 8px var(--c)}
+  /* app mode: the 3D board fills the left, a control rail sits on the right (stacks under the board on phones) */
+  .app{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,410px);height:calc(100vh - 55px);min-height:560px}
+  .stage{position:relative;min-width:0;min-height:320px;overflow:hidden;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);touch-action:none}
+  .stage .gl{position:absolute;inset:0;display:block;z-index:1}
+  .stage .labels{position:absolute!important;top:0;left:0;z-index:2}
+  .stage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+  .nogl{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;text-align:center;color:var(--silk-dim);font-size:12.5px;z-index:4;background:rgba(6,23,20,.85)}
+  .hud{position:absolute;z-index:3;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hud button,.hud a{pointer-events:auto}
+  .hud-top{top:14px;left:16px;right:16px}
+  .hud-bottom{bottom:14px;left:16px;right:16px;justify-content:space-between;align-items:flex-end}
+  .hud .phases,.hud .ticks,.hud .legend,.hud .views{background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px;backdrop-filter:blur(6px)}
+  .phases{list-style:none;margin:0;padding:4px;display:flex;gap:2px}
+  .phases li{font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .phases li.on{background:var(--c,var(--copper));color:#1a1205}
+  .ticks{font:400 11px var(--font-mono);color:var(--silk-dim);padding:9px 10px;font-variant-numeric:tabular-nums}
+  .ticks b{color:var(--silk);font-weight:600}
+  .hud .legend{padding:8px 12px}
+  .views{display:flex;gap:2px;padding:4px}
+  .views button{border:0;background:transparent;font:400 11px var(--font-mono);padding:6px 10px;border-radius:4px;color:var(--silk-dim);cursor:pointer}
+  .views button:hover{color:var(--silk)}
+  .views button.on{background:var(--panel-2);color:var(--silk)}
+  .credit{flex-basis:100%;margin:2px 0 0 2px;font:600 14px var(--font-mono);letter-spacing:.08em;color:var(--neon);text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.75),0 0 26px rgba(57,255,20,.45)}
+  .tag,.stage3d .label3d{pointer-events:none;display:flex;flex-direction:column;align-items:center;font-family:var(--font-mono);line-height:1.1;text-align:center;color:var(--silk);text-shadow:0 1px 2px rgba(0,0,0,.8)}
+  .tag .nm{font-size:calc(var(--lab) * .85);letter-spacing:.1em;color:var(--silk-dim)}
+  .tag .vl{font-size:calc(var(--lab) * 1.3);font-weight:600;font-variant-numeric:tabular-nums}
+  .tag .sb{font-size:calc(var(--lab) * .72);color:var(--silk-dim);letter-spacing:.04em}
+  .tag .sb:empty{display:none}
+  .tag.on .nm{color:var(--silk)}
+  .tag.on .vl{color:#fff4d6}
+  .cell .nm{font-size:calc(var(--lab) * .75)}
+  .cell .vl{font-size:calc(var(--lab) * 1.15)}
+  .zone{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * .82);letter-spacing:.14em;text-transform:uppercase;color:var(--c,var(--silk-dim));opacity:.85;white-space:nowrap;text-align:center;line-height:1.3}
+  .lcd{pointer-events:none;font-family:var(--font-mono);font-weight:600;color:var(--out);font-size:calc(var(--lab) * 2);text-shadow:0 0 10px rgba(143,227,136,.8);font-variant-numeric:tabular-nums}
+  .pkt{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * 1.1);font-weight:700;color:#06120f;background:var(--c);padding:2px 6px;border-radius:3px;box-shadow:0 0 14px var(--c);white-space:nowrap}
+  .panel{min-width:0;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:20px 18px 28px;display:flex;flex-direction:column;gap:22px;
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .panel h1{font-size:24px;margin:4px 0 6px}
+  /* the older make3D stage (page mode) */
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:280px;border-radius:6px;overflow:hidden;touch-action:none;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);border:1px solid var(--line)}
+  @media(max-width:640px){.stage3d{aspect-ratio:4/3}}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:12px;color:var(--silk-dim);background:rgba(6,23,20,.85);text-align:center}
+  .stage3d .label3d{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:11px;font-weight:600}
+  .stage3d .label3d.pkt{color:#06120f;text-shadow:none;background:var(--c,currentColor);padding:2px 6px;border-radius:3px}
+  footer.foot{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:16px;color:var(--silk-dim);font-size:12.5px;border-top:1px solid var(--line)}
+  footer.foot .byline,.byline{margin-top:4px;font:600 13px var(--font-mono)!important;letter-spacing:.08em;color:var(--neon)!important;text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.6)}
+  .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media(max-width:860px){
+    .app{grid-template-columns:1fr;height:auto}
+    .app .stage{height:62vh;min-height:360px}
+    .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  }
+  @media(max-width:520px){
+    .hud .legend{font-size:9.5px;gap:3px 10px}
+    .phases li{padding:5px 7px;font-size:10px}
+    .controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
   @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  .muted{color:var(--muted)} .small{font-size:14px}
-  .prog-row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
-  .prog-row .field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
-  .prog-row p{margin:0;flex:1;min-width:220px}
-  .editbox{margin-top:12px} .editbox summary{cursor:pointer;font-weight:600}
-  textarea{width:100%;font-family:var(--mono);font-size:14px;border:1px solid #CBD2DA;border-radius:8px;padding:10px;margin-top:8px}
-  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .phases{display:flex;gap:6px;flex-wrap:wrap}
-  .phase{font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .phase.on{background:var(--au-red);color:#fff}
+  /* ===== end of theme ===== */
+
+
+  /* page-specific: CPU datapath animator (app mode: the Bay-4 board on the left, the control rail on the right) */
+  /* 2D datapath diagram on a dark board (same colors as the 3D board) */
   .svgwrap{width:100%}
   #dp{width:100%;height:auto;display:block}
-  #dp .wire{fill:none;stroke:#CBD2DA;stroke-width:2.5;transition:stroke .2s}
-  #dp .wire.ctrlw{stroke-dasharray:6 5;stroke-width:2}
-  #dp .wire.on{stroke:var(--au-red);stroke-width:4;marker-end:url(#arrOn)}
-  #dp .wire.ctrlw.on{stroke:#7C3AED;stroke-width:3}
-  #dp .box rect,#dp .box path{fill:#fff;stroke:#94A3B8;stroke-width:2;transition:fill .2s,stroke .2s}
-  #dp .box.on rect,#dp .box.on path{fill:var(--au-red-soft);stroke:var(--au-red);stroke-width:3}
-  #dp .lbl{font-size:13px;font-weight:600;fill:var(--ink-2);text-anchor:middle}
-  #dp .val{font-size:20px;font-weight:700;fill:var(--ink);text-anchor:middle;font-family:var(--mono)}
-  #dp .small-val{font-size:13px;font-weight:600}
-  #dp .tiny{font-size:11px;fill:var(--muted)}
-  .legend{margin-top:8px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .lg{display:inline-block;width:22px;height:4px;border-radius:2px;background:var(--au-red)}
-  .lg.ctl{background:repeating-linear-gradient(90deg,#7C3AED 0 6px,transparent 6px 10px)}
-  .explain{min-height:96px}
-  h3{font-size:15px;margin:14px 0 6px}
-  table.sig td:first-child{font-family:var(--mono);font-weight:600;width:45%}
-  table.sig tr.active td{background:#F3EEFF;color:#4C1D95;font-weight:700}
-  .outlist{background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:10px 12px;min-height:40px;word-break:break-word}
-  table.rom td,table.rom th{white-space:nowrap}
-  table.rom tr.pc td{background:var(--au-red-soft);font-weight:700}
-  table.rom td.mono, .mono{font-family:var(--mono)}
-  .q{border-top:1px solid var(--line);padding:12px 0}
-  .q p{margin:0 0 8px;font-weight:600}
-  .opts{display:flex;flex-direction:column;gap:6px}
-  .opts button{text-align:left}
-  .opts button.right{background:var(--ok-soft);border-color:#BBE5C8}
-  .opts button.wrong{background:var(--bad-soft);border-color:#F5C2C2}
-  .head-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-  .head-row h2{margin:0}
-  .viewtog{display:flex;gap:6px}
-  .small-btn{padding:6px 10px;font-size:13px}
-  .viewtog .btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .phases{margin:10px 0}
-  .lg.pk{width:10px;height:10px;border-radius:50%;background:#FACC15;box-shadow:0 0 0 2px #FDE68A}
-  .label3d.pkt{background:#FACC15;color:#16181D;font-family:var(--mono);font-weight:700}
-  .follow{display:inline-flex;align-items:center;gap:6px;margin-left:4px}
-  .stage3d{margin-bottom:6px}
-  @media(max-width:520px){.stage3d .label3d{font-size:10px;padding:1px 4px}}
-  .grid>*{min-width:0}
-  .stage3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
-  .card > .fallback{font-size:14px;color:var(--muted);background:#F5F7FA;border-radius:8px;padding:8px 12px;margin:6px 0}
+  #dp .pcb{fill:#0d302a;stroke:#2a5c51;stroke-width:1.5}
+  #dp .wire{fill:none;stroke:color-mix(in srgb,var(--copper) 60%,#0d302a);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;transition:stroke .2s,stroke-width .2s}
+  #dp .wire.ctrlw{stroke:#5E3550;stroke-dasharray:6 5;stroke-width:2}
+  #dp .wire.on{stroke-width:4.5}
+  #dp .wire.on[data-c=addr]{stroke:var(--addr);marker-end:url(#arrA);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--addr) 70%,transparent))}
+  #dp .wire.on[data-c=data]{stroke:var(--data);marker-end:url(#arrD);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--data) 70%,transparent))}
+  #dp .wire.on[data-c=oper]{stroke:var(--oper);marker-end:url(#arrO);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--oper) 70%,transparent))}
+  #dp .wire.on[data-c=alu]{stroke:var(--alu);marker-end:url(#arrL);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--alu) 70%,transparent))}
+  #dp .wire.on[data-c=out]{stroke:var(--out);marker-end:url(#arrY);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--out) 70%,transparent))}
+  #dp .wire.on[data-c=ctrl]{stroke:var(--ctrl);marker-end:url(#arrC);stroke-width:3;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--ctrl) 70%,transparent))}
+  #dp .box rect,#dp .box path{fill:#15191b;stroke:#3c5a52;stroke-width:2;transition:fill .2s,stroke .2s}
+  #dp .box.on rect,#dp .box.on path{fill:#1b2427;stroke:var(--hl,var(--addr));stroke-width:3;filter:drop-shadow(0 0 6px var(--hl,var(--addr)))}
+  #dp .lbl{font-size:12px;font-weight:600;fill:var(--silk-2);text-anchor:middle}
+  #dp .val{font-size:19px;font-weight:600;fill:var(--led);text-anchor:middle;font-family:var(--mono)}
+  #dp .small-val{font-size:12px;font-weight:600}
+  #dp .tiny{font-size:10px;fill:var(--dim)}
+  #dp .pkt2{font:600 12px var(--mono);paint-order:stroke;stroke:#061714;stroke-width:4px}
+  .chk{display:inline-flex;gap:8px;align-items:center;cursor:pointer;font-size:13.5px;color:var(--silk-dim)}
+  .predict{border:1px dashed var(--ctrl);border-radius:6px;padding:12px;background:rgba(255,122,154,.06)}
+  .predict .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .predict input[type=number]{width:90px}
+  .fb{margin-top:10px;padding:10px 12px;border-radius:5px;font-size:14px}
+  .fb.ok{background:rgba(143,227,136,.08);border:1px solid rgba(143,227,136,.45)}
+  .fb.bad{background:rgba(255,122,122,.08);border:1px solid rgba(255,122,122,.45)}
+  .info{font-size:13.5px;color:var(--silk-dim);border:1px solid var(--line);border-radius:5px;padding:10px 12px}
+  .info b{color:var(--silk)}
+  .panel footer{font-size:12px;color:var(--silk-dim);border-top:1px solid var(--line);padding-top:12px}
+  .hud .follow{pointer-events:auto}
+  .views[hidden]{display:none!important}
+  /* the datapath diagram can replace the board in the stage */
+  .stage .svgwrap{position:absolute;inset:118px 14px 86px;width:auto;z-index:2;display:flex;align-items:center;justify-content:center}
+  .stage .nogl{bottom:auto;top:140px;background:rgba(6,23,20,.72)}
+  .stage .svgwrap svg{width:100%;height:100%;max-height:100%}
+  .stage.show-dp .gl,.stage.show-dp .labels,.stage.show-dp .flat{visibility:hidden}
+  .stage .flat text{font-family:var(--font-mono)}
+  @media(max-width:700px){.stage .tag .sb{display:none}.stage .zone.minor{display:none}.stage .svgwrap{inset:150px 6px 120px}.stage .nogl{top:236px;font-size:11.5px;padding:6px 10px}}
+  .stage.show-dp .zoomctl{display:none}
 
+  .controls{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .panel select{width:100%}
+  .sampledesc{margin:8px 0 0;font-size:13px;color:var(--silk-dim)}
+  .editbox{margin-top:10px}
+  textarea{width:100%;min-height:150px;resize:vertical;line-height:1.6;margin:8px 0}
+  table.sig td{vertical-align:top}
+  table.sig td:first-child{color:var(--silk-dim);width:40%}
+  table.sig td .small{font:400 11.5px var(--font-body);color:var(--silk-dim)}
+  table.sig tr.active td{background:rgba(255,122,154,.08);color:var(--ctrl)}
+  table.sig tr.active td:first-child{box-shadow:inset 2px 0 0 var(--ctrl);color:var(--ctrl)}
+  .outline{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px;font:500 12px var(--font-mono);color:var(--silk-dim)}
+  #outList{color:var(--out)}
+  #outList.none{color:var(--silk-dim)}
+  #stepCount{margin:6px 0 0;font:400 11.5px var(--font-mono);color:var(--silk-dim)}
+  table.rom td{white-space:nowrap;color:var(--silk-dim)}
+  table.rom td:last-child{color:var(--silk)}
+  table.rom tr.pc td{background:rgba(242,179,61,.1);color:var(--addr)}
+  table.rom tr.pc td:first-child{box-shadow:inset 2px 0 0 var(--addr)}
+  table.rom .muted{opacity:.55}
+  table.isa td:first-child{color:var(--copper)}
+  .q{border-top:1px solid var(--line);padding:12px 0}
+  .q p{margin:0 0 8px;font-weight:600;font-size:14px}
+  .opts{display:flex;flex-direction:column;gap:6px}
+  .opts button{justify-content:flex-start;text-align:left;font:500 13.5px var(--font-body);white-space:normal}
+  .opts button.right{border-color:var(--ok);color:var(--ok);background:rgba(143,227,136,.08)}
+  .opts button.wrong{border-color:var(--bad);color:var(--bad);background:rgba(255,122,122,.08)}
+  .qbar{height:4px;border-radius:2px;background:#13312b;overflow:hidden;margin:8px 0 2px}
+  .qbar div{height:100%;width:0;background:var(--ok);transition:width .3s}
 </style>
 </head>
 <body>
@@ -141,80 +295,54 @@
   </div>
 </header>
 
-<main class="wrap">
-  <section class="hero">
-    <span class="eyebrow">Week 5 · Explorer</span>
-    <h1>CPU datapath animator</h1>
-    <p class="lede">Watch the Bay-4 processor run a program one phase at a time: fetch the instruction, decode it into control signals, and execute it.</p>
-  </section>
-
-    <details class="howto card">
-    <summary>How to use this interactive</summary>
-    <ol>
-      <li>Pick a sample program, or write your own in the program box (one instruction per line) and press <b>Load program</b>.</li>
-      <li>Press <b>Step forward</b> to move through fetch, decode, and execute. Watch the yellow data packets travel on the buses; red blocks are active in that phase. <b>Step back</b> undoes a phase.</li>
-      <li>Read the explanation and the control signals the decoder turns on for the current instruction.</li>
-      <li>Rotate the 3D board and click any block to learn what it does, or switch to the 2D diagram. Use <b>Next instruction</b> or <b>Play</b> to go faster, then try the self-check.</li>
-    </ol>
-  </details>
-
-  <section class="card" aria-label="Program">
-    <div class="prog-row">
-      <label class="field">Sample program
-        <select id="sample"></select>
-      </label>
-      <p id="sampleDesc" class="muted small"></p>
+<div class="app">
+  <section class="stage" id="stage" aria-label="3D view of the Bay-4 board. Drag to orbit, scroll or pinch to zoom, click a chip to learn what it does.">
+    <div class="hud hud-top">
+      <ol class="phases" id="rail" aria-label="Instruction cycle phase">
+        <li data-r="0" style="--c:var(--addr)">Fetch</li>
+        <li data-r="1" style="--c:var(--ctrl)">Decode</li>
+        <li data-r="2" style="--c:var(--data)">Execute</li>
+        <li data-r="3" style="--c:var(--alu)">Next PC</li>
+      </ol>
+      <div class="views" role="group" aria-label="What the stage shows">
+        <button type="button" id="view3d" class="on" aria-pressed="true">Board</button>
+        <button type="button" id="view2d" aria-pressed="false">Datapath diagram</button>
+      </div>
+      <div class="ticks">instructions <b id="hudSteps">0</b></div>
+      <p class="credit">By Professor De Leon</p>
     </div>
-    <details class="editbox">
-      <summary>Write or edit the program</summary>
-      <p class="small muted">One instruction per line: NOP, LDA n, LDB n, ADD, SUB, AND, OR, OUT, JMP a, JZ a, HLT (n and a are 0 to 15). Text after # is a comment.</p>
-      <textarea id="progText" rows="8" spellcheck="false" aria-label="Program text"></textarea>
-      <div class="btnrow"><button class="btn primary" id="loadBtn">Load program</button></div>
-      <div id="progErr" class="feedback bad" hidden></div>
-    </details>
-  </section>
-
-  <div class="grid two">
-    <section class="card">
-      <div class="head-row">
-        <h2>The Bay-4 datapath</h2>
-        <div class="viewtog" role="group" aria-label="View">
-          <button class="btn small-btn" id="view3d" aria-pressed="true">3D board</button>
-          <button class="btn small-btn" id="view2d" aria-pressed="false">2D diagram</button>
-        </div>
-      </div>
-      <div class="phases" aria-label="Instruction cycle phases">
-        <span class="phase" data-ph="0">1 Fetch</span>
-        <span class="phase" data-ph="1">2 Decode</span>
-        <span class="phase" data-ph="2">3 Execute</span>
-      </div>
-      <div class="stage3d" id="stage"></div>
-      <div class="svgwrap" id="svgwrap">
+    <div class="svgwrap" id="svgwrap" hidden>
         <svg id="dp" viewBox="0 0 760 430" role="img" aria-label="Bay-4 datapath diagram">
           <defs>
-            <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#94A3B8"/></marker>
-            <marker id="arrOn" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#E1141E"/></marker>
+            <marker id="arr" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#B87333"/></marker>
+            <marker id="arrA" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk" style="fill:var(--addr)"/></marker>
+            <marker id="arrD" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk" style="fill:var(--data)"/></marker>
+            <marker id="arrO" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk" style="fill:var(--oper)"/></marker>
+            <marker id="arrC" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk" style="fill:var(--ctrl)"/></marker>
+            <marker id="arrL" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk" style="fill:var(--alu)"/></marker>
+            <marker id="arrY" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk" style="fill:var(--out)"/></marker>
           </defs>
-          <!-- wires -->
-          <path id="w_pc_rom" class="wire" d="M120 70 H170" marker-end="url(#arr)"/>
-          <path id="w_rom_ir" class="wire" d="M300 70 H350" marker-end="url(#arr)"/>
-          <path id="w_ir_ctrl" class="wire" d="M395 110 V160" marker-end="url(#arr)"/>
-          <path id="w_op_A" class="wire" d="M470 85 H520 V85 H560" marker-end="url(#arr)"/>
-          <path id="w_op_B" class="wire" d="M470 92 H510 V200 H560" marker-end="url(#arr)"/>
-          <path id="w_op_PC" class="wire" d="M455 50 V18 H70 V40" marker-end="url(#arr)"/>
-          <path id="w_pc_inc" class="wire" d="M70 100 V150 H40 V60 H50" marker-end="url(#arr)"/>
-          <path id="w_A_alu" class="wire" d="M600 110 V250 H520 V285" marker-end="url(#arr)"/>
-          <path id="w_B_alu" class="wire" d="M640 225 V265 H560 V285" marker-end="url(#arr)"/>
-          <path id="w_alu_A" class="wire" d="M500 345 V380 H700 V75 H680" marker-end="url(#arr)"/>
-          <path id="w_alu_Z" class="wire" d="M560 330 H600" marker-end="url(#arr)"/>
-          <path id="w_A_out" class="wire" d="M680 95 H720 V240" marker-end="url(#arr)"/>
-          <path id="w_Z_ctrl" class="wire ctrlw" d="M650 345 V410 H330 V230" marker-end="url(#arr)"/>
+          <rect class="pcb" x="2" y="2" width="756" height="426" rx="14"/>
+          <!-- wires (data-c = signal color: addr amber, data cyan, oper lime, ctrl magenta, alu orange, out yellow) -->
+          <path id="w_pc_rom" class="wire" data-c="addr" d="M120 70 H170" marker-end="url(#arr)"/>
+          <path id="w_rom_ir" class="wire" data-c="data" d="M300 70 H350" marker-end="url(#arr)"/>
+          <path id="w_ir_ctrl" class="wire" data-c="ctrl" d="M395 110 V160" marker-end="url(#arr)"/>
+          <path id="w_op_A" class="wire" data-c="oper" d="M470 85 H520 V85 H560" marker-end="url(#arr)"/>
+          <path id="w_op_B" class="wire" data-c="oper" d="M470 92 H510 V200 H560" marker-end="url(#arr)"/>
+          <path id="w_op_PC" class="wire" data-c="oper" d="M455 50 V18 H70 V40" marker-end="url(#arr)"/>
+          <path id="w_pc_inc" class="wire" data-c="addr" d="M70 100 V150 H40 V60 H50" marker-end="url(#arr)"/>
+          <path id="w_A_alu" class="wire" data-c="alu" d="M600 110 V250 H520 V285" marker-end="url(#arr)"/>
+          <path id="w_B_alu" class="wire" data-c="alu" d="M640 225 V265 H560 V285" marker-end="url(#arr)"/>
+          <path id="w_alu_A" class="wire" data-c="alu" d="M500 345 V380 H700 V75 H680" marker-end="url(#arr)"/>
+          <path id="w_alu_Z" class="wire" data-c="alu" d="M560 330 H600" marker-end="url(#arr)"/>
+          <path id="w_A_out" class="wire" data-c="out" d="M680 95 H720 V240" marker-end="url(#arr)"/>
+          <path id="w_Z_ctrl" class="wire ctrlw" data-c="ctrl" d="M650 345 V410 H330 V230" marker-end="url(#arr)"/>
           <!-- control lines (dashed) -->
-          <path id="c_A" class="wire ctrlw" d="M450 185 H545 V110"/>
-          <path id="c_B" class="wire ctrlw" d="M450 200 H545 V215"/>
-          <path id="c_alu" class="wire ctrlw" d="M420 230 V305 H455"/>
-          <path id="c_pc" class="wire ctrlw" d="M340 200 H95 V100"/>
-          <path id="c_out" class="wire ctrlw" d="M450 215 H690 V250"/>
+          <path id="c_A" class="wire ctrlw" data-c="ctrl" d="M450 185 H545 V110"/>
+          <path id="c_B" class="wire ctrlw" data-c="ctrl" d="M450 200 H545 V215"/>
+          <path id="c_alu" class="wire ctrlw" data-c="ctrl" d="M420 230 V305 H455"/>
+          <path id="c_pc" class="wire ctrlw" data-c="ctrl" d="M340 200 H95 V100"/>
+          <path id="c_out" class="wire ctrlw" data-c="ctrl" d="M450 215 H690 V250"/>
           <!-- boxes -->
           <g id="b_pc" class="box"><rect x="20" y="40" width="100" height="60" rx="8"/><text x="70" y="62" class="lbl">PC</text><text x="70" y="88" class="val" id="v_pc">0</text></g>
           <g id="b_rom" class="box"><rect x="170" y="30" width="130" height="80" rx="8"/><text x="235" y="55" class="lbl">Instruction ROM</text><text x="235" y="85" class="val small-val" id="v_rom">16 x 8 bits</text></g>
@@ -230,76 +358,162 @@
           <text x="478" y="80" class="tiny">operand</text>
           <text x="345" y="425" class="tiny">Z tells the decoder whether JZ jumps</text>
         </svg>
+    </div>
+    <div class="hud hud-bottom">
+      <div class="legend" aria-label="Bus colors">
+        <span style="--c:var(--addr)"><i></i>address</span>
+        <span style="--c:var(--data)"><i></i>instruction</span>
+        <span style="--c:var(--oper)"><i></i>operand</span>
+        <span style="--c:var(--ctrl)"><i></i>control</span>
+        <span style="--c:var(--alu)"><i></i>ALU</span>
+        <span style="--c:var(--out)"><i></i>output</span>
       </div>
-      <div class="legend small"><span class="lg on"></span> active in this phase <span class="lg ctl"></span> control signal <span class="lg pk"></span> data moving on a bus</div>
-      <div class="caption" id="explain" aria-live="polite">Press <b>Step forward</b> to fetch the first instruction.</div>
-      <div class="stepper">
-        <button class="btn" id="backBtn" aria-label="Step back">&#9664; Step back</button>
-        <button class="btn primary" id="phaseBtn">Step forward &#9654;</button>
-        <button class="btn" id="instrBtn">Next instruction</button>
-        <button class="btn" id="runBtn">Play</button>
-        <button class="btn" id="resetBtn">Reset</button>
-        <label class="small follow"><input type="checkbox" id="follow" checked> Camera follows the action</label>
+      <div class="views" id="camViews" role="group" aria-label="Camera views">
+        <button type="button" data-view="overview" class="on">Overview</button>
+        <button type="button" data-view="cpu">CPU</button>
+        <button type="button" data-view="rom">ROM</button>
+        <button type="button" data-view="output">Output</button>
+        <button type="button" id="follow" class="on" aria-pressed="true" title="Move the camera to each step">Follow</button>
       </div>
-      <p class="small muted tip3d" id="tip3d">Drag to rotate the board, scroll or pinch to zoom, and click any block to learn what it does.</p>
+    </div>
+    <div class="nogl" id="nogl" hidden>The 3D board needs WebGL and the 3D libraries, which are not available here. The flat board shows the same steps, and the panel has every value.</div>
+  </section>
+
+  <aside class="panel">
+    <header>
+      <p class="eyebrow">Week 5 · Explorer · Bay-4 CPU</p>
+      <h1>CPU datapath animator</h1>
+      <p class="lede">Watch the Bay-4 processor run a program one phase at a time: fetch the instruction, decode it into control signals, and execute it.</p>
+    </header>
+
+    <section class="narr" aria-live="polite">
+      <div class="narr-head"><span class="ptag" id="phaseTitle">Ready</span><span id="instrCtx">Next instruction at address 0</span></div>
+      <p id="explain">Press <b>Step forward</b> to fetch the first instruction.</p>
     </section>
 
-    <aside class="card">
-      <h2 id="phaseTitle">Ready</h2>
-      <p class="small muted">The decoder reads the opcode and turns on these control signals. Highlighted rows are on for the current instruction.</p>
-      <h3>Control signals</h3>
-      <div class="scroll-x">
-        <table class="data sig" id="sigTable"><tbody></tbody></table>
+    <div>
+      <div class="controls">
+        <button type="button" class="btn primary" id="phaseBtn">Step forward</button>
+        <button type="button" class="btn" id="backBtn" aria-label="Step back">Step back</button>
+        <button type="button" class="btn" id="runBtn">Play</button>
+        <button type="button" class="btn" id="instrBtn">Next instruction</button>
+        <button type="button" class="btn" id="resetBtn">Reset</button>
+        <button type="button" class="btn" id="overview">Overview</button>
       </div>
-      <h3>Output</h3>
-      <div id="outList" class="outlist mono">nothing yet</div>
-      <p class="small muted" id="stepCount">Instructions executed: 0</p>
-    </aside>
-  </div>
-
-  <section class="card">
-    <h2>Instruction ROM</h2>
-    <p class="small muted">Each word is 8 bits: a 4-bit opcode (what to do) and a 4-bit operand (a number or a jump address). The highlighted row is where the PC points.</p>
-    <div class="scroll-x">
-      <table class="data rom" id="romTable">
-        <thead><tr><th>Address</th><th>Word (binary)</th><th>Opcode</th><th>Operand</th><th>Instruction</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <div class="speed" style="margin-top:12px"><label for="speed">Speed</label><input type="range" id="speed" min="0" max="5" step="1" value="2"><output id="speedOut" for="speed">1×</output></div>
+      <p class="hint" style="margin-top:8px">Step forward moves one phase: fetch, decode, or execute. Keyboard: Space steps, B steps back, R plays or pauses.</p>
+      <p style="margin:10px 0 0"><label class="chk"><input type="checkbox" id="predict"> Predict before execute: after each decode, guess the result</label></p>
+      <div class="predict" id="pq" hidden style="margin-top:10px">
+        <div id="pqT" style="font-weight:600"></div>
+        <div class="row"><input type="number" id="pqIn" min="0" max="15" inputmode="numeric" aria-label="Your prediction (0 to 15)"><button class="btn primary" id="pqGo" type="button">Check</button><span class="mono" id="pqScore" style="font-size:11.5px;color:var(--silk-dim)"></span></div>
+        <div id="pqFb"></div>
+      </div>
     </div>
-  </section>
 
-  <section class="card">
-    <h2>Instruction set reference</h2>
-    <div class="scroll-x">
-      <table class="data">
+    <section>
+      <h2>Registers <small>inside the CPU</small></h2>
+      <div class="regs" id="regs">
+        <div class="reg kv" id="r-pc"><span class="rn">PC</span><span class="rv" id="g-pc">0</span><span class="rf">Program counter</span><span class="rs" id="gs-pc">0000</span></div>
+        <div class="reg kv" id="r-zf"><span class="rn">Z</span><span class="rv" id="g-zf">0</span><span class="rf">Zero flag</span><span class="rs" id="gs-zf">last result not 0</span></div>
+        <div class="reg kv wide" id="r-ir"><span class="rn">IR</span><span class="rv" id="g-ir">--</span><span class="rf">Instruction register: opcode | operand</span><span class="rs" id="gs-ir">empty</span><div class="bits" id="bits-ir"></div></div>
+        <div class="reg kv" id="r-a"><span class="rn">A</span><span class="rv" id="g-a">0</span><span class="rf">Main register</span><span class="rs" id="gs-a">0000</span><div class="bits" id="bits-a" style="--nb:4"></div></div>
+        <div class="reg kv" id="r-b"><span class="rn">B</span><span class="rv" id="g-b">0</span><span class="rf">Second ALU input</span><span class="rs" id="gs-b">0000</span><div class="bits" id="bits-b" style="--nb:4"></div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Control signals <small>set by the decoder</small></h2>
+      <p class="hint" style="margin:0 0 8px">The decoder reads the opcode and turns on these control signals. Highlighted rows are on for the current instruction.</p>
+      <div class="memwrap"><table class="sig" id="sigTable"><tbody></tbody></table></div>
+    </section>
+
+    <section>
+      <h2>Output display</h2>
+      <div class="tape" id="tape"><em>Nothing shown yet</em></div>
+      <div class="outline">Shown so far: <span id="outList" class="none">nothing yet</span></div>
+      <p id="stepCount">Instructions executed: 0</p>
+    </section>
+
+    <section>
+      <h2>Program</h2>
+      <label for="sample" class="eyebrow" style="margin-bottom:6px">Sample program</label>
+      <select id="sample"></select>
+      <p id="sampleDesc" class="sampledesc"></p>
+      <details class="editbox">
+        <summary>Write or edit the program</summary>
+        <div style="padding:0 0 12px">
+          <p class="hint">One instruction per line: NOP, LDA n, LDB n, ADD, SUB, AND, OR, OUT, JMP a, JZ a, HLT (n and a are 0 to 15). Text after # is a comment.</p>
+          <textarea id="progText" rows="8" spellcheck="false" aria-label="Program text"></textarea>
+          <button class="btn primary" id="loadBtn" type="button">Load program</button>
+          <div id="progErr" class="feedback bad" hidden></div>
+        </div>
+      </details>
+    </section>
+
+    <section>
+      <h2>Instruction ROM <small>16 words of 8 bits</small></h2>
+      <p class="hint" style="margin:0 0 8px">Each word is 8 bits: a 4-bit opcode (what to do) and a 4-bit operand (a number or a jump address). The amber row is where the PC points.</p>
+      <div class="memwrap">
+        <table class="rom" id="romTable">
+          <thead><tr><th>Address</th><th>Word (binary)</th><th>Opcode</th><th>Operand</th><th>Instruction</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="info" id="info"><span id="tip3d">Drag to rotate the board, scroll or pinch to zoom, and click any chip to learn what it does.</span><span id="tip2d" hidden>Click any block to learn what it does.</span></div>
+
+    <section>
+      <h2>Things to notice</h2>
+      <ul class="notice">
+        <li>Every instruction starts with the same fetch: the PC sends an address, the ROM sends back one 8-bit word.</li>
+        <li>Decode is where instructions differ. The opcode in the top 4 bits decides which control signals turn on.</li>
+        <li>Only ADD, SUB, AND, and OR update the zero flag, and JZ reads the flag the last ALU instruction left behind.</li>
+        <li>Registers have 4 bits, so 9 + 8 shows 1 and 0 - 1 shows 15. Watch the "Overflow: 9 + 8" sample.</li>
+      </ul>
+    </section>
+
+    <details>
+      <summary>How to use this interactive</summary>
+      <ol style="margin:4px 12px 12px;padding-left:20px;color:var(--silk-dim)">
+        <li>Pick a sample program, or write your own in the program box (one instruction per line) and press <b>Load program</b>.</li>
+        <li>Press <b>Step forward</b> to move through fetch, decode, and execute. Watch the glowing packets travel on the buses: each bus has its own color, and the chips that take part in the phase light up. <b>Step back</b> undoes a phase.</li>
+        <li>Read the narration and the control signals the decoder turns on for the current instruction.</li>
+        <li>Rotate the board and click any chip to learn what it does, or switch to the datapath diagram. Use <b>Next instruction</b>, <b>Play</b>, and the speed slider to go faster.</li>
+        <li>Turn on <b>Predict before execute</b> to guess each result before you see it, then try the self-check below.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary>Instruction set reference</summary>
+      <table class="isa">
         <thead><tr><th>Opcode</th><th>Instruction</th><th>What it does</th></tr></thead>
         <tbody>
-          <tr><td class="mono">0000</td><td class="mono">NOP</td><td>Nothing, go to the next instruction</td></tr>
-          <tr><td class="mono">0001</td><td class="mono">LDA n</td><td>A = n</td></tr>
-          <tr><td class="mono">0010</td><td class="mono">LDB n</td><td>B = n</td></tr>
-          <tr><td class="mono">0011</td><td class="mono">ADD</td><td>A = A + B (wraps around after 15), set Z</td></tr>
-          <tr><td class="mono">0100</td><td class="mono">SUB</td><td>A = A - B (wraps around below 0), set Z</td></tr>
-          <tr><td class="mono">0101</td><td class="mono">AND</td><td>A = A AND B, bit by bit, set Z</td></tr>
-          <tr><td class="mono">0110</td><td class="mono">OR</td><td>A = A OR B, bit by bit, set Z</td></tr>
-          <tr><td class="mono">0111</td><td class="mono">OUT</td><td>Show A on the output display</td></tr>
-          <tr><td class="mono">1000</td><td class="mono">JMP a</td><td>PC = a</td></tr>
-          <tr><td class="mono">1001</td><td class="mono">JZ a</td><td>If Z is 1, PC = a; otherwise go to the next instruction</td></tr>
-          <tr><td class="mono">1111</td><td class="mono">HLT</td><td>Stop</td></tr>
+          <tr><td>0000</td><td>NOP</td><td>Nothing, go to the next instruction</td></tr>
+          <tr><td>0001</td><td>LDA n</td><td>A = n</td></tr>
+          <tr><td>0010</td><td>LDB n</td><td>B = n</td></tr>
+          <tr><td>0011</td><td>ADD</td><td>A = A + B (wraps around after 15), set Z</td></tr>
+          <tr><td>0100</td><td>SUB</td><td>A = A - B (wraps around below 0), set Z</td></tr>
+          <tr><td>0101</td><td>AND</td><td>A = A AND B, bit by bit, set Z</td></tr>
+          <tr><td>0110</td><td>OR</td><td>A = A OR B, bit by bit, set Z</td></tr>
+          <tr><td>0111</td><td>OUT</td><td>Show A on the output display</td></tr>
+          <tr><td>1000</td><td>JMP a</td><td>PC = a</td></tr>
+          <tr><td>1001</td><td>JZ a</td><td>If Z is 1, PC = a; otherwise go to the next instruction</td></tr>
+          <tr><td>1111</td><td>HLT</td><td>Stop</td></tr>
         </tbody>
       </table>
-    </div>
-  </section>
+    </details>
 
-  <section class="card" id="quiz">
-    <h2>Self-check</h2>
-    <p class="small muted">Five quick questions about what you just watched. Not graded.</p>
-    <div id="quizBox"></div>
-    <div id="quizScore" class="score" hidden></div>
-  </section>
+    <section id="quiz">
+      <h2>Self-check <small>five quick questions, not graded</small></h2>
+      <div class="qbar" aria-hidden="true"><div id="qbar"></div></div>
+      <div id="quizBox"></div>
+      <div id="quizScore" class="score" hidden></div>
+    </section>
 
-</main>
-
-<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+    <footer>Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline">By Professor De Leon</div></footer>
+  </aside>
+</div>
 
 <script>
 // All logic inline. Guard GSAP so the page still works if the CDN fails:
@@ -416,161 +630,546 @@ const BAY4 = (function () {
 })();
 // ENGINE END
 
+// LAB3D START: EGN 325 3D kit (modeled on the professor's "Tiny Machine Lab" reference). Paste as one block.
+// Needs Three.js r147 (three.min.js), examples/js/controls/OrbitControls.js, examples/js/renderers/CSS2DRenderer.js and GSAP 3.12.5.
+// Returns null when any of them (or WebGL) is missing: then draw the 2D fallback.
+//
+// const lab = Lab3D(stageEl, {
+//   board: {w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: 'BAY-4  REV 1.0  ...', seed: 11},
+//   views: {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}, cpu: {...}},
+//   colors: {copper: '#d4a24c'}
+// });
+// lab.chip(key, {x, z, w, d, h, nm, body, metal, cell})  -> rec {g, mat, el, val, sub, h, key}
+// lab.silkRect(x0, x1, z0, z1)   lab.zone(text, x, z, color)   lab.label(html, cls, x, y, z, parent)
+// lab.busMat(color, {base, rest})  lab.trace([{x,z}...], lines, mat)  lab.glowBus(mat)
+// lab.fly([{x,z}...], text, color, {y, dur}) -> GSAP timeline (packet sphere + halo + pill label)
+// lab.hi(rec, color)  lab.clear()  lab.pop(rec)  lab.setView(name)  lab.zoom(factor)  lab.intro()  lab.onPick(fn)  lab.clearPackets()
+// Zoom buttons (+, -, FIT) and the + - 0 keys are added to the stage automatically (opts.zoomUI: false turns them off; opts.fitView picks the FIT view).
+function Lab3D(stage, opts) {
+  opts = opts || {};
+  const hasG = typeof window.gsap !== 'undefined';
+  if (!window.THREE || !THREE.OrbitControls || !THREE.CSS2DRenderer || !hasG) return null;
+  try { const t = document.createElement('canvas'); if (!(t.getContext('webgl') || t.getContext('experimental-webgl'))) return null; } catch (e) { return null; }
+  const T = THREE;
+  const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const B = Object.assign({w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: '', seed: 11}, opts.board || {});
+  const COPPER = (opts.colors && opts.colors.copper) || '#d4a24c';
 
-// ---------------- Board3D: a Three.js board built from the 2D SVG datapath ----------------
-// The 3D blocks and buses are generated from the SVG geometry, so the 2D and 3D views always agree.
-// Board3D.create(stageEl, svgEl, {labels}) returns null when 3D is unavailable (make3D shows its fallback note).
-// API: highlight(ids), setValue(boxId, text), packet(wireId, text, secs, color) -> GSAP tween, focus(boxId), overview(), pick(cb)
-const Board3D = (function () {
-  function parsePath(d) {
-    const pts = []; let x = 0, y = 0;
-    const re = /([MHVL])\s*([-\d.]+)(?:[ ,]+([-\d.]+))?/g; let m;
-    while ((m = re.exec(d))) {
-      const c = m[1], a = parseFloat(m[2]), b = m[3] !== undefined ? parseFloat(m[3]) : null;
-      if (c === 'M' || c === 'L') { x = a; y = b; } else if (c === 'H') { x = a; } else if (c === 'V') { y = a; }
-      pts.push([x, y]);
+  const renderer = new T.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = T.sRGBEncoding;
+  renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.setClearColor(0x061714, 0);
+  renderer.domElement.className = 'gl';
+  stage.prepend(renderer.domElement);
+  const labelR = new T.CSS2DRenderer();
+  labelR.domElement.className = 'labels';
+  renderer.domElement.after(labelR.domElement);
+
+  const scene = new T.Scene();
+  scene.fog = new T.Fog(0x061714, 34, 70);
+  const camera = new T.PerspectiveCamera(40, 1, 0.1, 200);
+  const controls = new T.OrbitControls(camera, labelR.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.maxPolarAngle = Math.PI * 0.46; controls.minDistance = 5; controls.maxDistance = 42;
+  controls.zoomSpeed = 1.1;
+  // keep the mouse wheel inside the 3D view: zoom the board, do not scroll the page
+  stage.addEventListener('wheel', e => e.preventDefault(), {passive: false});
+
+  scene.add(new T.HemisphereLight(0xd6efe6, 0x0b2a26, 0.6));
+  const sun = new T.DirectionalLight(0xfff1dc, 1.0); sun.position.set(-7, 16, 9); sun.castShadow = true;
+  sun.shadow.mapSize.set(1536, 1536);
+  Object.assign(sun.shadow.camera, {left: -B.w / 2 - 2, right: B.w / 2 + 2, top: B.d / 2 + 2, bottom: -B.d / 2 - 2, near: 1, far: 44});
+  sun.shadow.bias = -0.0005; scene.add(sun);
+  const rim = new T.DirectionalLight(0x4fd1e8, 0.35); rim.position.set(12, 6, -10); scene.add(rim);
+
+  // board: a canvas texture with a dot grid, random copper traces, vias, mounting holes and silkscreen
+  function rng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const cv = document.createElement('canvas'); cv.width = 2048; cv.height = Math.round(2048 * B.d / B.w);
+  function drawBoard() {
+    const g = cv.getContext('2d'), W = cv.width, H = cv.height, rnd = rng(B.seed);
+    const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#10372f'); grd.addColorStop(1, '#0a2823');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(232,239,228,0.035)';
+    for (let x = 0; x < W; x += 28) for (let y = 0; y < H; y += 28) g.fillRect(x, y, 2, 2);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let i = 0; i < 85; i++) {
+      let x = rnd() * W, y = rnd() * H, dir = Math.floor(rnd() * 8);
+      g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 4; k++) { dir = (dir + (rnd() < .5 ? 1 : 7)) % 8; const len = 30 + rnd() * 170, a = dir * Math.PI / 4; x += Math.cos(a) * len; y += Math.sin(a) * len; g.lineTo(x, y); }
+      g.strokeStyle = 'rgba(212,162,76,' + (0.06 + rnd() * 0.09) + ')'; g.lineWidth = 2 + rnd() * 3; g.stroke();
+      g.beginPath(); g.arc(x, y, 5.5, 0, Math.PI * 2); g.fillStyle = 'rgba(212,162,76,0.22)'; g.fill();
+      g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fillStyle = '#071c19'; g.fill();
     }
-    return pts;
+    [[60, 60], [W - 60, 60], [60, H - 60], [W - 60, H - 60]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 26, 0, Math.PI * 2); g.fillStyle = 'rgba(212,162,76,0.35)'; g.fill(); g.beginPath(); g.arc(x, y, 15, 0, Math.PI * 2); g.fillStyle = '#04100e'; g.fill(); });
+    g.font = '500 24px "Martian Mono", ui-monospace, monospace';
+    g.fillStyle = 'rgba(232,239,228,0.32)';
+    if (B.silk) g.fillText(B.silk, 120, H - 48);
+    g.fillText('U1', 120, 92);
   }
-  function create(stageEl, svg, opts) {
-    opts = opts || {};
-    const st = make3D(stageEl, {camera: [0, 12, 10], target: [0, 0, 0.4]});
-    if (!st) return null;
-    const T = st.THREE, scene = st.scene, camera = st.camera;
-    const S = 1 / 40, CX = 380, CY = 215;
-    const W = (x, y, h) => new T.Vector3((x - CX) * S, h || 0, (y - CY) * S);
-    if (st.controls) { st.controls.enablePan = false; st.controls.minDistance = 6; st.controls.maxDistance = 24; st.controls.maxPolarAngle = Math.PI * 0.47; }
-    const floor = new T.Mesh(new T.BoxGeometry(20.5, 0.2, 12), new T.MeshStandardMaterial({color: 0x1f2937, roughness: 0.95}));
-    floor.position.y = -0.12; scene.add(floor);
-    const grid = new T.GridHelper(20, 20, 0x334155, 0x273244); grid.position.y = 0.0; scene.add(grid);
-    const boxes = {}, wires = {}, pickables = [];
-    svg.querySelectorAll('g.box').forEach(g => {
-      const bb = g.getBBox();
-      const w = Math.max(bb.width * S, 0.8), d = Math.max(bb.height * S, 0.8);
-      const mat = new T.MeshStandardMaterial({color: 0xe2e8f0, roughness: 0.5, emissive: 0x000000});
-      const mesh = new T.Mesh(new T.BoxGeometry(w, 0.5, d), mat);
-      mesh.position.copy(W(bb.x + bb.width / 2, bb.y + bb.height / 2, 0.25));
-      mesh.userData.id = g.id;
-      scene.add(mesh); pickables.push(mesh);
-      const anchor = new T.Object3D(); anchor.position.set(0, 0.55, 0); mesh.add(anchor);
-      const name = (opts.labels && opts.labels[g.id]) || g.id;
-      const div = st.label(anchor, name);
-      boxes[g.id] = {mesh: mesh, div: div, name: name};
+  drawBoard();
+  const tex = new T.CanvasTexture(cv); tex.encoding = T.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawBoard(); tex.needsUpdate = true; });
+  const edge = new T.MeshStandardMaterial({color: 0x0a241f, roughness: .8});
+  const topM = new T.MeshStandardMaterial({map: tex, roughness: .62, metalness: .05});
+  const board = new T.Mesh(new T.BoxGeometry(B.w, 0.36, B.d), [edge, edge, topM, edge, edge, edge]);
+  board.position.set(B.cx, -0.18, B.cz); board.receiveShadow = true; scene.add(board);
+
+  const unit = new T.BoxGeometry(1, 1, 1);
+  const silk = new T.MeshBasicMaterial({color: 0xe8efe4, transparent: true, opacity: .5});
+  function silkRect(x0, x1, z0, z1) {
+    const t = 0.05;
+    [[x0, x1, z0, z0], [x0, x1, z1, z1], [x0, x0, z0, z1], [x1, x1, z0, z1]].forEach(([a, b, c, d]) => {
+      const m = new T.Mesh(unit, silk); m.scale.set(Math.abs(b - a) + t, 0.01, Math.abs(d - c) + t);
+      m.position.set((a + b) / 2, 0.006, (c + d) / 2); scene.add(m);
     });
-    svg.querySelectorAll('path.wire').forEach(p => {
-      const pts = parsePath(p.getAttribute('d')).map(q => W(q[0], q[1], 0.1));
-      if (pts.length < 2) return;
-      const ctrl = p.classList.contains('ctrlw');
-      const mats = [];
+  }
+  function busMat(color, o) {
+    o = o || {};
+    const m = new T.MeshStandardMaterial({color: new T.Color(o.base || color).multiplyScalar(o.base ? 1 : 0.55), emissive: new T.Color(color), emissiveIntensity: o.rest != null ? o.rest : 0.22, roughness: .35, metalness: .65});
+    m.userData.rest = m.emissiveIntensity; return m;
+  }
+  const nrm = (a, b) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return {x: -dz / L, z: dx / L}; };
+  function offsetLine(p, o) {
+    return p.map((q, i) => {
+      const nIn = i > 0 ? nrm(p[i - 1], q) : null, nOut = i < p.length - 1 ? nrm(q, p[i + 1]) : null;
+      let n = nIn || nOut;
+      if (nIn && nOut) { const k = 1 / (1 + nIn.x * nOut.x + nIn.z * nOut.z); n = {x: (nIn.x + nOut.x) * k, z: (nIn.z + nOut.z) * k}; }
+      return {x: q.x + n.x * o, z: q.z + n.z * o};
+    });
+  }
+  function trace(points, lines, mat) {
+    const gap = 0.075, w = 0.04;
+    for (let li = 0; li < lines; li++) {
+      const pts = offsetLine(points, (li - (lines - 1) / 2) * gap);
       for (let i = 0; i < pts.length - 1; i++) {
-        const a = pts[i], b = pts[i + 1], len = a.distanceTo(b);
-        if (len < 1e-3) continue;
-        const mat = new T.MeshStandardMaterial({color: ctrl ? 0x8b5cf6 : 0x94a3b8, roughness: 0.4, transparent: ctrl, opacity: ctrl ? 0.35 : 1, emissive: 0x000000});
-        const seg = new T.Mesh(new T.CylinderGeometry(ctrl ? 0.035 : 0.065, ctrl ? 0.035 : 0.065, len, 10), mat);
-        seg.position.copy(a.clone().add(b).multiplyScalar(0.5));
-        seg.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), b.clone().sub(a).normalize());
-        scene.add(seg); mats.push(mat);
+        const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
+        const m = new T.Mesh(unit, mat); m.scale.set(L + w, 0.03, w); m.position.set((a.x + b.x) / 2, 0.016, (a.z + b.z) / 2); m.rotation.y = -Math.atan2(dz, dx);
+        m.receiveShadow = true; scene.add(m);
       }
-      wires[p.id] = {pts: pts, mats: mats, ctrl: ctrl};
-    });
-    function setValue(id, v) {
-      const b = boxes[id]; if (!b) return;
-      b.div.textContent = v === '' || v === undefined ? b.name : b.name + ': ' + v;
+      [pts[0], pts[pts.length - 1]].forEach(p => { const pad = new T.Mesh(unit, mat); pad.scale.set(0.07, 0.032, 0.07); pad.position.set(p.x, 0.016, p.z); scene.add(pad); });
     }
-    function highlight(ids) {
-      const on = new Set(ids);
-      Object.keys(boxes).forEach(id => {
-        const b = boxes[id], lit = on.has(id), m = b.mesh.material;
-        const toCol = new T.Color(lit ? 0xfca5a5 : 0xe2e8f0), toEm = new T.Color(lit ? 0x5a0a0e : 0x000000);
-        if (hasGSAP) {
-          gsap.to(m.color, {r: toCol.r, g: toCol.g, b: toCol.b, duration: 0.3});
-          gsap.to(m.emissive, {r: toEm.r, g: toEm.g, b: toEm.b, duration: 0.3});
-          gsap.to(b.mesh.position, {y: lit ? 0.45 : 0.25, duration: 0.3});
-        } else { m.color.copy(toCol); m.emissive.copy(toEm); b.mesh.position.y = lit ? 0.45 : 0.25; }
-        b.div.style.background = lit ? 'rgba(225,20,30,.92)' : '';
-      });
-      Object.keys(wires).forEach(id => {
-        const w = wires[id], lit = on.has(id);
-        w.mats.forEach(m => {
-          m.color.setHex(lit ? (w.ctrl ? 0xa78bfa : 0xf43f5e) : (w.ctrl ? 0x8b5cf6 : 0x94a3b8));
-          m.emissive.setHex(lit ? (w.ctrl ? 0x3b0764 : 0x4c0519) : 0x000000);
-          if (w.ctrl) m.opacity = lit ? 0.95 : 0.35;
-        });
-      });
-    }
-    const packets = [];
-    st.onFrame(() => {
-      packets.forEach(p => {
-        if (!p.div) return;
-        const v = p.grp.position.clone().setY(0.9); v.project(camera);
-        p.div.style.left = ((v.x + 1) / 2 * stageEl.clientWidth) + 'px';
-        p.div.style.top = ((1 - v.y) / 2 * stageEl.clientHeight) + 'px';
-      });
-    });
-    function packet(wireId, text, secs, color) {
-      const w = wires[wireId]; if (!w) return null;
-      const grp = new T.Group();
-      const col = color || 0xfacc15;
-      grp.add(new T.Mesh(new T.SphereGeometry(0.22, 20, 14), new T.MeshStandardMaterial({color: col, emissive: col, emissiveIntensity: 0.6})));
-      scene.add(grp);
-      let div = null;
-      if (text !== undefined && text !== null && text !== '') {
-        div = document.createElement('div'); div.className = 'label3d pkt'; div.textContent = text; stageEl.appendChild(div);
-      }
-      const rec = {grp: grp, div: div}; packets.push(rec);
-      const segs = []; let total = 0;
-      for (let i = 0; i < w.pts.length - 1; i++) { const l = w.pts[i].distanceTo(w.pts[i + 1]); segs.push(l); total += l; }
-      const place = t => {
-        let dist = t * total;
-        for (let i = 0; i < segs.length; i++) {
-          if (dist <= segs[i] || i === segs.length - 1) {
-            const f = segs[i] ? Math.min(dist / segs[i], 1) : 1;
-            grp.position.copy(w.pts[i].clone().lerp(w.pts[i + 1], f)).setY(0.35); return;
-          }
-          dist -= segs[i];
-        }
-      };
-      place(0);
-      const remove = () => {
-        scene.remove(grp); grp.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
-        if (div) div.remove(); const i = packets.indexOf(rec); if (i >= 0) packets.splice(i, 1);
-      };
-      if (hasGSAP) { const o = {t: 0}; return gsap.to(o, {t: 1, duration: secs || 0.8, ease: 'power1.inOut', onUpdate: () => place(o.t), onComplete: remove}); }
-      place(1); setTimeout(remove, 250); return null;
-    }
-    const home = {pos: camera.position.clone(), target: st.controls ? st.controls.target.clone() : new T.Vector3()};
-    function focus(id) {
-      const b = boxes[id]; if (!b || !hasGSAP) return;
-      const p = b.mesh.position, narrow = (stageEl.clientWidth || 600) < 520;
-      gsap.to(camera.position, {x: p.x * 0.5, y: narrow ? 13 : 10, z: p.z + (narrow ? 10 : 8), duration: 0.8, ease: 'power2.inOut'});
-      if (st.controls) gsap.to(st.controls.target, {x: p.x * 0.6, y: 0, z: p.z, duration: 0.8, ease: 'power2.inOut'});
-    }
-    function overview() {
-      if (!hasGSAP) { camera.position.copy(home.pos); if (st.controls) st.controls.target.copy(home.target); return; }
-      gsap.to(camera.position, {x: home.pos.x, y: home.pos.y, z: home.pos.z, duration: 0.8, ease: 'power2.inOut'});
-      if (st.controls) gsap.to(st.controls.target, {x: home.target.x, y: home.target.y, z: home.target.z, duration: 0.8, ease: 'power2.inOut'});
-    }
-    function pick(cb) {
-      const ray = new T.Raycaster(), m = new T.Vector2();
-      st.renderer.domElement.addEventListener('click', e => {
-        const r = st.renderer.domElement.getBoundingClientRect();
-        m.x = ((e.clientX - r.left) / r.width) * 2 - 1; m.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-        ray.setFromCamera(m, camera);
-        const hit = ray.intersectObjects(pickables)[0];
-        if (hit) cb(hit.object.userData.id);
-      });
-    }
-    // fit the camera so the whole board is visible on narrow screens
-    function fit() {
-      const w = stageEl.clientWidth || 600;
-      home.pos.set(0, w < 520 ? 15.5 : 12, w < 520 ? 11.5 : 10);
-      camera.position.copy(home.pos);
-    }
-    fit();
-    return {st: st, highlight: highlight, setValue: setValue, packet: packet, focus: focus, overview: overview, pick: pick, boxes: boxes};
   }
-  return {create: create, parsePath: parsePath};
-})();
+  function glowBus(m) {
+    if (!m) return;
+    gsap.killTweensOf(m);
+    gsap.timeline().to(m, {emissiveIntensity: 1.8, duration: 0.2}).to(m, {emissiveIntensity: m.userData.rest, duration: 1.4});
+  }
+  function label(html, cls, x, y, z, parent) {
+    const el = document.createElement('div'); el.className = cls; el.innerHTML = html;
+    const o = new T.CSS2DObject(el); o.position.set(x, y, z); (parent || scene).add(o); el._obj = o; return el;
+  }
+  function zone(text, x, z, color) { const el = label(text, 'zone', x, 0.05, z); if (color) el.style.setProperty('--c', color); return el; }
+
+  const pinSpots = [], recs = {}, pickables = [];
+  const dotMat = new T.MeshBasicMaterial({color: 0x6c7a78});
+  function chip(key, o) {
+    const w = o.w || 1.4, d = o.d || 1.2, h = o.h || (o.cell ? 0.28 : 0.34);
+    const g = new T.Group(); g.position.set(o.x, 0, o.z);
+    const mat = new T.MeshStandardMaterial({color: o.body || (o.cell ? '#1b2124' : '#15191b'), roughness: .42, metalness: o.metal || .22, emissive: new T.Color(0xffffff), emissiveIntensity: 0});
+    const body = new T.Mesh(unit, mat); body.scale.set(w, h, d); body.position.y = h / 2 + 0.03; body.castShadow = true; body.receiveShadow = true; g.add(body);
+    body.userData.key = key; pickables.push(body);
+    if (!o.metal) { const dot = new T.Mesh(new T.CircleGeometry(0.05, 16), dotMat); dot.rotation.x = -Math.PI / 2; dot.position.set(-w / 2 + 0.14, h + 0.035, -d / 2 + 0.14); g.add(dot); }
+    if (!o.noPins) {
+      const n = Math.max(2, Math.floor((w - 0.2) / 0.22));
+      for (let i = 0; i < n; i++) { const px = -w / 2 + 0.14 + i * ((w - 0.28) / (n - 1)); pinSpots.push([o.x + px, o.z - d / 2 - 0.07], [o.x + px, o.z + d / 2 + 0.07]); }
+    }
+    scene.add(g);
+    const el = label('<span class="nm">' + (o.nm || key) + '</span><span class="vl"></span><span class="sb"></span>', 'tag' + (o.cell ? ' cell' : ''), 0, h + 0.08, 0, g);
+    const rec = {key: key, cell: !!o.cell, g: g, mat: mat, el: el, val: el.querySelector('.vl'), sub: el.querySelector('.sb'), h: h, x: o.x, z: o.z};
+    recs[key] = rec; return rec;
+  }
+  function finishPins() {
+    const pinGeo = new T.BoxGeometry(0.07, 0.05, 0.16), pinMat = new T.MeshStandardMaterial({color: 0xc9ced1, metalness: .9, roughness: .3});
+    const pins = new T.InstancedMesh(pinGeo, pinMat, Math.max(1, pinSpots.length)), mtx = new T.Matrix4();
+    pinSpots.forEach(([x, z], i) => { mtx.makeTranslation(x, 0.045, z); pins.setMatrixAt(i, mtx); });
+    scene.add(pins);
+  }
+
+  // packets: a small sphere with an additive halo and a pill label
+  const haloCv = document.createElement('canvas'); haloCv.width = haloCv.height = 64;
+  const hg = haloCv.getContext('2d'), rg = hg.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(.35, 'rgba(255,255,255,.35)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  hg.fillStyle = rg; hg.fillRect(0, 0, 64, 64);
+  const haloTex = new T.CanvasTexture(haloCv);
+  const pktGeo = new T.SphereGeometry(0.13, 20, 14);
+  const live = new Set();
+  function removePacket(p) {
+    scene.remove(p.mesh); if (p.el.parentNode) p.el.parentNode.removeChild(p.el);
+    p.mesh.material.dispose(); p.halo.material.dispose(); live.delete(p);
+  }
+  function fly(path, text, color, o) {
+    o = o || {};
+    const y = o.y != null ? o.y : 0.8;
+    const v = path.map(p => new T.Vector3(p.x, y, p.z));
+    const mesh = new T.Mesh(pktGeo, new T.MeshBasicMaterial({color: new T.Color(color)}));
+    const halo = new T.Sprite(new T.SpriteMaterial({map: haloTex, color: new T.Color(color), blending: T.AdditiveBlending, depthWrite: false, transparent: true}));
+    halo.scale.set(1.1, 1.1, 1.1); mesh.add(halo);
+    const el = document.createElement('div'); el.className = 'pkt'; el.style.setProperty('--c', color); el.textContent = text;
+    const lab = new T.CSS2DObject(el); lab.position.set(0, 0.42, 0); mesh.add(lab);
+    mesh.position.copy(v[0]); mesh.scale.setScalar(0.01); mesh.visible = false; scene.add(mesh);
+    const p = {mesh: mesh, halo: halo, el: el}; live.add(p);
+    let L = 0; for (let i = 1; i < v.length; i++) L += v[i].distanceTo(v[i - 1]);
+    const total = o.dur || Math.max(0.5, Math.min(2.2, L / 7));
+    const tl = gsap.timeline({onComplete: () => removePacket(p)});
+    tl.call(() => { mesh.visible = true; });
+    tl.to(mesh.scale, {x: 1, y: 1, z: 1, duration: 0.18, ease: 'back.out(2)'});
+    for (let i = 1; i < v.length; i++) { const seg = v[i].distanceTo(v[i - 1]); tl.to(mesh.position, {x: v[i].x, y: v[i].y, z: v[i].z, duration: L ? total * seg / L : 0.1, ease: 'none'}); }
+    tl.to(mesh.scale, {x: 0.01, y: 0.01, z: 0.01, duration: 0.18, ease: 'power2.in'});
+    return tl;
+  }
+  function clearPackets() { Array.from(live).forEach(removePacket); }
+
+  const active = new Set();
+  function hi(rec, color) {
+    if (!rec) return;
+    rec.mat.emissive.set(color); gsap.to(rec.mat, {emissiveIntensity: rec.cell ? 0.6 : 0.5, duration: 0.3, overwrite: 'auto'});
+    rec.el.classList.add('on'); active.add(rec);
+  }
+  function clear() {
+    active.forEach(r => { gsap.to(r.mat, {emissiveIntensity: 0, duration: 0.5, overwrite: 'auto'}); r.el.classList.remove('on'); });
+    active.clear();
+  }
+  function pop(rec, big) {
+    if (!rec || RM) return;
+    gsap.fromTo(rec.g.scale, {x: 1.12, y: big ? 1.8 : 1.5, z: 1.12}, {x: 1, y: 1, z: 1, duration: 0.65, ease: 'elastic.out(1,0.5)'});
+  }
+
+  // camera views keep the whole subject in frame on narrow screens
+  const views = opts.views || {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}};
+  function viewFor(name) {
+    const b = views[name] || views.overview;
+    const tgt = new T.Vector3(...b.tgt), pos = new T.Vector3(...b.pos);
+    const want = b.want || 1.25, f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    pos.sub(tgt).multiplyScalar(f).add(tgt);
+    return {pos: pos, tgt: tgt};
+  }
+  function setView(name, instant) {
+    const v = viewFor(name), d = (RM || instant) ? 0 : 1.2;
+    const k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: v.pos.x, y: v.pos.y, z: v.pos.z, duration: d, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+    gsap.to(controls.target, {x: v.tgt.x, y: v.tgt.y, z: v.tgt.z, duration: d, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+  }
+  function focusOn(x, z, dist) {
+    const d = (dist || 7) * (camera.aspect < 1.2 ? Math.min(2.2, 1.25 / camera.aspect) : 1);
+    const k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: x * 0.8, y: d * 1.15, z: z + d, duration: RM ? 0 : 1.0, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+    gsap.to(controls.target, {x: x, y: 0, z: z, duration: RM ? 0 : 1.0, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+  }
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); renderer.domElement.style.width = w + 'px'; renderer.domElement.style.height = h + 'px';
+    labelR.setSize(w, h);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    stage.style.setProperty('--lab', Math.max(7, Math.min(12, w / 92)) + 'px');
+  }
+  // zoom buttons (+, -, Fit) and keys (+, -, 0): the mouse wheel and pinch still work, but buttons always do
+  function zoom(f) {
+    const t = controls.target, off = camera.position.clone().sub(t);
+    off.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, off.length() * f)));
+    const p = t.clone().add(off), k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: p.x, y: p.y, z: p.z, duration: RM ? 0 : 0.45, ease: 'power2.out', overwrite: 'auto'}).timeScale(k);
+  }
+  if (opts.zoomUI !== false) {
+    if (!document.getElementById('lab3d-zoom-css')) {
+      const st = document.createElement('style'); st.id = 'lab3d-zoom-css';
+      st.textContent = '.zoomctl{position:absolute;z-index:4;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:4px;background:rgba(6,23,20,.82);border:1px solid #1e4a41;border-radius:6px;backdrop-filter:blur(6px)}' +
+        '.zoomctl button{width:38px;height:34px;border:0;border-radius:4px;background:transparent;color:#e8efe4;font:600 18px/1 "Martian Mono",ui-monospace,monospace;cursor:pointer;padding:0}' +
+        '.zoomctl button.fit{font-size:10px;letter-spacing:.06em;height:28px}.zoomctl button:hover{background:#0f2c27;color:#f2b33d}' +
+        '.zoomctl button:focus-visible{outline:2px solid #f2b33d;outline-offset:1px}@media(max-width:520px){.zoomctl{right:10px}.zoomctl button{width:34px;height:32px}}';
+      document.head.appendChild(st);
+    }
+    const box = document.createElement('div'); box.className = 'zoomctl'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Zoom');
+    box.innerHTML = '<button type="button" data-z="in" aria-label="Zoom in" title="Zoom in (+)">+</button>' +
+      '<button type="button" data-z="out" aria-label="Zoom out" title="Zoom out (-)">&minus;</button>' +
+      '<button type="button" class="fit" data-z="fit" aria-label="Show the whole board" title="Show the whole board (0)">FIT</button>';
+    stage.appendChild(box);
+    ['pointerdown', 'pointerup', 'wheel', 'click'].forEach(ev => box.addEventListener(ev, e => e.stopPropagation()));
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.z === 'in') zoom(0.75); else if (b.dataset.z === 'out') zoom(1.33); else setView(opts.fitView || 'overview');
+    });
+    document.addEventListener('keydown', e => {
+      const t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if (e.key === '+' || e.key === '=') zoom(0.75);
+      else if (e.key === '-' || e.key === '_') zoom(1.33);
+      else if (e.key === '0') setView(opts.fitView || 'overview');
+    });
+  }
+  new ResizeObserver(resize).observe(stage); resize();
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); labelR.render(scene, camera); })();
+
+  // picking: click (not drag) on a chip body
+  const ray = new T.Raycaster(), mouse = new T.Vector2(); let down = null, pickCb = null;
+  labelR.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  labelR.domElement.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || !pickCb) return;
+    const r = labelR.domElement.getBoundingClientRect();
+    mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (hit) pickCb(hit.object.userData.key);
+  });
+
+  function intro() {
+    const v = viewFor('overview'); camera.position.copy(v.pos); controls.target.copy(v.tgt);
+    if (RM) return;
+    gsap.from(camera.position, {x: v.pos.x - 4, y: v.pos.y + 12, z: v.pos.z + 10, duration: 1.8, ease: 'power3.out'});
+    gsap.from(Object.values(recs).map(r => r.g.position), {y: 2.2, duration: 0.7, ease: 'back.out(1.6)', stagger: 0.03, delay: 0.2});
+  }
+
+  const labApi = {T: T, scene: scene, camera: camera, controls: controls, renderer: renderer, recs: recs,
+    chip: chip, finishPins: finishPins, silkRect: silkRect, zone: zone, label: label, busMat: busMat, trace: trace, glowBus: glowBus,
+    fly: fly, clearPackets: clearPackets, hi: hi, clear: clear, pop: pop, setView: setView, focusOn: focusOn, intro: intro, zoom: zoom,
+    onPick: cb => { pickCb = cb; }, unit: unit};
+  (window.__labs = window.__labs || []).push(labApi);   // lets tests reach the camera
+  return labApi;
+}
+// LAB3D END
+
+
+// ---------------- the Bay-4 board: the same layout as the course simulator (site/simulator.html) ----------------
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const C = {addr: css('--addr') || '#f2b33d', data: css('--data') || '#4fd1e8', ctrl: css('--ctrl') || '#ff7a9a', alu: css('--alu') || '#8fe388',
+  oper: css('--oper') || '#a9b4ff', out: css('--out') || '#b9f5b0', copper: css('--copper') || '#d4a24c'};
+const hex2 = v => (v & 255).toString(16).toUpperCase().padStart(2, '0');
+const b4s = v => (v & 15).toString(2).padStart(4, '0');
+// board geometry (x to the right, z toward the viewer)
+const COMP = {
+  cu: {x: -8.3, z: -1.9, w: 1.8, d: 1.5, nm: 'CONTROL'},
+  zf: {x: -6.1, z: -1.9, w: 1.1, d: 1.0, nm: 'Z FLAG'},
+  inc: {x: -4.1, z: -1.9, w: 1.2, d: 1.0, nm: 'PC + 1'},
+  pc: {x: -1.8, z: -1.9, w: 1.6, d: 1.2, nm: 'PC'},
+  alu: {x: -8.3, z: 1.9, w: 1.8, d: 1.5, nm: 'ALU'},
+  a: {x: -6.1, z: 1.9, w: 1.4, d: 1.2, nm: 'A'},
+  b: {x: -4.1, z: 1.9, w: 1.4, d: 1.2, nm: 'B'},
+  ir: {x: -1.8, z: 1.9, w: 1.6, d: 1.2, nm: 'IR'},
+  clk: {x: -9.2, z: -5.0, w: 1.4, d: 0.7, nm: 'CLK', body: '#aeb7bb', metal: 0.85},
+  out: {x: 3.0, z: 5.0, w: 2.0, d: 1.3, nm: 'DISPLAY', body: '#1b2326'}
+};
+const cellXZ = i => ({x: 7.3 + ((i & 3) - 1.5) * 1.25, z: ((i >> 2) - 1.5) * 1.25});
+const P = k => ({x: COMP[k].x, z: COMP[k].z});
+const PATH = {
+  internal: (a, b) => { const A = COMP[a], Bq = COMP[b], p = [{x: A.x, z: A.z}, {x: A.x, z: 0}]; if (A.x !== Bq.x) p.push({x: Bq.x, z: 0}); p.push({x: Bq.x, z: Bq.z}); return p; },
+  addr: i => [P('pc'), {x: -1.0, z: -1.9}, {x: 4.65, z: -1.9}, cellXZ(i)],
+  read: () => [P('cu'), {x: -8.3, z: -3.9}, {x: 7.3, z: -3.9}, {x: 7.3, z: -2.65}],
+  instr: i => [cellXZ(i), {x: 4.65, z: 1.9}, {x: -1.0, z: 1.9}, P('ir')],
+  out: () => [P('a'), {x: -6.1, z: 5.0}, {x: 2.0, z: 5.0}, P('out')]
+};
+const TRACES = [
+  {pts: [{x: -1.0, z: -1.9}, {x: 4.65, z: -1.9}], lines: 4, bus: 'addr'},
+  {pts: [{x: -1.0, z: 1.9}, {x: 4.65, z: 1.9}], lines: 8, bus: 'instr'},
+  {pts: [{x: -8.3, z: -2.65}, {x: -8.3, z: -3.9}, {x: 7.3, z: -3.9}, {x: 7.3, z: -2.65}], lines: 2, bus: 'ctrl'},
+  {pts: [{x: -8.3, z: 0}, {x: -1.8, z: 0}], lines: 4, bus: 'int'},
+  {pts: [{x: -6.1, z: 2.5}, {x: -6.1, z: 5.0}, {x: 2.0, z: 5.0}], lines: 4, bus: 'out'},
+  {pts: [{x: -8.9, z: -4.65}, {x: -8.9, z: -2.65}], lines: 1, bus: 'clk'}
+].concat(['cu', 'zf', 'inc', 'pc', 'alu', 'a', 'b', 'ir'].map(k => { const c = COMP[k], d = c.d / 2; return {pts: [{x: c.x, z: c.z < 0 ? c.z + d : c.z - d}, {x: c.x, z: 0}], lines: 4, bus: 'int'}; }));
+const BOARD_VIEWS = {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}, cpu: {pos: [-5, 9.5, 8.5], tgt: [-5.0, 0, 0.2]},
+  rom: {pos: [7.6, 9, 8], tgt: [7.0, 0, 0.2]}, output: {pos: [-1, 8, 11], tgt: [-1.5, 0, 3.6]}};
+
+// 3D board (Lab3D). Returns null when 3D is unavailable.
+function Graphics3D(stage, silk) {
+  const lab = Lab3D(stage, {board: {w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: silk || 'BAY-4  REV 1.0  4-BIT CPU  16 x 8 ROM  EGN 325', seed: 11}, views: BOARD_VIEWS});
+  if (!lab) return null;
+  const T = lab.T, scene = lab.scene;
+  lab.silkRect(-9.6, -0.6, -3.15, 3.15);
+  lab.silkRect(4.65, 9.95, -2.6, 2.6);
+  const mats = {addr: lab.busMat(C.addr), instr: lab.busMat(C.data), ctrl: lab.busMat(C.ctrl), out: lab.busMat(C.out),
+    int: lab.busMat(C.copper, {base: C.copper, rest: 0.08}), clk: lab.busMat(C.copper, {base: C.copper, rest: 0.08})};
+  TRACES.forEach(t => lab.trace(t.pts, t.lines, mats[t.bus]));
+  Object.keys(COMP).forEach(k => lab.chip(k, COMP[k]));
+  const cells = [];
+  for (let i = 0; i < 16; i++) { const p = cellXZ(i); cells.push(lab.chip('c' + i, {x: p.x, z: p.z, w: 1.0, d: 1.0, nm: String(i), cell: true})); }
+  lab.finishPins();
+  const R = lab.recs;
+  R.out.el._obj.visible = false;
+  const scrMat = new T.MeshStandardMaterial({color: 0x0b2416, emissive: new T.Color(C.alu), emissiveIntensity: 0.12, roughness: .25});
+  const scr = new T.Mesh(lab.unit, scrMat); scr.scale.set(1.7, 0.02, 1.0); scr.position.set(COMP.out.x, 0.385, COMP.out.z); scene.add(scr);
+  const lcd = lab.label('--', 'lcd', COMP.out.x, 0.5, COMP.out.z);
+  lab.zone('display', COMP.out.x, COMP.out.z + 1.0);
+  lab.zone('CPU · central processing unit', -5.1, 3.6);
+  lab.zone('ROM · 16 words × 8 bits', 7.3, 3.05);
+  lab.zone('address bus · 4 lines', 1.8, -2.35, C.addr);
+  lab.zone('instruction bus · 8 lines', 1.8, 2.45, C.data);
+  lab.zone('control · READ', 1.8, -4.35, C.ctrl).classList.add('minor');
+  lab.zone('internal bus · 4 lines', -5.1, 0.55, C.copper).classList.add('minor');
+  lab.zone('output bus', -2.2, 5.45, C.out).classList.add('minor');
+  lab.zone('clock', -9.2, -5.75).classList.add('minor');
+  lab.onPick(k => api.onPick && api.onPick(k.charAt(0) === 'c' && k !== 'cu' && k !== 'clk' ? 'rom' : k));
+  lab.intro();
+  const api = {
+    kind: '3d',
+    fly: (path, text, color, o) => lab.fly(path, text, color, o),
+    hi: (k, color) => lab.hi(R[k], color),
+    hiCell: (i, color) => lab.hi(cells[i], color),
+    clear: () => lab.clear(),
+    clearPackets: () => lab.clearPackets(),
+    pop: k => lab.pop(R[k]),
+    popCell: i => lab.pop(cells[i], true),
+    bus: name => lab.glowBus(mats[name]),
+    tick: () => { lab.glowBus(mats.clk); R.clk.mat.emissive.set(C.copper); gsap.fromTo(R.clk.mat, {emissiveIntensity: 0.6}, {emissiveIntensity: 0, duration: 0.5}); },
+    lcdFlash: () => gsap.fromTo(scrMat, {emissiveIntensity: 0.9}, {emissiveIntensity: 0.12, duration: 1.2}),
+    focus: (x, z) => lab.focusOn(x, z, 10),
+    view: name => lab.setView(name),
+    update(V, rom, romLen) {
+      R.pc.val.textContent = V.PC; R.pc.sub.textContent = b4s(V.PC);
+      R.ir.val.textContent = V.IR == null ? '--' : hex2(V.IR); R.ir.sub.textContent = V.IR == null ? '' : BAY4.dis(V.IR);
+      R.a.val.textContent = V.A; R.a.sub.textContent = b4s(V.A);
+      R.b.val.textContent = V.B; R.b.sub.textContent = b4s(V.B);
+      R.zf.val.textContent = V.Z;
+      R.cu.val.textContent = V.halted ? 'HALT' : (V.sig && V.IR != null ? BAY4.dis(V.IR).split(' ')[0] : '');
+      R.alu.val.textContent = V.aluTxt || ''; R.inc.val.textContent = ''; R.clk.val.textContent = '';
+      lcd.textContent = V.out.length ? String(V.out[V.out.length - 1]).padStart(2, ' ') : '--';
+      cells.forEach((c, i) => { c.val.textContent = hex2(rom[i] || 0); c.sub.textContent = i < romLen ? BAY4.dis(rom[i]) : ''; });
+    },
+    onPick: null
+  };
+  return api;
+}
+
+// flat SVG board with the same geometry and the same API (used when 3D is unavailable)
+function Graphics2D(stage) {
+  const NS = 'http://www.w3.org/2000/svg', S = 40, X = x => (x + 11.2) * S, Y = z => (z + 6.6) * S;
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 896 544'); svg.setAttribute('class', 'flat'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Flat diagram of the Bay-4 board');
+  stage.appendChild(svg);
+  const el = (tag, at, parent) => { const e = document.createElementNS(NS, tag); Object.keys(at).forEach(k => e.setAttribute(k, at[k])); (parent || svg).appendChild(e); return e; };
+  el('rect', {x: 4, y: 4, width: 888, height: 536, rx: 12, fill: '#0d302a', stroke: '#2a5c51'});
+  el('rect', {x: X(-9.6), y: Y(-3.15), width: 9 * S, height: 6.3 * S, fill: 'none', stroke: 'rgba(232,239,228,.35)'});
+  el('rect', {x: X(4.65), y: Y(-2.6), width: 5.3 * S, height: 5.2 * S, fill: 'none', stroke: 'rgba(232,239,228,.35)'});
+  const zone = (t, x, z, c) => { el('text', {x: X(x), y: Y(z) + 4, 'text-anchor': 'middle', fill: c || '#9db6ac', 'font-size': 10, 'letter-spacing': 1.5}).textContent = t.toUpperCase(); };
+  zone('CPU · central processing unit', -5.1, 3.6); zone('ROM · 16 words × 8 bits', 7.3, 3.05); zone('address bus', 1.8, -2.35, C.addr); zone('instruction bus', 1.8, 2.45, C.data);
+  zone('control · READ', 1.8, -4.35, C.ctrl); zone('output bus', -2.2, 5.45, C.out); zone('display', COMP.out.x, COMP.out.z + 1.0);
+  const busCol = {addr: C.addr, instr: C.data, ctrl: C.ctrl, int: C.copper, out: C.out, clk: C.copper};
+  const lines = {};
+  TRACES.forEach(t => { const pl = el('polyline', {points: t.pts.map(p => X(p.x) + ',' + Y(p.z)).join(' '), fill: 'none', stroke: busCol[t.bus], 'stroke-opacity': .45, 'stroke-width': Math.max(2, t.lines * 1.2), 'stroke-linejoin': 'round'}); (lines[t.bus] = lines[t.bus] || []).push(pl); });
+  const parts = {};
+  function box(key, c, cell) {
+    const g = el('g', {style: 'cursor:pointer'});
+    const r = el('rect', {x: X(c.x - c.w / 2), y: Y(c.z - c.d / 2), width: c.w * S, height: c.d * S, rx: 4, fill: '#15191b', stroke: '#3c5a52', 'stroke-width': 1.5}, g);
+    el('text', {x: X(c.x), y: Y(c.z) - (cell ? 8 : 10), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': cell ? 9 : 10, 'letter-spacing': 1}, g).textContent = c.nm;
+    const v = el('text', {x: X(c.x), y: Y(c.z) + 6, 'text-anchor': 'middle', fill: '#e8efe4', 'font-size': cell ? 13 : 15, 'font-weight': 600}, g);
+    const sb = el('text', {x: X(c.x), y: Y(c.z) + (cell ? 18 : 20), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 8.5}, g);
+    g.addEventListener('click', () => api.onPick && api.onPick(cell ? 'rom' : key));
+    parts[key] = {r: r, v: v, sb: sb};
+  }
+  Object.keys(COMP).forEach(k => box(k, COMP[k]));
+  for (let i = 0; i < 16; i++) { const p = cellXZ(i); box('c' + i, {x: p.x, z: p.z, w: 1.0, d: 1.0, nm: String(i)}, true); }
+  const active = new Set();
+  const api = {
+    kind: '2d',
+    fly(path, text, color, o) {
+      if (!hasGSAP) return null;
+      const g = el('g', {opacity: 0, class: 'pk'});
+      el('circle', {r: 7, fill: color, style: 'filter:drop-shadow(0 0 5px ' + color + ')'}, g);
+      const tb = el('text', {y: -12, 'text-anchor': 'middle', fill: color, 'font-size': 12, 'font-weight': 700, 'paint-order': 'stroke', stroke: '#061714', 'stroke-width': 4}, g); tb.textContent = text;
+      let L = 0; for (let i = 1; i < path.length; i++) L += Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z);
+      const obj = {t: 0}, total = (o && o.dur) || Math.max(0.5, Math.min(2.2, L / 7));
+      const at = t => { let d = L * t, acc = 0; for (let i = 1; i < path.length; i++) { const s = Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z); if (acc + s >= d) { const k = s ? (d - acc) / s : 0; return [path[i - 1].x + (path[i].x - path[i - 1].x) * k, path[i - 1].z + (path[i].z - path[i - 1].z) * k]; } acc += s; } const q = path[path.length - 1]; return [q.x, q.z]; };
+      return gsap.timeline({onComplete: () => g.remove()}).set(g, {attr: {opacity: 1}})
+        .to(obj, {t: 1, duration: total, ease: 'none', onUpdate: () => { const q = at(obj.t); g.setAttribute('transform', 'translate(' + X(q[0]) + ',' + Y(q[1]) + ')'); }});
+    },
+    hi(k, color) { const p = parts[k]; if (!p) return; p.r.setAttribute('stroke', color); p.r.setAttribute('stroke-width', 3); active.add(p); },
+    hiCell(i, color) { api.hi('c' + i, color); },
+    clear() { active.forEach(p => { p.r.setAttribute('stroke', '#3c5a52'); p.r.setAttribute('stroke-width', 1.5); }); active.clear(); },
+    clearPackets() { svg.querySelectorAll('g.pk').forEach(g => g.remove()); },
+    pop() {}, popCell() {},
+    bus(name) { (lines[name] || []).forEach(l => { l.setAttribute('stroke-opacity', 1); setTimeout(() => l.setAttribute('stroke-opacity', .45), 900); }); },
+    tick() {}, lcdFlash() {}, focus() {}, view() {},
+    update(V, rom, romLen) {
+      const set = (k, v, s) => { parts[k].v.textContent = v; parts[k].sb.textContent = s || ''; };
+      set('pc', V.PC, b4s(V.PC)); set('ir', V.IR == null ? '--' : hex2(V.IR), V.IR == null ? '' : BAY4.dis(V.IR));
+      set('a', V.A, b4s(V.A)); set('b', V.B, b4s(V.B)); set('zf', V.Z);
+      set('cu', V.halted ? 'HALT' : (V.sig && V.IR != null ? BAY4.dis(V.IR).split(' ')[0] : ''));
+      set('alu', V.aluTxt || ''); set('inc', ''); set('clk', '');
+      set('out', V.out.length ? V.out[V.out.length - 1] : '--');
+      for (let i = 0; i < 16; i++) set('c' + i, hex2(rom[i] || 0), i < romLen ? BAY4.dis(rom[i]) : '');
+    },
+    onPick: null
+  };
+  return api;
+}
+
+// The page logic still names parts with the datapath-diagram ids (b_pc, w_pc_rom, c_A...).
+// These maps turn them into board parts, so the board and the diagram always light up the same things.
+const BOX2PART = {b_pc: 'pc', b_ir: 'ir', b_ctrl: 'cu', b_A: 'a', b_B: 'b', b_alu: 'alu', b_Z: 'zf', b_out: 'out'};
+const CTRL2PART = {c_A: 'a', c_B: 'b', c_alu: 'alu', c_pc: 'pc', c_out: 'out'};
+const PART2BOX = {pc: 'b_pc', ir: 'b_ir', cu: 'b_ctrl', a: 'b_A', b: 'b_B', alu: 'b_alu', zf: 'b_Z', out: 'b_out', rom: 'b_rom', inc: 'b_inc', clk: 'b_clk'};
+// each diagram wire becomes one or more board paths: [path, color, bus]
+function wirePaths(id, pc) {
+  const I = PATH.internal;
+  switch (id) {
+    case 'w_pc_rom': return [[PATH.addr(pc), C.addr, 'addr']];
+    case 'w_rom_ir': return [[PATH.instr(pc), C.data, 'instr']];
+    case 'w_ir_ctrl': return [[I('ir', 'cu'), C.ctrl, 'int']];
+    case 'w_op_A': return [[I('ir', 'a'), C.oper, 'int']];
+    case 'w_op_B': return [[I('ir', 'b'), C.oper, 'int']];
+    case 'w_op_PC': return [[I('ir', 'pc'), C.oper, 'int']];
+    case 'w_pc_inc': return [[I('pc', 'inc'), C.addr, 'int'], [I('inc', 'pc'), C.addr, 'int']];
+    case 'w_A_alu': return [[I('a', 'alu'), C.alu, 'int']];
+    case 'w_B_alu': return [[I('b', 'alu'), C.alu, 'int']];
+    case 'w_alu_A': return [[I('alu', 'a'), C.alu, 'int']];
+    case 'w_alu_Z': return [[I('alu', 'zf'), C.alu, 'int']];
+    case 'w_A_out': return [[PATH.out(), C.out, 'out']];
+    case 'w_Z_ctrl': return [[I('zf', 'cu'), C.ctrl, 'int']];
+  }
+  return [];
+}
+// light the parts named by diagram ids (pc = the ROM word being read, for b_rom)
+function boardShow(G, ids, color, pc) {
+  if (!G) return;
+  G.clear();
+  ids.forEach(id => { if (CTRL2PART[id] && !ids.some(b => BOX2PART[b] === CTRL2PART[id])) G.hi(CTRL2PART[id], C.ctrl); });
+  ids.forEach(id => {
+    if (id === 'b_rom') G.hiCell(pc, color);
+    else if (BOX2PART[id]) G.hi(BOX2PART[id], color);
+  });
+}
+// send one packet along the board version of a diagram wire; returns a GSAP timeline (or null)
+function boardFly(G, id, text, pc, dur) {
+  if (!G || !hasGSAP) return null;
+  const list = wirePaths(id, pc); if (!list.length) return null;
+  const tl = gsap.timeline();
+  list.forEach((w, k) => {
+    tl.call(() => G.bus(w[2]), null, k ? '>' : 0);
+    const f = G.fly(w[0], k === list.length - 1 || list.length === 1 ? text : '', w[1], {dur: (dur || 0.8) / list.length});
+    if (f) tl.add(f, k ? '>' : 0);
+  });
+  if (id === 'w_pc_rom') { tl.call(() => G.bus('ctrl'), null, 0); const r = G.fly(PATH.read(), 'READ', C.ctrl, {dur: dur || 0.8}); if (r) tl.add(r, 0); }
+  return tl;
+}
+// control signals fly from the control unit to the parts they switch on
+function boardSignals(G, sig, dur) {
+  if (!G || !hasGSAP || !sig) return null;
+  const t = [];
+  if (sig.A_load) t.push(['a', 'A_load']);
+  if (sig.B_load) t.push(['b', 'B_load']);
+  if (sig.ALU_op !== '-') t.push(['alu', 'op ' + sig.ALU_op]);
+  if (sig.Z_load) t.push(['zf', 'Z_load']);
+  if (sig.OUT_en) t.push(['out', 'OUT_en']);
+  if (sig.PC_src === 'jump') t.push(['pc', 'jump']);
+  const tl = gsap.timeline();
+  t.forEach((p, k) => { const f = p[0] === 'out' ? G.fly([P('cu'), {x: -8.3, z: 0}, {x: 0.6, z: 0}, {x: 0.6, z: 5.0}, P('out')], p[1], C.ctrl, {dur: dur || 0.8}) : G.fly(PATH.internal('cu', p[0]), p[1], C.ctrl, {dur: dur || 0.8}); if (f) tl.add(f, k * 0.12); });
+  return tl;
+}
+
+
+// ---------------- packets on the 2D diagram (used in the 2D view and when 3D is unavailable) ----------------
+function packet2D(wireId, text, secs, speed) {
+  const path = document.getElementById(wireId), svg = document.getElementById('dp');
+  if (!path || !svg || !hasGSAP || !path.getTotalLength) return null;
+  const NS = 'http://www.w3.org/2000/svg', col = C[path.dataset.c] || C.addr, L = path.getTotalLength();
+  const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'pk2');
+  const c = document.createElementNS(NS, 'circle'); c.setAttribute('r', 7); c.setAttribute('fill', col); c.setAttribute('style', 'filter:drop-shadow(0 0 5px ' + col + ')');
+  const t = document.createElementNS(NS, 'text'); t.setAttribute('y', -12); t.setAttribute('text-anchor', 'middle'); t.setAttribute('fill', col); t.setAttribute('class', 'pkt2'); t.textContent = text || '';
+  g.appendChild(c); g.appendChild(t); svg.appendChild(g);
+  const o = {t: 0}, place = () => { const q = path.getPointAtLength(o.t * L); g.setAttribute('transform', 'translate(' + q.x + ',' + q.y + ')'); };
+  place();
+  return gsap.to(o, {t: 1, duration: secs || 0.8, ease: 'power1.inOut', onUpdate: place, onComplete: () => g.remove(), onInterrupt: () => g.remove()}).timeScale(speed || 1);
+}
+
 
 // ---------------- Page logic: CPU datapath animator ----------------
 const SAMPLES = [
@@ -582,7 +1181,7 @@ const SAMPLES = [
 ];
 const $ = id => document.getElementById(id);
 const bin4 = n => (n & 15).toString(2).padStart(4, '0');
-const LABELS = {b_pc: 'PC', b_rom: 'ROM', b_ir: 'Instruction', b_ctrl: 'Control', b_A: 'A', b_B: 'B', b_alu: 'ALU', b_Z: 'Z', b_out: 'OUT'};
+const LABELS = {b_pc: 'PC', b_rom: 'ROM', b_ir: 'Instruction', b_ctrl: 'Control', b_A: 'A', b_B: 'B', b_alu: 'ALU', b_Z: 'Z', b_out: 'OUT', b_inc: 'PC + 1', b_clk: 'Clock'};
 const INFO = {
   b_pc: 'The program counter (PC) holds the address of the next instruction. After most instructions it adds 1; jumps replace it.',
   b_rom: 'The instruction ROM stores the program: 16 words of 8 bits. The PC chooses which word is read.',
@@ -592,20 +1191,27 @@ const INFO = {
   b_B: 'Register B holds the second number for the ALU.',
   b_alu: 'The arithmetic logic unit (ALU) adds, subtracts, ANDs, or ORs A and B. It is built from the adders and gates of Weeks 3 and 4.',
   b_Z: 'The zero flag Z is 1 when the last ALU result was 0. JZ uses it to decide whether to jump.',
-  b_out: 'The output display shows the value of A whenever OUT runs.'
+  b_out: 'The output display shows the value of A whenever OUT runs.',
+  b_inc: 'The PC + 1 adder computes the address of the next instruction. Because the PC has 4 bits, 15 + 1 wraps around to 0.',
+  b_clk: 'The clock ticks once per step and keeps every part in time. HLT stops it.'
 };
-let rom = [], st, ph = -1, runTimer = null, board = null, views = [], tl = null;
+const PHASE_COLOR = ['var(--addr)', 'var(--ctrl)', 'var(--data)'];
+const PHASE_HEX = [C.addr, C.ctrl, C.data];
+const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
+let rom = [], st, ph = -1, runTimer = null, G = null, views = [], tl = null, view = '3d', speed = 1, current = null, follow = true;
+let awaiting = null, resumeRun = false, pscore = {ok: 0, n: 0}, prevSt = null;
 
 function fresh() { return {A: 0, B: 0, Z: 0, PC: 0, out: [], halted: false, steps: 0}; }
 function clone(s) { return Object.assign({}, s, {out: s.out.slice()}); }
 function word(pc) { return rom[pc] || 0; }
+function fullRom() { return rom.concat(new Array(16 - rom.length).fill(0)); }
 
 function fillSamples() {
   const sel = $('sample');
   SAMPLES.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; sel.appendChild(o); });
   sel.addEventListener('change', () => loadSample(+sel.value));
 }
-function loadSample(i) { $('progText').value = SAMPLES[i].src; $('sampleDesc').textContent = SAMPLES[i].desc; loadProgram(); }
+function loadSample(i) { $('sample').value = String(i); $('progText').value = SAMPLES[i].src; $('sampleDesc').textContent = SAMPLES[i].desc; loadProgram(); }
 function loadProgram() {
   const err = $('progErr');
   try { rom = BAY4.assemble($('progText').value); err.hidden = true; }
@@ -613,10 +1219,11 @@ function loadProgram() {
   reset();
 }
 function reset() {
-  stopRun(); if (tl) tl.kill();
-  st = fresh(); ph = -1; views = [];
+  stopRun(); if (tl) tl.kill(); hidePredict();
+  st = fresh(); ph = -1; views = []; prevSt = null;
+  if (G) { G.clearPackets(); G.clear(); }
   applyView({st: clone(st), ph: -1, title: 'Ready', caption: 'Press <b>Step forward</b> to fetch the first instruction. All registers start at 0.',
-    ids: [], ir: '---- ----', ctrl: 'idle', alu: '-', sig: null}, false);
+    ids: [], ir: '---- ----', irw: null, ctrl: 'idle', alu: '-', sig: null, pc: 0}, false);
 }
 
 function renderRom() {
@@ -640,18 +1247,51 @@ function renderSignals(sig) {
     tb.appendChild(tr);
   });
 }
-function setPhase(p) { document.querySelectorAll('.phase').forEach(el => el.classList.toggle('on', +el.dataset.ph === p)); }
-function highlight2D(ids) {
+function bitsInto(id, v, n) {
+  const box = $(id);
+  if (!box.children.length) box.innerHTML = Array.from({length: n}, (_, k) => '<div class="bit"><i></i>' + (n === 8 ? (k < 4 ? 'op' : 'opd') : 2 ** (n - 1 - k)) + '</div>').join('');
+  Array.from(box.children).forEach((el, k) => el.classList.toggle('one', ((v >> (n - 1 - k)) & 1) === 1));
+}
+function renderRegs(v) {
+  const w = v.irw == null ? null : v.irw;
+  $('g-pc').textContent = st.PC; $('gs-pc').textContent = bin4(st.PC);
+  $('g-zf').textContent = st.Z; $('gs-zf').textContent = st.Z ? 'last result was 0' : 'last result not 0';
+  $('g-ir').textContent = w == null ? '--' : hex2(w); $('gs-ir').textContent = w == null ? 'empty' : BAY4.dis(w) + ' · ' + bin4(w >> 4) + ' ' + bin4(w);
+  $('g-a').textContent = st.A; $('gs-a').textContent = bin4(st.A); $('g-b').textContent = st.B; $('gs-b').textContent = bin4(st.B);
+  bitsInto('bits-ir', w == null ? 0 : w, 8); bitsInto('bits-a', st.A, 4); bitsInto('bits-b', st.B, 4);
+  const lit = {pc: v.ids.includes('b_pc'), zf: v.ids.includes('b_Z'), ir: v.ids.includes('b_ir'), a: v.ids.includes('b_A'), b: v.ids.includes('b_B')};
+  Object.keys(lit).forEach(k => { const r = $('r-' + k); r.classList.toggle('on', lit[k]); r.style.setProperty('--hc', PHASE_COLOR[v.ph] || 'var(--copper)'); });
+}
+function renderRail(v) {
+  document.querySelectorAll('#rail li').forEach(d => {
+    const r = +d.dataset.r, on = r === v.ph || (r === 3 && v.ph === 2 && v.ctrl !== 'HLT');
+    d.classList.toggle('on', on);
+  });
+}
+function highlight2D(ids, color) {
+  $('dp').style.setProperty('--hl', color || 'var(--addr)');
   document.querySelectorAll('#dp .wire, #dp .box').forEach(el => el.classList.remove('on'));
   ids.forEach(id => { const el = $(id); if (el) el.classList.add('on'); });
+}
+function boardState(v) {
+  return {PC: st.PC, A: st.A, B: st.B, Z: st.Z, IR: v.irw == null ? null : v.irw, sig: v.sig, halted: st.halted, out: st.out, aluTxt: v.alu === '-' ? '' : v.alu.split(' ')[0]};
+}
+function focusPart(id, pc) {
+  if (!G || G.kind !== '3d' || !follow) return;
+  if (id === 'b_rom') { const c = cellXZ(pc); G.focus(c.x, c.z); return; }
+  const k = BOX2PART[id]; if (k) G.focus(COMP[k].x, COMP[k].z);
 }
 
 // A "view" is everything shown after one phase; Step back restores the previous view.
 function applyView(v, animate) {
+  const before = prevSt;
   st = clone(v.st); ph = v.ph;
-  setPhase(ph);
+  const col = PHASE_COLOR[ph] || 'var(--silk-dim)';
+  $('phaseTitle').style.setProperty('--pc', v.title === 'Stopped' ? 'var(--ctrl)' : col);
+  renderRail(v);
   $('phaseTitle').textContent = v.title;
   $('explain').innerHTML = v.caption;
+  $('instrCtx').textContent = ph < 0 ? 'Next instruction at address ' + st.PC : 'Address ' + v.pc + ': ' + (ph === 0 ? 'fetching' : BAY4.dis(v.irw));
   $('v_pc').textContent = st.PC + ' (' + bin4(st.PC) + ')';
   $('v_A').textContent = st.A + ' (' + bin4(st.A) + ')';
   $('v_B').textContent = st.B + ' (' + bin4(st.B) + ')';
@@ -659,21 +1299,37 @@ function applyView(v, animate) {
   $('v_out').textContent = st.out.length ? st.out[st.out.length - 1] : '-';
   $('v_ir').textContent = v.ir; $('v_ctrl').textContent = v.ctrl; $('v_alu').textContent = v.alu;
   $('outList').textContent = st.out.length ? st.out.join(', ') : 'nothing yet';
+  $('outList').classList.toggle('none', !st.out.length);
+  $('tape').innerHTML = st.out.length ? st.out.map(x => '<span>' + x + '</span>').join('') : '<em>Nothing shown yet</em>';
   $('stepCount').textContent = 'Instructions executed: ' + st.steps + (st.halted ? ' (stopped)' : '');
-  renderRom(); renderSignals(v.sig); highlight2D(v.ids);
-  if (board) {
-    board.highlight(v.ids);
-    board.setValue('b_pc', st.PC); board.setValue('b_A', st.A); board.setValue('b_B', st.B); board.setValue('b_Z', st.Z);
-    board.setValue('b_ir', v.ir === '---- ----' ? '' : v.ir); board.setValue('b_ctrl', v.ctrl === 'idle' ? '' : v.ctrl);
-    board.setValue('b_alu', v.alu === '-' ? '' : v.alu); board.setValue('b_out', st.out.length ? st.out[st.out.length - 1] : '');
-    if (animate && v.packets && hasGSAP) {
-      if (tl) tl.kill();
-      tl = gsap.timeline();
-      v.packets.forEach(p => tl.call(() => board.packet(p[0], p[1], 0.7, p[2]), null, p[3] || 0));
-      if ($('follow').checked && v.focus) tl.call(() => board.focus(v.focus), null, 0); else if ($('follow').checked) tl.call(() => board.overview(), null, 0);
-    }
+  renderRom(); renderSignals(v.sig); highlight2D(v.ids, col); renderRegs(v);
+  if (tl) { tl.kill(); tl = null; }
+  if (G) {
+    G.clearPackets();
+    boardShow(G, v.ids, PHASE_HEX[ph] || C.addr, v.pc);
+    G.update(boardState(v), fullRom(), rom.length);
   }
+  if (animate && hasGSAP) {
+    const onBoard = view === '3d' && G;
+    tl = gsap.timeline();
+    if (onBoard) { tl.call(() => G.tick(), null, 0); focusPart(v.focus, v.pc); }
+    v.packets.forEach(p => {
+      if (onBoard) { const f = boardFly(G, p[0], p[1], v.pc, 0.9); if (f) tl.add(f, p[3] || 0); }
+      else tl.call(() => packet2D(p[0], p[1], 0.7, speed), null, p[3] || 0);
+    });
+    if (onBoard && ph === 1) { const s = boardSignals(G, v.sig, 0.8); if (s) tl.add(s, 0.6); }
+    if (onBoard && v.ids.includes('b_out') && ph === 2) tl.call(() => G.lcdFlash(), null, 0.6);
+    tl.timeScale(speed);
+  }
+  if (G && animate && before) {
+    const pops = [];
+    if (before.A !== st.A) pops.push('a'); if (before.B !== st.B) pops.push('b'); if (before.Z !== st.Z) pops.push('zf');
+    if (before.PC !== st.PC) pops.push('pc'); if (before.out.length !== st.out.length) pops.push('out'); if (ph === 0) pops.push('ir');
+    if (hasGSAP) gsap.delayedCall(0.9 / speed, () => pops.forEach(k => G.pop(k)));
+  }
+  prevSt = clone(st);
   $('backBtn').disabled = views.length < 1;
+  $('hudSteps') && ($('hudSteps').textContent = st.steps);
 }
 
 const ALU_OPS = {ADD: '+', SUB: '-', AND: 'AND', OR: 'OR'};
@@ -690,11 +1346,12 @@ const DESC = {
   JZ: n => `JZ ${n} checks the zero flag. If Z is 1 the PC becomes ${n}; if Z is 0 the processor continues with the next address.`,
   HLT: () => 'HLT stops the processor.'
 };
-let current = null;   // the view on screen
 
-function nextPhase() {
+function nextPhase(ask) {
+  if (awaiting) { $('pqIn').focus(); return true; }
   if (st.halted) {
     $('phaseTitle').textContent = 'Stopped';
+    $('phaseTitle').style.setProperty('--pc', 'var(--ctrl)');
     $('explain').innerHTML = 'The program has halted. Press <b>Reset</b> to run it again, or load another program.';
     stopRun(); return false;
   }
@@ -703,77 +1360,118 @@ function nextPhase() {
   const irTxt = bin4(w >> 4) + ' ' + bin4(w);
   let v;
   if (p === 0) {
-    v = {st: clone(st), ph: 0, title: 'Fetch', ir: irTxt, ctrl: 'idle', alu: '-', sig: null, focus: 'b_rom',
+    v = {st: clone(st), ph: 0, title: 'Fetch', ir: irTxt, irw: w, ctrl: 'idle', alu: '-', sig: null, focus: 'b_rom', pc: st.PC,
       caption: `<b>Fetch.</b> The PC holds <b>${st.PC}</b>, so the processor reads ROM address ${st.PC} and copies the 8-bit word <span class="mono">${irTxt}</span> into the instruction register.`,
       ids: ['b_pc', 'w_pc_rom', 'b_rom', 'w_rom_ir', 'b_ir'],
-      packets: [['w_pc_rom', 'address ' + st.PC, 0xfacc15, 0], ['w_rom_ir', irTxt, 0xfacc15, 0.75]]};
+      packets: [['w_pc_rom', bin4(st.PC), 0, 0], ['w_rom_ir', hex2(w), 0, 0.9]]};
   } else if (p === 1) {
-    const ids = ['b_ir', 'w_ir_ctrl', 'b_ctrl'], pk = [['w_ir_ctrl', 'opcode ' + bin4(w >> 4), 0xa78bfa, 0]];
+    const ids = ['b_ir', 'w_ir_ctrl', 'b_ctrl'], pk = [['w_ir_ctrl', bin4(w >> 4), 0, 0]];
     if (sig.A_load) ids.push('c_A');
     if (sig.B_load) ids.push('c_B');
     if (sig.ALU_op !== '-') ids.push('c_alu');
     if (sig.OUT_en) ids.push('c_out');
     if (name === 'JMP' || name === 'JZ') ids.push('c_pc');
-    if (name === 'JZ') { ids.push('w_Z_ctrl', 'b_Z'); pk.push(['w_Z_ctrl', 'Z=' + st.Z, 0xa78bfa, 0.3]); }
-    v = {st: clone(st), ph: 1, title: 'Decode', ir: irTxt, ctrl: name, alu: '-', sig: sig, focus: 'b_ctrl', ids: ids, packets: pk,
+    if (name === 'JZ') { ids.push('w_Z_ctrl', 'b_Z'); pk.push(['w_Z_ctrl', 'Z=' + st.Z, 0, 0.3]); }
+    v = {st: clone(st), ph: 1, title: 'Decode', ir: irTxt, irw: w, ctrl: name, alu: '-', sig: sig, focus: 'b_ctrl', ids: ids, packets: pk, pc: st.PC,
       caption: `<b>Decode.</b> The opcode <span class="mono">${bin4(w >> 4)}</span> means <b>${BAY4.dis(w)}</b>` +
         (BAY4.HAS_OP[name] ? `, and the operand <span class="mono">${bin4(n)}</span> is ${n}. ` : '. This instruction does not use the operand. ') +
         DESC[name](n) + ' The decoder turns on the highlighted control signals.'};
   } else {
     const before = clone(st);
-    const r = BAY4.step(st, rom.concat(new Array(16 - rom.length).fill(0)));
+    const r = BAY4.step(st, fullRom());
     const s = r.state;
     let ids = [], txt = '', pk = [], focus = 'b_A', alu = '-';
-    if (name === 'LDA') { ids = ['w_op_A', 'b_A', 'c_A']; pk = [['w_op_A', String(n), 0xfacc15, 0]]; txt = `A is now ${s.A}.`; }
-    else if (name === 'LDB') { ids = ['w_op_B', 'b_B', 'c_B']; pk = [['w_op_B', String(n), 0xfacc15, 0]]; txt = `B is now ${s.B}.`; focus = 'b_B'; }
+    if (name === 'LDA') { ids = ['w_op_A', 'b_A', 'c_A']; pk = [['w_op_A', String(n), 0, 0]]; txt = `A is now ${s.A}.`; }
+    else if (name === 'LDB') { ids = ['w_op_B', 'b_B', 'c_B']; pk = [['w_op_B', String(n), 0, 0]]; txt = `B is now ${s.B}.`; focus = 'b_B'; }
     else if (name in ALU_OPS) {
       ids = ['b_A', 'b_B', 'w_A_alu', 'w_B_alu', 'b_alu', 'w_alu_A', 'w_alu_Z', 'b_Z', 'c_alu', 'c_A'];
       alu = name + ' (' + sig.ALU_op + ')'; focus = 'b_alu';
-      pk = [['w_A_alu', 'A=' + before.A, 0xfacc15, 0], ['w_B_alu', 'B=' + before.B, 0xfacc15, 0], ['w_alu_A', 'result ' + s.A, 0x22c55e, 0.85], ['w_alu_Z', 'Z=' + s.Z, 0xa78bfa, 0.85]];
+      pk = [['w_A_alu', String(before.A), 0, 0], ['w_B_alu', String(before.B), 0, 0], ['w_alu_A', String(s.A), 0, 0.95], ['w_alu_Z', 'Z=' + s.Z, 0, 1.05]];
       const sym = ALU_OPS[name], raw = name === 'ADD' ? before.A + before.B : name === 'SUB' ? before.A - before.B : null;
       txt = `The ALU computes ${before.A} ${sym} ${before.B} = <b>${s.A}</b>` +
         (raw !== null && raw !== s.A ? ` (the true answer ${raw} does not fit in 4 bits, so it wraps around to ${s.A})` : '') +
         `. In binary: ${bin4(before.A)} ${sym} ${bin4(before.B)} = ${bin4(s.A)}. Z is now ${s.Z}${s.Z ? ' because the result is zero' : ''}.`;
     }
-    else if (name === 'OUT') { ids = ['b_A', 'w_A_out', 'b_out', 'c_out']; pk = [['w_A_out', String(s.A), 0x22c55e, 0]]; txt = `The display now shows ${s.A}.`; focus = 'b_out'; }
-    else if (name === 'JMP') { ids = ['w_op_PC', 'b_pc', 'c_pc']; pk = [['w_op_PC', 'jump to ' + n, 0xfacc15, 0]]; txt = `The PC is now ${s.PC}.`; focus = 'b_pc'; }
+    else if (name === 'OUT') { ids = ['b_A', 'w_A_out', 'b_out', 'c_out']; pk = [['w_A_out', String(s.A), 0, 0]]; txt = `The display now shows ${s.A}.`; focus = 'b_out'; }
+    else if (name === 'JMP') { ids = ['w_op_PC', 'b_pc', 'c_pc']; pk = [['w_op_PC', String(n), 0, 0]]; txt = `The PC is now ${s.PC}.`; focus = 'b_pc'; }
     else if (name === 'JZ') {
       const taken = before.Z === 1; focus = 'b_pc';
       ids = ['b_Z', 'w_Z_ctrl', 'c_pc', 'b_pc', taken ? 'w_op_PC' : 'w_pc_inc'];
-      pk = taken ? [['w_op_PC', 'jump to ' + n, 0xfacc15, 0]] : [['w_pc_inc', 'PC+1', 0xfacc15, 0]];
+      pk = taken ? [['w_op_PC', String(n), 0, 0]] : [['w_pc_inc', String(s.PC), 0, 0]];
       txt = taken ? `Z is 1, so the jump is taken: the PC is now ${s.PC}.` : `Z is 0, so there is no jump: the PC moves on to ${s.PC}.`;
     }
     else if (name === 'HLT') { ids = ['b_ctrl']; txt = 'The processor has stopped. The PC stays where it is.'; focus = 'b_ctrl'; }
     else { ids = []; txt = 'Nothing changes except the PC.'; focus = 'b_pc'; }
-    if (!['JMP', 'JZ', 'HLT'].includes(name)) { ids.push('w_pc_inc', 'b_pc'); pk.push(['w_pc_inc', 'PC+1 = ' + s.PC, 0x38bdf8, 0.2]); txt += ` The PC adds 1 and becomes ${s.PC}.`; }
-    v = {st: clone(s), ph: 2, title: 'Execute', ir: irTxt, ctrl: name, alu: alu, sig: r.info.sig, ids: ids, packets: pk, focus: focus,
+    if (!['JMP', 'JZ', 'HLT'].includes(name)) { ids.push('w_pc_inc', 'b_pc'); pk.push(['w_pc_inc', String(s.PC), 0, pk.length ? 1.2 : 0.2]); txt += ` The PC adds 1 and becomes ${s.PC}.`; }
+    v = {st: clone(s), ph: 2, title: 'Execute', ir: irTxt, irw: w, ctrl: name, alu: alu, sig: r.info.sig, ids: ids, packets: pk, focus: focus, pc: before.PC,
       caption: `<b>Execute ${r.info.text}.</b> ${txt}`};
   }
   current = v;
   applyView(v, true);
+  if (ask && p === 1 && name !== 'HLT' && $('predict').checked) askPredict();
   return true;
 }
 function stepBack() {
-  stopRun();
+  stopRun(); hidePredict();
   if (!views.length) return;
   current = views.pop();
+  prevSt = null;
   applyView(current, false);
 }
-function nextInstruction() { stopRun(); if (st.halted) { nextPhase(); return; } do { nextPhase(); } while (ph !== 2 && !st.halted); }
+function nextInstruction() { stopRun(); hidePredict(); if (st.halted) { nextPhase(false); return; } do { nextPhase(false); } while (ph !== 2 && !st.halted); }
 function stopRun() { if (runTimer) { clearInterval(runTimer); runTimer = null; } $('runBtn').textContent = 'Play'; }
-function toggleRun() {
-  if (runTimer) { stopRun(); return; }
+function startRun() {
   $('runBtn').textContent = 'Pause';
   let guard = 0;
-  runTimer = setInterval(() => { guard++; if (!nextPhase() || guard > 400) stopRun(); }, hasGSAP ? 1700 : 600);
+  runTimer = setInterval(() => {
+    guard++;
+    if (!nextPhase(true) || guard > 400) { stopRun(); return; }
+    if (awaiting) { stopRun(); resumeRun = true; }
+  }, (hasGSAP ? 1700 : 600) / speed);
+}
+function toggleRun() {
+  if (runTimer) { stopRun(); return; }
+  if (awaiting) return;
+  startRun();
 }
 
-function setView(mode) {
-  const three = mode === '3d' && board;
-  $('stage').hidden = !three; $('tip3d').hidden = !three; $('svgwrap').hidden = !!three;
-  $('view3d').setAttribute('aria-pressed', three ? 'true' : 'false');
-  $('view2d').setAttribute('aria-pressed', three ? 'false' : 'true');
+// ---------------- predict before execute ----------------
+function askPredict() {
+  const w = word(st.PC), nm = BAY4.NAMES[w >> 4] || 'NOP', r = BAY4.step(st, fullRom()), s = r.state, text = r.info.text;
+  let q, ans, why;
+  if (nm === 'LDA') { q = `What will register A hold after ${text}?`; ans = s.A; why = `LDA copies the operand, ${w & 15}, into A.`; }
+  else if (nm in ALU_OPS) { q = `What will register A hold after ${text}?`; ans = s.A; why = `The ALU computes ${st.A} ${ALU_OPS[nm]} ${st.B}` + ((nm === 'ADD' && st.A + st.B > 15) || (nm === 'SUB' && st.A - st.B < 0) ? `, which does not fit in 4 bits, so it wraps around to ${s.A}.` : ` = ${s.A}. In binary: ${bin4(st.A)} ${ALU_OPS[nm]} ${bin4(st.B)} = ${bin4(s.A)}.`); }
+  else if (nm === 'LDB') { q = `What will register B hold after ${text}?`; ans = s.B; why = `LDB copies the operand, ${w & 15}, into B.`; }
+  else if (nm === 'OUT') { q = 'Which number will appear on the display?'; ans = s.A; why = `OUT shows the current value of A, which is ${s.A}.`; }
+  else { q = `What will the PC be after ${text}?`; ans = s.PC; why = nm === 'JMP' ? 'JMP always loads its operand into the PC.' : nm === 'JZ' ? (st.Z === 1 ? `Z = 1, so JZ jumps to ${w & 15}.` : 'Z = 0, so JZ does not jump and the PC just adds 1.') : 'NOP changes nothing, so the PC just adds 1.'; }
+  awaiting = {ans: ans, why: why};
+  $('pqT').textContent = q; $('pqIn').value = ''; $('pqFb').innerHTML = ''; $('pqGo').textContent = 'Check';
+  $('pq').hidden = false;
+  try { $('pqIn').focus({preventScroll: true}); } catch (e) {}
 }
+function checkPredict() {
+  if (!awaiting) return;
+  if (awaiting.checked) { hidePredict(); if (resumeRun) { resumeRun = false; nextPhase(true); startRun(); } return; }
+  const g = parseInt($('pqIn').value, 10);
+  if (isNaN(g) || g < 0 || g > 15) { $('pqFb').innerHTML = '<div class="fb bad">Type a whole number from 0 to 15. Bay-4 values have 4 bits.</div>'; return; }
+  const ok = g === awaiting.ans; pscore.n++; if (ok) pscore.ok++;
+  $('pqFb').innerHTML = '<div class="fb ' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'Correct. ' : 'Not this time: the answer is ' + awaiting.ans + '. ') + awaiting.why + ' Press Continue to watch it happen.</div>';
+  $('pqScore').textContent = pscore.ok + ' of ' + pscore.n + ' correct';
+  awaiting.checked = true; $('pqGo').textContent = 'Continue';
+}
+function hidePredict() { awaiting = null; $('pq').hidden = true; }
+
+function setView(mode) {
+  view = mode === '3d' ? '3d' : '2d';
+  const stage = $('stage');
+  stage.classList.toggle('show-dp', view === '2d');
+  $('svgwrap').hidden = view !== '2d';
+  $('tip3d').hidden = view !== '3d' || !G || G.kind !== '3d'; $('tip2d').hidden = !$('tip3d').hidden;
+  $('camViews').hidden = view !== '3d' || !G || G.kind !== '3d';
+  $('view3d').classList.toggle('on', view === '3d'); $('view3d').setAttribute('aria-pressed', view === '3d' ? 'true' : 'false');
+  $('view2d').classList.toggle('on', view === '2d'); $('view2d').setAttribute('aria-pressed', view === '2d' ? 'true' : 'false');
+}
+function showInfo(id) { $('info').innerHTML = `<b>${LABELS[id]}.</b> ${INFO[id]}`; }
 
 // ---------------- Self-check ----------------
 function quizItems() {
@@ -789,17 +1487,19 @@ function quizItems() {
 function buildQuiz() {
   const box = $('quizBox'); box.innerHTML = '';
   let answered = 0, right = 0; const items = quizItems();
+  $('qbar').style.width = '0%';
   items.forEach((it, i) => {
     const d = document.createElement('div'); d.className = 'q';
     d.innerHTML = `<p>${i + 1}. ${it.q}</p><div class="opts"></div><div class="feedback info" hidden></div>`;
     const opts = d.querySelector('.opts'), fb = d.querySelector('.feedback');
     it.opts.forEach((o, j) => {
-      const b = document.createElement('button'); b.className = 'btn'; b.textContent = o;
+      const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = o;
       b.addEventListener('click', () => {
         if (d.dataset.done) return; d.dataset.done = '1'; answered++;
         if (j === it.a) { right++; b.classList.add('right'); fb.className = 'feedback ok'; fb.textContent = 'Correct. ' + it.why; }
         else { b.classList.add('wrong'); opts.children[it.a].classList.add('right'); fb.className = 'feedback bad'; fb.textContent = 'Not quite. ' + it.why; }
         fb.hidden = false;
+        $('qbar').style.width = (answered / items.length * 100) + '%';
         if (answered === items.length) { const s = $('quizScore'); s.hidden = false; s.innerHTML = `<span class="big">${right}/${items.length}</span> correct`; }
       });
       opts.appendChild(b);
@@ -809,27 +1509,40 @@ function buildQuiz() {
 }
 
 // ---------------- Start ----------------
-board = Board3D.create($('stage'), $('dp'), {labels: LABELS});
-if (board) {
-  board.pick(id => { $('explain').innerHTML = `<b>${LABELS[id]}.</b> ${INFO[id]}`; board.focus(id); });
-  setView('3d');
-} else {
-  $('view3d').disabled = true; setView('2d');
-  const fb = document.querySelector('#stage .fallback'); if (fb) $('svgwrap').before(fb);
-}
+const stageEl = $('stage');
+try { G = Graphics3D(stageEl, 'BAY-4  REV 1.0  WEEK 5  CPU DATAPATH ANIMATOR  EGN 325'); } catch (e) { console.error(e); G = null; }
+if (!G) { $('nogl').hidden = false; G = Graphics2D(stageEl); }
+G.onPick = k => showInfo(PART2BOX[k] || 'b_rom');
+if (stageEl.clientWidth < 700) { follow = false; $('follow').classList.remove('on'); $('follow').setAttribute('aria-pressed', 'false'); }
+setView('3d');
+document.querySelectorAll('#dp g.box').forEach(g => { g.style.cursor = 'pointer'; g.addEventListener('click', () => showInfo(g.id)); });
 $('view3d').addEventListener('click', () => setView('3d'));
 $('view2d').addEventListener('click', () => setView('2d'));
-document.querySelectorAll('#dp g.box').forEach(g => { g.style.cursor = 'pointer'; g.addEventListener('click', () => { $('explain').innerHTML = `<b>${LABELS[g.id]}.</b> ${INFO[g.id]}`; }); });
 fillSamples();
 $('loadBtn').addEventListener('click', loadProgram);
-$('phaseBtn').addEventListener('click', () => { stopRun(); nextPhase(); });
+$('phaseBtn').addEventListener('click', () => { stopRun(); nextPhase(true); });
 $('backBtn').addEventListener('click', stepBack);
 $('instrBtn').addEventListener('click', nextInstruction);
 $('runBtn').addEventListener('click', toggleRun);
 $('resetBtn').addEventListener('click', () => { current = null; reset(); });
+$('overview').addEventListener('click', () => { if (G) G.view('overview'); document.querySelectorAll('#camViews button[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === 'overview')); });
+document.querySelectorAll('#camViews button[data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('#camViews button[data-view]').forEach(x => x.classList.toggle('on', x === b)); G.view(b.dataset.view); }));
+$('follow').addEventListener('click', () => { follow = !follow; $('follow').classList.toggle('on', follow); $('follow').setAttribute('aria-pressed', follow); });
+const applySpeed = () => { speed = SPEEDS[+$('speed').value]; $('speedOut').textContent = speed + '×'; if (tl) tl.timeScale(speed); if (runTimer) { stopRun(); startRun(); } };
+$('speed').addEventListener('input', applySpeed);
+$('pqGo').addEventListener('click', checkPredict);
+$('pqIn').addEventListener('keydown', e => { if (e.key === 'Enter') checkPredict(); });
+$('predict').addEventListener('change', e => { if (!e.target.checked && awaiting) { hidePredict(); if (resumeRun) { resumeRun = false; startRun(); } } });
+document.addEventListener('keydown', e => {
+  const t = e.target, tag = t && t.tagName;
+  if (e.ctrlKey || e.metaKey || e.altKey || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SUMMARY') return;
+  if (e.key === ' ') { e.preventDefault(); stopRun(); nextPhase(true); }
+  else if (e.key === 'b' || e.key === 'B') stepBack();
+  else if (e.key === 'r' || e.key === 'R') toggleRun();
+});
+if (!hasGSAP) $('info').insertAdjacentHTML('beforeend', ' <span class="muted">(Animations are off because the animation library did not load; every step still works.)</span>');
 loadSample(1);
 buildQuiz();
-
 </script>
 </body>
 </html>
