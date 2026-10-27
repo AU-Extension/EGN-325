@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RISC-V step-through simulator</title>
+<meta name="description" content="EGN 325 Week 6 interactive: Run real RISC-V assembly one instruction at a time and watch the registers, memory, and program counter change.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .muted{color:var(--muted)} .small{font-size:14px}
+  .prog-row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+  .prog-row .field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
+  .prog-row p{margin:0;flex:1;min-width:220px}
+  .editbox{margin-top:12px} .editbox summary{cursor:pointer;font-weight:600}
+  textarea{width:100%;font-family:var(--mono);font-size:14px;border:1px solid #CBD2DA;border-radius:8px;padding:10px;margin-top:8px}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .phases{display:flex;gap:6px;flex-wrap:wrap}
+  .phase{font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .phase.on{background:var(--au-red);color:#fff}
+  .svgwrap{width:100%}
+  #dp{width:100%;height:auto;display:block}
+  #dp .wire{fill:none;stroke:#CBD2DA;stroke-width:2.5;transition:stroke .2s}
+  #dp .wire.ctrlw{stroke-dasharray:6 5;stroke-width:2}
+  #dp .wire.on{stroke:var(--au-red);stroke-width:4;marker-end:url(#arrOn)}
+  #dp .wire.ctrlw.on{stroke:#7C3AED;stroke-width:3}
+  #dp .box rect,#dp .box path{fill:#fff;stroke:#94A3B8;stroke-width:2;transition:fill .2s,stroke .2s}
+  #dp .box.on rect,#dp .box.on path{fill:var(--au-red-soft);stroke:var(--au-red);stroke-width:3}
+  #dp .lbl{font-size:13px;font-weight:600;fill:var(--ink-2);text-anchor:middle}
+  #dp .val{font-size:20px;font-weight:700;fill:var(--ink);text-anchor:middle;font-family:var(--mono)}
+  #dp .small-val{font-size:13px;font-weight:600}
+  #dp .tiny{font-size:11px;fill:var(--muted)}
+  .legend{margin-top:8px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .lg{display:inline-block;width:22px;height:4px;border-radius:2px;background:var(--au-red)}
+  .lg.ctl{background:repeating-linear-gradient(90deg,#7C3AED 0 6px,transparent 6px 10px)}
+  .explain{min-height:96px}
+  h3{font-size:15px;margin:14px 0 6px}
+  table.sig td:first-child{font-family:var(--mono);font-weight:600;width:45%}
+  table.sig tr.active td{background:#F3EEFF;color:#4C1D95;font-weight:700}
+  .outlist{background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:10px 12px;min-height:40px;word-break:break-word}
+  table.rom td,table.rom th{white-space:nowrap}
+  table.rom tr.pc td{background:var(--au-red-soft);font-weight:700}
+  table.rom td.mono, .mono{font-family:var(--mono)}
+  .q{border-top:1px solid var(--line);padding:12px 0}
+  .q p{margin:0 0 8px;font-weight:600}
+  .opts{display:flex;flex-direction:column;gap:6px}
+  .opts button{text-align:left}
+  .opts button.right{background:var(--ok-soft);border-color:#BBE5C8}
+  .opts button.wrong{background:var(--bad-soft);border-color:#F5C2C2}
+  .head-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .head-row h2{margin:0}
+  .viewtog{display:flex;gap:6px}
+  .small-btn{padding:6px 10px;font-size:13px}
+  .viewtog .btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .phases{margin:10px 0}
+  .lg.pk{width:10px;height:10px;border-radius:50%;background:#FACC15;box-shadow:0 0 0 2px #FDE68A}
+  .label3d.pkt{background:#FACC15;color:#16181D;font-family:var(--mono);font-weight:700}
+  .follow{display:inline-flex;align-items:center;gap:6px;margin-left:4px}
+  .stage3d{margin-bottom:6px}
+  @media(max-width:520px){.stage3d .label3d{font-size:10px;padding:1px 4px}}
+  .grid>*{min-width:0}
+  .stage3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+  .card > .fallback{font-size:14px;color:var(--muted);background:#F5F7FA;border-radius:8px;padding:8px 12px;margin:6px 0}
+  .pill{font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .lg.rd{background:#60A5FA} .lg.wr{background:#F87171}
+  .console{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);border-radius:8px;padding:10px 12px;min-height:44px;margin:0;white-space:pre-wrap;word-break:break-word}
+  .listing-wrap{max-height:520px;overflow:auto}
+  table.listing td,table.listing th{white-space:nowrap;font-size:13px}
+  table.listing tr.cur td{background:var(--au-red-soft);font-weight:700}
+  table.listing td.src{color:var(--muted)}
+  .regs{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:6px;margin-top:10px}
+  .reg{display:flex;justify-content:space-between;align-items:baseline;gap:6px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:#fff;transition:background .3s}
+  .reg .rn{font-weight:600;font-size:14px} .reg .rn small{color:var(--muted);font-weight:400}
+  .reg .rv{font-size:14px;overflow:hidden;text-overflow:ellipsis}
+  .reg.rd{background:#EFF6FF;border-color:#93C5FD} .reg.wr{background:#FEF2F2;border-color:#F87171}
+  table.mem tr.rd td{background:#EFF6FF} table.mem tr.wr td{background:#FEF2F2;font-weight:700}
+  .stage3d .label3d.reglbl{font-size:10.5px;padding:1px 5px}
+  .stage3d .label3d.reglbl.on{background:rgba(220,38,38,.95)} .stage3d .label3d.reglbl.rd{background:rgba(37,99,235,.95)}
+  .stage3d .label3d.memlbl{font-size:10.5px;padding:1px 5px;font-family:var(--mono)}
+  .stage3d .label3d.title3d{background:transparent;color:#CBD5E1;font-size:11px;box-shadow:none}
+  .stage3d .label3d.pclbl{background:rgba(225,20,30,.95);font-family:var(--mono);font-size:11px;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media(max-width:520px){.stage3d .label3d.pclbl{max-width:150px}.stage3d .label3d.memlbl,.stage3d .label3d.title3d{display:none!important}.regs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 6 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 6 · Explorer</span>
+    <h1>RISC-V step-through simulator</h1>
+    <p class="lede">Run real RISC-V assembly one instruction at a time and watch the registers, memory, and program counter change.</p>
+  </section>
+
+    <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Pick a sample program. Each one is valid RV32I code that also runs in RARS, so you can paste it there and compare.</li>
+      <li>Press <b>Step forward</b> to run one instruction. The caption explains it, the 3D model shows which registers are read (blue) and written (red), and values travel between the registers, the ALU, and memory.</li>
+      <li>Use <b>Step back</b> to undo, <b>Play</b> to run at reading speed, and <b>Reset</b> to start over. Rotate the 3D model and click any register cube or memory block to see its value.</li>
+      <li>Edit the code (or write your own) and press <b>Assemble</b>. Error messages tell you the line and what is wrong.</li>
+    </ol>
+  </details>
+
+  <section class="card" aria-label="Program">
+    <div class="prog-row">
+      <label class="field">Sample program
+        <select id="sample"></select>
+      </label>
+      <p id="sampleDesc" class="muted small"></p>
+    </div>
+    <details class="editbox" id="editbox">
+      <summary>Edit the code</summary>
+      <p class="small muted">Supported: add, sub, and, or, xor, slt, sll, srl, addi, andi, ori, xori, slli, srli, lw, sw, lui, auipc, beq, bne, blt, bge, jal, jalr, ecall, and the pseudo-instructions li, la, mv, j, ret, nop, beqz, bnez. System calls: a7 = 1 print integer, 4 print string, 10 exit, 11 print character. Comments start with #.</p>
+      <textarea id="code" rows="14" spellcheck="false" aria-label="RISC-V source code"></textarea>
+      <div class="btnrow"><button class="btn primary" id="asmBtn">Assemble</button></div>
+      <div id="asmErr" class="feedback bad" hidden></div>
+    </details>
+  </section>
+
+  <div class="grid two">
+    <section class="card">
+      <div class="head-row">
+        <h2>Inside the processor</h2>
+        <span class="pill mono" id="pcPill">pc = 0x00400000</span>
+      </div>
+      <div class="stage3d" id="stage"></div>
+      <div class="legend small"><span class="lg rd"></span> read <span class="lg wr"></span> written <span class="lg pk"></span> value moving</div>
+      <div class="caption" id="explain" aria-live="polite">Press <b>Step forward</b> to run the first instruction.</div>
+      <div class="stepper">
+        <button class="btn" id="backBtn">&#9664; Step back</button>
+        <button class="btn primary" id="stepBtn">Step forward &#9654;</button>
+        <button class="btn" id="runBtn">Play</button>
+        <button class="btn" id="resetBtn">Reset</button>
+        <label class="small follow"><input type="checkbox" id="follow" checked> Camera follows</label>
+      </div>
+      <h3>Console output (Run I/O)</h3>
+      <pre class="console" id="console" aria-live="polite"></pre>
+      <p class="small muted" id="status">Instructions executed: 0</p>
+    </section>
+
+    <aside class="card">
+      <h2>Program</h2>
+      <p class="small muted">The highlighted line runs next. Pseudo-instructions such as li, la, mv, and ret become one or two real instructions; the "Basic" column shows what RARS actually runs.</p>
+      <div class="scroll-x listing-wrap">
+        <table class="data listing" id="listing">
+          <thead><tr><th>Address</th><th>Basic</th><th>Source</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </aside>
+  </div>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>Registers</h2>
+      <p class="small muted">32 registers of 32 bits. x0 (zero) is always 0. Values are shown in decimal; hover or tap a register for hexadecimal.</p>
+      <label class="small"><input type="checkbox" id="showAll"> Show all 32 registers</label>
+      <div class="regs" id="regs"></div>
+    </section>
+    <section class="card">
+      <h2>Memory</h2>
+      <p class="small muted">Words in the data segment (starting at 0x10010000) and any stack words the program stores. Each word is 4 bytes, so addresses go up by 4.</p>
+      <div class="scroll-x">
+        <table class="data mem" id="memTable"><thead><tr><th>Address</th><th>Label</th><th>Value</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" id="quiz">
+    <h2>Self-check</h2>
+    <p class="small muted">Run the samples first, then answer. Not graded.</p>
+    <div id="quizBox"></div>
+    <div id="quizScore" class="score" hidden></div>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script>
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+// ENGINE START: RV32I subset assembler and simulator (behaves like RARS for the instructions it accepts)
+const RV = (function () {
+  const ABI = ['zero', 'ra', 'sp', 'gp', 'tp', 't0', 't1', 't2', 's0', 's1', 'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7',
+    's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 't3', 't4', 't5', 't6'];
+  const REGNUM = {fp: 8};
+  ABI.forEach((n, i) => { REGNUM[n] = i; REGNUM['x' + i] = i; });
+  const TEXT = 0x00400000, DATA = 0x10010000;
+  const R = ['add', 'sub', 'and', 'or', 'xor', 'sll', 'srl', 'sra', 'slt', 'sltu'];
+  const I = ['addi', 'andi', 'ori', 'xori', 'slti', 'sltiu', 'slli', 'srli', 'srai'];
+  const B = ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'];
+  const hex = v => '0x' + (v >>> 0).toString(16).padStart(8, '0');
+
+  function err(line, msg) { const e = new Error('Line ' + line + ': ' + msg); e.line = line; throw e; }
+  function reg(tok, line) {
+    const t = (tok || '').trim();
+    if (!(t in REGNUM)) err(line, '"' + t + '" is not a register name');
+    return REGNUM[t];
+  }
+  function num(tok, line) {
+    const t = (tok || '').trim();
+    if (!/^-?(0x[0-9a-f]+|0b[01]+|\d+)$/i.test(t)) err(line, '"' + t + '" is not a number');
+    const neg = t[0] === '-', b = neg ? t.slice(1) : t;
+    const v = b.startsWith('0b') || b.startsWith('0B') ? parseInt(b.slice(2), 2) : Number(b);
+    return neg ? -v : v;
+  }
+  function imm12(tok, line) {
+    const v = num(tok, line);
+    if (v < -2048 || v > 2047) err(line, 'the immediate ' + v + ' does not fit in 12 bits (-2048 to 2047)');
+    return v;
+  }
+  function splitArgs(s) { return s.split(',').map(x => x.trim()).filter(x => x !== ''); }
+  function memArg(tok, line) {   // "8(sp)" or "(t0)" or "0(t0)"
+    const m = /^(-?(?:0x[0-9a-f]+|\d+))?\s*\(\s*([a-z0-9]+)\s*\)$/i.exec((tok || '').trim());
+    if (!m) err(line, 'expected an address like 0(t0), got "' + tok + '"');
+    const off = m[1] ? num(m[1], line) : 0;
+    if (off < -2048 || off > 2047) err(line, 'offset out of range');
+    return [off, reg(m[2], line)];
+  }
+  function parseString(s, line) {
+    const m = /^"((?:[^"\\]|\\.)*)"$/.exec(s.trim());
+    if (!m) err(line, 'expected a string in double quotes');
+    return m[1].replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
+
+  // Pass 1 sizes and labels, pass 2 builds instructions.
+  function assemble(src) {
+    const lines = String(src).split('\n');
+    const labels = {}, items = [], dataBytes = [];
+    let seg = 'text', pc = TEXT, dp = DATA;
+    lines.forEach((raw, idx) => {
+      const ln = idx + 1;
+      let s = raw.replace(/#.*/, '');
+      // keep # inside strings
+      const q = raw.indexOf('"');
+      if (q >= 0 && raw.indexOf('#') > q) s = raw.slice(0, raw.lastIndexOf('"') + 1) + raw.slice(raw.lastIndexOf('"') + 1).replace(/#.*/, '');
+      s = s.trim();
+      while (true) {
+        const m = /^([A-Za-z_][\w.]*)\s*:\s*/.exec(s);
+        if (!m) break;
+        if (labels[m[1]] !== undefined) err(ln, 'label "' + m[1] + '" is defined twice');
+        labels[m[1]] = seg === 'text' ? pc : dp;
+        s = s.slice(m[0].length);
+      }
+      if (!s) return;
+      const sp = s.search(/\s/), op = (sp < 0 ? s : s.slice(0, sp)).toLowerCase(), rest = sp < 0 ? '' : s.slice(sp + 1).trim();
+      if (op === '.data') { seg = 'data'; return; }
+      if (op === '.text') { seg = 'text'; return; }
+      if (op === '.globl' || op === '.global') return;
+      if (op[0] === '.') {
+        if (seg !== 'data') err(ln, op + ' belongs in the .data section');
+        if (op === '.word') {
+          while (dp % 4) { dataBytes.push([dp, 0]); dp++; }
+          splitArgs(rest).forEach(t => { const v = num(t, ln); for (let k = 0; k < 4; k++) dataBytes.push([dp + k, (v >>> (8 * k)) & 255]); dp += 4; });
+        } else if (op === '.asciz' || op === '.string' || op === '.ascii') {
+          const str = parseString(rest, ln);
+          for (const ch of str) { dataBytes.push([dp, ch.charCodeAt(0) & 255]); dp++; }
+          if (op !== '.ascii') { dataBytes.push([dp, 0]); dp++; }
+        } else if (op === '.space') { const n = num(rest, ln); for (let k = 0; k < n; k++) dataBytes.push([dp + k, 0]); dp += n; }
+        else err(ln, 'directive ' + op + ' is not supported in this simulator');
+        return;
+      }
+      if (seg !== 'text') err(ln, 'instructions belong in the .text section');
+      const args = splitArgs(rest);
+      let size = 1;
+      if (op === 'li') { const v = num(args[1], ln); size = (v >= -2048 && v <= 2047) ? 1 : 2; }
+      if (op === 'la') size = 2;
+      items.push({line: ln, op: op, args: args, addr: pc, size: size, src: s});
+      pc += 4 * size;
+    });
+    const prog = [];
+    const target = (tok, ln) => { if (!(tok in labels)) err(ln, 'label "' + tok + '" is not defined'); return labels[tok]; };
+    const need = (it, n) => { if (it.args.length !== n) err(it.line, it.op + ' needs ' + n + ' operands'); };
+    items.forEach(it => {
+      const a = it.args, ln = it.line, push = (ins) => { ins.line = ln; ins.addr = it.addr + 4 * prog.filter(p => p.line === ln).length; ins.src = it.src; prog.push(ins); };
+      const op = it.op;
+      if (R.includes(op)) { need(it, 3); push({op: op, rd: reg(a[0], ln), rs1: reg(a[1], ln), rs2: reg(a[2], ln)}); }
+      else if (I.includes(op)) {
+        need(it, 3);
+        let v = num(a[2], ln);
+        if (['slli', 'srli', 'srai'].includes(op)) { if (v < 0 || v > 31) err(ln, 'shift amount must be 0 to 31'); }
+        else v = imm12(a[2], ln);
+        push({op: op, rd: reg(a[0], ln), rs1: reg(a[1], ln), imm: v});
+      }
+      else if (op === 'lw' || op === 'sw') {
+        need(it, 2);
+        if (!/\(/.test(a[1])) err(ln, op + ' needs an address like 0(t0)');
+        const m = memArg(a[1], ln);
+        if (op === 'lw') push({op: 'lw', rd: reg(a[0], ln), rs1: m[1], imm: m[0]});
+        else push({op: 'sw', rs2: reg(a[0], ln), rs1: m[1], imm: m[0]});
+      }
+      else if (B.includes(op)) { need(it, 3); push({op: op, rs1: reg(a[0], ln), rs2: reg(a[1], ln), target: target(a[2], ln)}); }
+      else if (op === 'beqz' || op === 'bnez') { need(it, 2); push({op: op === 'beqz' ? 'beq' : 'bne', rs1: reg(a[0], ln), rs2: 0, target: target(a[1], ln)}); }
+      else if (op === 'bgt' || op === 'ble') { need(it, 3); push({op: op === 'bgt' ? 'blt' : 'bge', rs1: reg(a[1], ln), rs2: reg(a[0], ln), target: target(a[2], ln)}); }
+      else if (op === 'jal') {
+        if (a.length === 1) push({op: 'jal', rd: 1, target: target(a[0], ln)});
+        else { need(it, 2); push({op: 'jal', rd: reg(a[0], ln), target: target(a[1], ln)}); }
+      }
+      else if (op === 'j') { need(it, 1); push({op: 'jal', rd: 0, target: target(a[0], ln)}); }
+      else if (op === 'jalr') {
+        if (a.length === 1) push({op: 'jalr', rd: 1, rs1: reg(a[0], ln), imm: 0});
+        else if (a.length === 2) { const m = memArg(a[1], ln); push({op: 'jalr', rd: reg(a[0], ln), rs1: m[1], imm: m[0]}); }
+        else { need(it, 3); push({op: 'jalr', rd: reg(a[0], ln), rs1: reg(a[1], ln), imm: imm12(a[2], ln)}); }
+      }
+      else if (op === 'jr') { need(it, 1); push({op: 'jalr', rd: 0, rs1: reg(a[0], ln), imm: 0}); }
+      else if (op === 'ret') { need(it, 0); push({op: 'jalr', rd: 0, rs1: 1, imm: 0}); }
+      else if (op === 'nop') { need(it, 0); push({op: 'addi', rd: 0, rs1: 0, imm: 0}); }
+      else if (op === 'mv') { need(it, 2); push({op: 'add', rd: reg(a[0], ln), rs1: 0, rs2: reg(a[1], ln)}); }
+      else if (op === 'neg') { need(it, 2); push({op: 'sub', rd: reg(a[0], ln), rs1: 0, rs2: reg(a[1], ln)}); }
+      else if (op === 'li') {
+        need(it, 2);
+        const rd = reg(a[0], ln), v = num(a[1], ln) | 0;
+        if (it.size === 1) push({op: 'addi', rd: rd, rs1: 0, imm: v});
+        else { const lo = (v << 20) >> 20, hi = ((v - lo) >>> 12) & 0xfffff; push({op: 'lui', rd: rd, imm: hi}); push({op: 'addi', rd: rd, rs1: rd, imm: lo}); }
+      }
+      else if (op === 'la') {
+        need(it, 2);
+        const rd = reg(a[0], ln), addr = target(a[1], ln), off = (addr - it.addr) | 0, lo = (off << 20) >> 20, hi = ((off - lo) >>> 12) & 0xfffff;
+        push({op: 'auipc', rd: rd, imm: hi}); push({op: 'addi', rd: rd, rs1: rd, imm: lo});
+      }
+      else if (op === 'lui' || op === 'auipc') { need(it, 2); const v = num(a[1], ln); if (v < 0 || v > 0xfffff) err(ln, 'immediate must be 0 to 1048575'); push({op: op, rd: reg(a[0], ln), imm: v}); }
+      else if (op === 'ecall') { need(it, 0); push({op: 'ecall'}); }
+      else err(ln, '"' + op + '" is not an instruction this simulator knows');
+    });
+    prog.forEach(p => { p.basic = basic(p); });
+    return {prog: prog, labels: labels, data: dataBytes, lines: lines};
+  }
+  function basic(p) {
+    const n = i => ABI[i];
+    if (R.includes(p.op)) return `${p.op} ${n(p.rd)}, ${n(p.rs1)}, ${n(p.rs2)}`;
+    if (I.includes(p.op)) return `${p.op} ${n(p.rd)}, ${n(p.rs1)}, ${p.imm}`;
+    if (p.op === 'lw') return `lw ${n(p.rd)}, ${p.imm}(${n(p.rs1)})`;
+    if (p.op === 'sw') return `sw ${n(p.rs2)}, ${p.imm}(${n(p.rs1)})`;
+    if (B.includes(p.op)) return `${p.op} ${n(p.rs1)}, ${n(p.rs2)}, ${hex(p.target)}`;
+    if (p.op === 'jal') return `jal ${n(p.rd)}, ${hex(p.target)}`;
+    if (p.op === 'jalr') return `jalr ${n(p.rd)}, ${p.imm}(${n(p.rs1)})`;
+    if (p.op === 'lui' || p.op === 'auipc') return `${p.op} ${n(p.rd)}, ${p.imm}`;
+    return p.op;
+  }
+
+  function machine(asm, input) {
+    const regs = new Int32Array(32);
+    regs[2] = 0x7fffeffc; regs[3] = 0x10008000;
+    const mem = new Map();
+    asm.data.forEach(([a, v]) => mem.set(a, v));
+    const byAddr = new Map(asm.prog.map((p, i) => [p.addr, i]));
+    return {regs: regs, mem: mem, pc: TEXT, out: '', halted: false, steps: 0, byAddr: byAddr, asm: asm, input: (input || []).slice(), error: null};
+  }
+  function rdw(m, a) {
+    if (a % 4) throw new Error('lw address ' + hex(a) + ' is not a multiple of 4 (misaligned)');
+    let v = 0; for (let k = 3; k >= 0; k--) v = (v << 8) | (m.mem.get(a + k) || 0);
+    return v | 0;
+  }
+  function wrw(m, a, v) {
+    if (a % 4) throw new Error('sw address ' + hex(a) + ' is not a multiple of 4 (misaligned)');
+    for (let k = 0; k < 4; k++) m.mem.set(a + k, (v >>> (8 * k)) & 255);
+  }
+  // Executes one machine instruction. Returns an info object describing what happened (for animation and captions).
+  function step(m) {
+    if (m.halted) return null;
+    const i = m.byAddr.get(m.pc);
+    if (i === undefined) {
+      const last = m.asm.prog.length ? m.asm.prog[m.asm.prog.length - 1].addr : TEXT - 4;
+      m.halted = true;
+      m.error = m.pc === last + 4 ? 'The program ran past its last instruction (RARS reports "dropped off bottom"). End it with ecall 10.'
+        : 'pc = ' + hex(m.pc) + ' is not the address of an instruction in this program, so RARS stops with an error.';
+      return {done: true, error: m.error};
+    }
+    const p = m.asm.prog[i], r = m.regs, info = {pc: m.pc, ins: p, reads: [], write: null, mem: null, taken: null, out: ''};
+    const get = x => { info.reads.push(x); return x === 0 ? 0 : r[x]; };
+    const set = (x, v) => { if (x !== 0) r[x] = v | 0; info.write = {reg: x, value: x === 0 ? 0 : v | 0}; };
+    let next = m.pc + 4;
+    const sv = (op, a, b) => {
+      switch (op) {
+        case 'add': return (a + b) | 0; case 'sub': return (a - b) | 0; case 'and': return a & b; case 'or': return a | b; case 'xor': return a ^ b;
+        case 'sll': return a << (b & 31); case 'srl': return a >>> (b & 31); case 'sra': return a >> (b & 31);
+        case 'slt': return a < b ? 1 : 0; case 'sltu': return (a >>> 0) < (b >>> 0) ? 1 : 0;
+      }
+    };
+    try {
+      if (R.includes(p.op)) set(p.rd, sv(p.op, get(p.rs1), get(p.rs2)));
+      else if (I.includes(p.op)) set(p.rd, sv({addi: 'add', andi: 'and', ori: 'or', xori: 'xor', slti: 'slt', sltiu: 'sltu', slli: 'sll', srli: 'srl', srai: 'sra'}[p.op], get(p.rs1), p.imm));
+      else if (p.op === 'lw') { const a = (get(p.rs1) + p.imm) | 0; const v = rdw(m, a); info.mem = {addr: a >>> 0, value: v, kind: 'load'}; set(p.rd, v); }
+      else if (p.op === 'sw') { const a = (get(p.rs1) + p.imm) | 0; const v = get(p.rs2); wrw(m, a >>> 0, v); info.mem = {addr: a >>> 0, value: v, kind: 'store'}; }
+      else if (B.includes(p.op)) {
+        const a = get(p.rs1), b = get(p.rs2);
+        const t = {beq: a === b, bne: a !== b, blt: a < b, bge: a >= b, bltu: (a >>> 0) < (b >>> 0), bgeu: (a >>> 0) >= (b >>> 0)}[p.op];
+        info.taken = t; if (t) next = p.target;
+      }
+      else if (p.op === 'jal') { set(p.rd, m.pc + 4); next = p.target; info.taken = true; }
+      else if (p.op === 'jalr') { const t = (get(p.rs1) + p.imm) & ~1; set(p.rd, m.pc + 4); next = t >>> 0; info.taken = true; }
+      else if (p.op === 'lui') set(p.rd, p.imm << 12);
+      else if (p.op === 'auipc') set(p.rd, (m.pc + (p.imm << 12)) | 0);
+      else if (p.op === 'ecall') {
+        const svc = get(17); info.ecall = svc;
+        if (svc === 1) { info.out = String(get(10)); }
+        else if (svc === 11) { info.out = String.fromCharCode(get(10) & 255); }
+        else if (svc === 4) { let a = get(10) >>> 0, s = ''; for (let k = 0; k < 10000; k++) { const c = m.mem.get(a + k) || 0; if (!c) break; s += String.fromCharCode(c); } info.out = s; }
+        else if (svc === 10) { m.halted = true; info.exit = true; }
+        else if (svc === 5) { if (!m.input.length) throw new Error('ecall 5 (read integer) needs keyboard input, which this simulator does not ask for. Use li to set the value instead.'); set(10, m.input.shift()); }
+        else throw new Error('ecall service ' + svc + ' is not supported here (a7 = ' + svc + ')');
+        m.out += info.out;
+      }
+    } catch (e) { m.halted = true; m.error = 'Line ' + p.line + ': ' + e.message; info.error = m.error; }
+    if (!m.halted || info.exit) m.pc = m.halted ? m.pc : next >>> 0;
+    m.steps++;
+    info.next = m.pc;
+    return info;
+  }
+  function run(src, maxSteps, input) {
+    const asm = assemble(src), m = machine(asm, input);
+    let n = 0;
+    while (!m.halted && n < (maxSteps || 10000)) { step(m); n++; }
+    if (!m.halted) m.error = 'Stopped after ' + n + ' instructions (possible infinite loop).';
+    return m;
+  }
+  return {ABI: ABI, REGNUM: REGNUM, TEXT: TEXT, DATA: DATA, assemble: assemble, machine: machine, step: step, run: run, hex: hex, readWord: rdw};
+})();
+// ENGINE END
+
+
+// ---------------- RISC-V step-through simulator page ----------------
+const SAMPLES = [
+ {
+  "id": "add",
+  "name": "Add two numbers",
+  "desc": "Loads two constants with li, adds them with add, and prints 12 with ecall.",
+  "code": "# Add two numbers and print the result\n        .text\nmain:\n        li   t0, 7          # t0 = 7\n        li   t1, 5          # t1 = 5\n        add  a0, t0, t1     # a0 = t0 + t1\n        li   a7, 1          # service 1: print the integer in a0\n        ecall\n        li   a7, 10         # service 10: exit\n        ecall"
+ },
+ {
+  "id": "countdown",
+  "name": "Count down (loop and branch)",
+  "desc": "A loop prints 3 2 1. bnez jumps back to the label loop until the counter reaches 0.",
+  "code": "# Count down from 3 and print each number followed by a space\n        .text\nmain:\n        li   t0, 3          # t0 = counter\nloop:\n        mv   a0, t0         # copy the counter into a0 to print it\n        li   a7, 1          # service 1: print integer\n        ecall\n        li   a0, 32         # 32 is the ASCII code for a space\n        li   a7, 11         # service 11: print character\n        ecall\n        addi t0, t0, -1     # counter = counter - 1\n        bnez t0, loop       # repeat until the counter is 0\n        li   a7, 10         # service 10: exit\n        ecall"
+ },
+ {
+  "id": "total",
+  "name": "Total of an array (load word)",
+  "desc": "Four numbers live in the data segment. lw reads them one by one and the total, 43, is printed.",
+  "code": "# Add up four words stored in memory\n        .data\nnums:   .word 4, 8, 15, 16\n        .text\nmain:\n        la   t0, nums       # t0 = address of the first word\n        li   t1, 4          # t1 = how many words are left\n        li   a0, 0          # a0 = running total\nloop:\n        lw   t2, 0(t0)      # t2 = the word at address t0\n        add  a0, a0, t2     # total = total + t2\n        addi t0, t0, 4      # the next word is 4 bytes later\n        addi t1, t1, -1     # one fewer word left\n        bnez t1, loop       # repeat while words are left\n        li   a7, 1          # print the total\n        ecall\n        li   a7, 10         # exit\n        ecall"
+ },
+ {
+  "id": "function",
+  "name": "Call a function (jal and ret)",
+  "desc": "jal saves the return address in ra and jumps to double; ret jumps back. Prints 42.",
+  "code": "# Call a function that doubles a0, then print the result\n        .text\nmain:\n        li   a0, 21         # the argument goes in a0\n        jal  double         # call: ra = address of the next line\n        li   a7, 1          # a0 now holds the return value\n        ecall\n        li   a7, 10         # exit\n        ecall\ndouble:\n        add  a0, a0, a0     # a0 = a0 + a0\n        ret                 # return: jump back to the address in ra"
+ },
+ {
+  "id": "stack",
+  "name": "Save and restore with the stack",
+  "desc": "sw saves 9 on the stack, the register is overwritten, and lw brings the 9 back. Prints 10.",
+  "code": "# Save a value on the stack, overwrite the register, then load it back\n        .text\nmain:\n        li   t0, 9\n        addi sp, sp, -4     # make room for one word on the stack\n        sw   t0, 0(sp)      # memory[sp] = 9\n        li   t0, 0          # t0 is overwritten...\n        lw   t1, 0(sp)      # ...but the 9 is still in memory\n        addi a0, t1, 1      # a0 = 9 + 1\n        addi sp, sp, 4      # give the stack space back\n        li   a7, 1          # print a0\n        ecall\n        li   a7, 10         # exit\n        ecall"
+ }
+];
+const $ = id => document.getElementById(id);
+const hex = RV.hex;
+const ABI = RV.ABI;
+let asm = null, m = null, hist = [], lastInfo = null, runTimer = null, scene3 = null, lastPrevRegs = null;
+
+// ---------- program loading ----------
+function fillSamples() {
+  const sel = $('sample');
+  SAMPLES.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; sel.appendChild(o); });
+  sel.addEventListener('change', () => loadSample(+sel.value));
+}
+function loadSample(i) { $('code').value = SAMPLES[i].code; $('sampleDesc').textContent = SAMPLES[i].desc; assemble(); }
+function assemble() {
+  stopRun();
+  try { asm = RV.assemble($('code').value); $('asmErr').hidden = true; }
+  catch (e) { $('asmErr').textContent = e.message; $('asmErr').hidden = false; $('editbox').open = true; return false; }
+  m = RV.machine(asm); hist = []; lastInfo = null; lastPrevRegs = null;
+  if (scene3) scene3.build();
+  render(null);
+  $('explain').innerHTML = `Assembled ${asm.prog.length} basic instructions starting at ${hex(RV.TEXT)}. Press <b>Step forward</b> to run the first one.`;
+  return true;
+}
+function snapshot() { return {regs: m.regs.slice(), mem: new Map(m.mem), pc: m.pc, out: m.out, halted: m.halted, steps: m.steps, error: m.error, info: lastInfo, prev: lastPrevRegs}; }
+function restore(s) { m.regs = s.regs; m.mem = s.mem; m.pc = s.pc; m.out = s.out; m.halted = s.halted; m.steps = s.steps; m.error = s.error; lastInfo = s.info; lastPrevRegs = s.prev; }
+
+// ---------- explanation of one executed instruction ----------
+const labelAt = a => { for (const k in asm.labels) if (asm.labels[k] === a) return k; return null; };
+const named = a => { const l = labelAt(a); return hex(a) + (l ? ' (' + l + ')' : ''); };
+function srcOp(p) { return (p.src.replace(/^[A-Za-z_][\w.]*\s*:\s*/, '').split(/\s+/)[0] || '').toLowerCase(); }
+function explain(info, before) {
+  if (info.error && !info.ins) return info.error;
+  const p = info.ins, n = i => ABI[i], v = i => i === 0 ? 0 : before[i], so = srcOp(p);
+  const pseudo = so !== p.op && !(so === 'jal' && p.op === 'jal') ? `The source line <span class="mono">${p.src.replace(/^[A-Za-z_][\w.]*\s*:\s*/, '')}</span> is a pseudo-instruction; RARS runs it as <span class="mono">${p.basic}</span>. ` : '';
+  const w = info.write ? info.write.value : 0;
+  let t = '';
+  const R = {add: '+', sub: '-', and: 'AND', or: 'OR', xor: 'XOR', sll: '<<', srl: '>>>', sra: '>>', slt: '<'};
+  const I = {addi: '+', andi: 'AND', ori: 'OR', xori: 'XOR', slli: '<<', srli: '>>>', srai: '>>', slti: '<'};
+  if (p.op in R) {
+    t = `<b>${p.basic}</b> is R-type: two source registers, one destination. ${n(p.rd)} = ${n(p.rs1)} ${R[p.op]} ${n(p.rs2)} = ${v(p.rs1)} ${R[p.op]} ${v(p.rs2)} = <b>${w}</b>.`;
+    if (so === 'mv') t = `<b>mv ${n(p.rd)}, ${n(p.rs2)}</b> copies a register. ${pseudo}${n(p.rd)} = 0 + ${v(p.rs2)} = <b>${w}</b>.`;
+  } else if (p.op in I) {
+    if (so === 'li') t = `${pseudo}${n(p.rd)} = ${p.rs1 === 0 ? '0' : v(p.rs1)} + ${p.imm} = <b>${w}</b>. Use li to put a constant in a register.`;
+    else if (so === 'la') t = `Second half of <b>la</b>: ${n(p.rd)} = ${hex(v(p.rs1))} + ${p.imm} = <b>${hex(w)}</b>, the address of ${labelAt(w >>> 0) || 'the label'}.`;
+    else if (so === 'nop') t = 'nop does nothing (it is addi zero, zero, 0).';
+    else t = `<b>${p.basic}</b> is I-type: one register and a 12-bit immediate (a constant inside the instruction). ${n(p.rd)} = ${v(p.rs1)} ${I[p.op]} ${p.imm} = <b>${w}</b>.`;
+  } else if (p.op === 'lw') {
+    t = `<b>${p.basic}</b> is a load (I-type). Address = ${n(p.rs1)} + ${p.imm} = ${hex(info.mem.addr)}. The word in memory there is ${info.mem.value}, so ${n(p.rd)} = <b>${w}</b>.`;
+  } else if (p.op === 'sw') {
+    t = `<b>${p.basic}</b> is a store (S-type). Address = ${n(p.rs1)} + ${p.imm} = ${hex(info.mem.addr)}. Memory[${hex(info.mem.addr)}] = ${n(p.rs2)} = <b>${info.mem.value}</b>. No register changes.`;
+  } else if (['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'].includes(p.op)) {
+    const cmp = {beq: '==', bne: '!=', blt: '<', bge: '>=', bltu: '< (unsigned)', bgeu: '>= (unsigned)'}[p.op];
+    t = `${pseudo}<b>${p.op}</b> is a branch (B-type): it compares ${n(p.rs1)} = ${v(p.rs1)} and ${n(p.rs2)} = ${v(p.rs2)}. Is ${v(p.rs1)} ${cmp} ${v(p.rs2)}? ` +
+      (info.taken ? `Yes, so the branch is taken: pc = ${named(p.target)}.` : `No, so execution falls through to the next instruction (pc + 4 = ${hex(info.next)}).`);
+  } else if (p.op === 'jal') {
+    if (p.rd === 0) t = `${pseudo}<b>j</b> jumps without saving a return address: pc = ${named(p.target)}.`;
+    else t = `<b>jal</b> (J-type) calls a function: ${n(p.rd)} = pc + 4 = <b>${hex(w)}</b> (the return address), then pc = ${named(p.target)}.`;
+  } else if (p.op === 'jalr') {
+    t = so === 'ret' ? `${pseudo}<b>ret</b> returns from the function: pc = ra = <b>${hex(info.next)}</b>, the instruction right after the call.` : `<b>${p.basic}</b>: pc = ${n(p.rs1)} + ${p.imm} = ${hex(info.next)}` + (p.rd ? `, and ${n(p.rd)} = ${hex(w)}.` : '.');
+  } else if (p.op === 'lui') {
+    t = so === 'li' ? `${pseudo}The constant does not fit in 12 bits, so li needs two instructions. First lui puts ${p.imm} in the upper 20 bits: ${n(p.rd)} = <b>${w}</b>.` : `<b>${p.basic}</b> loads the upper 20 bits: ${n(p.rd)} = ${p.imm} << 12 = <b>${w}</b>.`;
+  } else if (p.op === 'auipc') {
+    t = so === 'la' ? `${pseudo}First half of <b>la</b> (load address): auipc adds an upper immediate to the pc. ${n(p.rd)} = ${hex(info.pc)} + (${p.imm} << 12) = ${hex(w)}.` : `<b>${p.basic}</b>: ${n(p.rd)} = pc + (${p.imm} << 12) = ${hex(w)}.`;
+  } else if (p.op === 'ecall') {
+    const svc = info.ecall;
+    t = `<b>ecall</b> asks the environment (RARS) for a service. a7 = ${svc}: ` +
+      (svc === 1 ? `print the integer in a0, so the console shows <b>${info.out}</b>.` : svc === 11 ? `print the character whose code is in a0 (${v(10)}${v(10) === 32 ? ', a space' : v(10) === 10 ? ', a new line' : ''}).` : svc === 4 ? `print the string at the address in a0: "${info.out.replace(/\n/g, '\\n')}".` : svc === 10 ? 'exit. The program is finished.' : '');
+  }
+  if (info.error) t += ' <b>Error:</b> ' + info.error;
+  return t;
+}
+
+// ---------- rendering ----------
+function usedRegs() {
+  const s = new Set([0]);
+  asm.prog.forEach(p => ['rd', 'rs1', 'rs2'].forEach(k => { if (p[k] !== undefined) s.add(p[k]); }));
+  if (asm.prog.some(p => p.op === 'ecall')) { s.add(10); s.add(17); }
+  return s;
+}
+function memWords() {
+  const set = new Set();
+  asm.data.forEach(([a]) => set.add(a - (a % 4)));
+  m.mem.forEach((v, a) => set.add(a - (a % 4)));
+  return Array.from(set).sort((a, b) => (a >>> 0) - (b >>> 0)).slice(0, 12);
+}
+function render(info) {
+  const used = usedRegs(), all = $('showAll').checked;
+  const reads = (info && info.reads) || [], wr = info && info.write ? info.write.reg : -1;
+  const box = $('regs'); box.innerHTML = '';
+  for (let i = 0; i < 32; i++) {
+    if (!all && !used.has(i) && i !== 2) continue;
+    const d = document.createElement('div');
+    d.className = 'reg' + (i === wr ? ' wr' : reads.includes(i) ? ' rd' : '');
+    d.title = ABI[i] + ' = ' + hex(m.regs[i]);
+    d.innerHTML = `<span class="rn">${ABI[i]} <small>x${i}</small></span><span class="rv mono">${i === 2 || i === 3 || Math.abs(m.regs[i]) > 65535 ? hex(m.regs[i]) : m.regs[i]}</span>`;
+    box.appendChild(d);
+  }
+  const tb = $('memTable').querySelector('tbody'); tb.innerHTML = '';
+  const words = memWords();
+  if (!words.length) tb.innerHTML = '<tr><td colspan="3" class="muted">This program does not use memory.</td></tr>';
+  words.forEach(a => {
+    const tr = document.createElement('tr');
+    if (info && info.mem && info.mem.addr === a) tr.className = info.mem.kind === 'store' ? 'wr' : 'rd';
+    tr.innerHTML = `<td class="mono">${hex(a)}</td><td class="mono">${labelAt(a) || (a >= 0x7fff0000 ? 'stack' : '')}</td><td class="mono">${RV.readWord(m, a)}</td>`;
+    tb.appendChild(tr);
+  });
+  const lt = $('listing').querySelector('tbody'); lt.innerHTML = '';
+  let lastLine = -1;
+  asm.prog.forEach(p => {
+    const tr = document.createElement('tr'); if (p.addr === m.pc && !m.halted) tr.className = 'cur';
+    tr.innerHTML = `<td class="mono">${hex(p.addr)}</td><td class="mono">${p.basic}</td><td class="mono src">${p.line !== lastLine ? escapeHtml(p.src) : ''}</td>`;
+    lastLine = p.line; lt.appendChild(tr);
+    if (tr.className === 'cur') requestAnimationFrame(() => { const w = tr.closest('.listing-wrap'); if (w) w.scrollTop = Math.max(0, tr.offsetTop - w.clientHeight / 2); });
+  });
+  $('console').textContent = m.out || ' ';
+  $('pcPill').textContent = 'pc = ' + hex(m.pc);
+  $('status').textContent = 'Instructions executed: ' + m.steps + (m.halted ? (m.error ? ' (stopped with an error)' : ' (program finished)') : '');
+  $('backBtn').disabled = !hist.length;
+  $('stepBtn').disabled = m.halted;
+  if (scene3) scene3.update(info, lastPrevRegs);
+}
+function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+function stepOnce() {
+  if (!m || m.halted) { stopRun(); return false; }
+  hist.push(snapshot());
+  const before = m.regs.slice();
+  const info = RV.step(m);
+  lastInfo = info; lastPrevRegs = before;
+  render(info);
+  if (scene3) scene3.animate(info, before);
+  $('explain').innerHTML = explain(info, before) || '';
+  if (m.halted) stopRun();
+  return !m.halted;
+}
+function stepBack() {
+  stopRun(); if (!hist.length) return;
+  restore(hist.pop());
+  render(lastInfo);
+  $('explain').innerHTML = lastInfo ? 'Went back one step. ' + explain(lastInfo, lastPrevRegs) : 'Back at the start. Press <b>Step forward</b> to run the first instruction.';
+}
+function stopRun() { if (runTimer) { clearInterval(runTimer); runTimer = null; } $('runBtn').textContent = 'Play'; }
+function toggleRun() {
+  if (runTimer) { stopRun(); return; }
+  if (!m || m.halted) return;
+  $('runBtn').textContent = 'Pause';
+  stepOnce();
+  runTimer = setInterval(() => { if (!stepOnce()) stopRun(); }, scene3 && hasGSAP ? 1600 : 700);
+}
+
+// ---------- the 3D model: code column, register bank, ALU, memory column, console ----------
+function makeScene() {
+  const st = make3D($('stage'), {camera: [0, 9.5, 10.5], target: [0, 0, 0.4]});
+  if (!st) return null;
+  const T = st.THREE, scene = st.scene, cam = st.camera;
+  const narrow = () => ($('stage').clientWidth || 600) < 520;
+  if (st.controls) { st.controls.enablePan = false; st.controls.minDistance = 5; st.controls.maxDistance = 26; st.controls.maxPolarAngle = Math.PI * 0.48; }
+  const floor = new T.Mesh(new T.BoxGeometry(18, 0.2, 10.5), new T.MeshStandardMaterial({color: 0x1f2937, roughness: 0.95}));
+  floor.position.y = -0.11; scene.add(floor);
+  const grid = new T.GridHelper(18, 18, 0x334155, 0x273244); scene.add(grid);
+  const pickables = [];
+  // register bank
+  const regMesh = [], regLbl = [], RX = c => -2.9 + c * 0.9, RZ = r => -2.6 + r * 1.05;
+  for (let i = 0; i < 32; i++) {
+    const mat = new T.MeshStandardMaterial({color: 0xcbd5e1, roughness: 0.45, emissive: 0x000000});
+    const mesh = new T.Mesh(new T.BoxGeometry(0.66, 1, 0.66), mat);
+    mesh.position.set(RX(i % 8), 0.15, RZ(Math.floor(i / 8))); mesh.scale.y = 0.3;
+    mesh.userData = {kind: 'reg', i: i}; scene.add(mesh); regMesh.push(mesh); pickables.push(mesh);
+    const anchor = new T.Object3D(); scene.add(anchor); anchor.position.set(mesh.position.x, 0.5, mesh.position.z);
+    regLbl.push({anchor: anchor, div: null});
+  }
+  const bankLbl = new T.Object3D(); bankLbl.position.set(0.25, 0.2, -3.5); scene.add(bankLbl); st.label(bankLbl, 'Registers x0 to x31').classList.add('title3d');
+  // ALU
+  const alu = new T.Mesh(new T.CylinderGeometry(0.75, 1.05, 0.6, 6), new T.MeshStandardMaterial({color: 0xe2e8f0, roughness: 0.4, emissive: 0x000000}));
+  alu.position.set(0.25, 0.3, 2.65); scene.add(alu); alu.userData = {kind: 'alu'}; pickables.push(alu);
+  const aluA = new T.Object3D(); aluA.position.set(0.25, 0.75, 2.65); scene.add(aluA); st.label(aluA, 'ALU');
+  // console screen
+  const con = new T.Mesh(new T.BoxGeometry(1.8, 0.9, 0.12), new T.MeshStandardMaterial({color: 0x0f172a, emissive: 0x0b1220}));
+  con.position.set(3.4, 0.55, 3.4); scene.add(con); con.userData = {kind: 'console'}; pickables.push(con);
+  const conA = new T.Object3D(); conA.position.set(3.4, 1.2, 3.4); scene.add(conA); const conLbl = st.label(conA, 'Console');
+  // code column and pc pointer
+  const codeGrp = new T.Group(); scene.add(codeGrp);
+  const ptr = new T.Mesh(new T.ConeGeometry(0.22, 0.55, 16), new T.MeshStandardMaterial({color: 0xe1141e, emissive: 0x5a0a0e}));
+  ptr.rotation.z = -Math.PI / 2; ptr.position.set(-8.05, 0.3, 0); scene.add(ptr);
+  const ptrA = new T.Object3D(); ptrA.position.set(-5.4, 0.75, 0); scene.add(ptrA); const ptrLbl = st.label(ptrA, 'pc');
+  ptrLbl.classList.add('pclbl');
+  if (narrow()) ptrA.position.x = -4.4;
+  const codeTitle = new T.Object3D(); codeTitle.position.set(-6.2, 0.2, -4.6); scene.add(codeTitle); st.label(codeTitle, 'Program (text segment)').classList.add('title3d');
+  let plates = [];
+  const CZ = 0.62;
+  // memory column
+  const memGrp = new T.Group(); scene.add(memGrp);
+  const memTitle = new T.Object3D(); memTitle.position.set(6.2, 0.2, -4.6); scene.add(memTitle); st.label(memTitle, 'Memory (words)').classList.add('title3d');
+  let memPlates = {}, memList = [];
+  const packets = [];
+  st.onFrame(() => {
+    packets.forEach(p => { const v = p.g.position.clone(); v.y += 0.4; v.project(cam); p.div.style.left = ((v.x + 1) / 2 * $('stage').clientWidth) + 'px'; p.div.style.top = ((1 - v.y) / 2 * $('stage').clientHeight) + 'px'; });
+  });
+
+  function regTop(i) { return new T.Vector3(regMesh[i].position.x, 0.15 + regMesh[i].scale.y, regMesh[i].position.z); }
+  function heightFor(v) { return v === 0 ? 0.12 : Math.min(0.3 + Math.log2(1 + Math.abs(v)) * 0.16, 2.4); }
+  function build() {
+    plates.forEach(p => { codeGrp.remove(p); p.geometry.dispose(); p.material.dispose(); }); plates = [];
+    asm.prog.forEach((p, k) => {
+      const mat = new T.MeshStandardMaterial({color: p.op === 'ecall' ? 0x86efac : ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu', 'jal', 'jalr'].includes(p.op) ? 0xfde68a : (p.op === 'lw' || p.op === 'sw') ? 0x93c5fd : 0xe2e8f0, roughness: 0.6, emissive: 0x000000});
+      const pl = new T.Mesh(new T.BoxGeometry(2.6, 0.16, 0.48), mat);
+      pl.position.set(-6.4, 0.08, k * CZ); pl.userData = {kind: 'code', k: k}; codeGrp.add(pl); plates.push(pl); pickables.push(pl);
+    });
+    // labels only on registers this program uses
+    const used = usedRegs();
+    regLbl.forEach((r, i) => { if (r.div) { r.div.remove(); r.div = null; } });
+    // remove stale entries from make3D's label list is not possible, so hidden labels are reused instead
+    regLbl.forEach((r, i) => {
+      if (used.has(i) || i === 2) { r.div = st.label(r.anchor, ABI[i]); r.div.classList.add('reglbl'); }
+    });
+    Object.values(memPlates).forEach(o => { memGrp.remove(o.mesh); if (o.div) o.div.remove(); }); memPlates = {}; memList = [];
+    codeGrp.position.z = 0;
+  }
+  function memPlate(a) {
+    if (memPlates[a]) return memPlates[a];
+    const k = memList.length; if (k >= 10) return null;
+    memList.push(a);
+    const mesh = new T.Mesh(new T.BoxGeometry(2.2, 0.3, 0.6), new T.MeshStandardMaterial({color: a >= 0x7fff0000 ? 0xfbcfe8 : 0xbfdbfe, roughness: 0.5, emissive: 0x000000}));
+    mesh.position.set(6.2, 0.15, -3.8 + k * 0.8); mesh.userData = {kind: 'mem', a: a}; memGrp.add(mesh); pickables.push(mesh);
+    const an = new T.Object3D(); an.position.set(6.2, 0.45, -3.8 + k * 0.8); memGrp.add(an);
+    const div = st.label(an, ''); div.classList.add('memlbl');
+    memPlates[a] = {mesh: mesh, div: div};
+    return memPlates[a];
+  }
+  function flash(mat, hexCol) {
+    if (!hasGSAP) { mat.emissive.setHex(hexCol); return; }
+    const c = new T.Color(hexCol);
+    gsap.fromTo(mat.emissive, {r: c.r, g: c.g, b: c.b}, {r: c.r * 0.35, g: c.g * 0.35, b: c.b * 0.35, duration: 1.2});
+  }
+  function update(info) {
+    const used = usedRegs(), reads = (info && info.reads) || [], wr = info && info.write ? info.write.reg : -1;
+    regMesh.forEach((mesh, i) => {
+      const v = m.regs[i], h = heightFor(v);
+      if (hasGSAP) { gsap.to(mesh.scale, {y: h, duration: 0.5, ease: 'power2.out'}); gsap.to(mesh.position, {y: h / 2, duration: 0.5, ease: 'power2.out'}); }
+      else { mesh.scale.y = h; mesh.position.y = h / 2; }
+      const base = used.has(i) || i === 2 ? (v < 0 ? 0xfca5a5 : 0xe2e8f0) : 0x64748b;
+      mesh.material.color.setHex(i === wr ? 0xf87171 : reads.includes(i) ? 0x60a5fa : base);
+      if (i !== wr && !reads.includes(i)) mesh.material.emissive.setHex(0x000000);
+      const r = regLbl[i];
+      if (r.div) { r.div.textContent = ABI[i] + ' ' + (Math.abs(v) > 9999 ? hex(v) : v); r.div.classList.toggle('on', i === wr); r.div.classList.toggle('rd', reads.includes(i)); }
+      r.anchor.position.y = 0.3 + h;
+    });
+    if (wr > 0) flash(regMesh[wr].material, 0xb91c1c);
+    reads.forEach(i => { if (i !== wr) regMesh[i].material.emissive.setHex(0x1e3a8a); });
+    memWords().forEach(a => { const o = memPlate(a); if (o) o.div.textContent = hex(a) + ': ' + RV.readWord(m, a); });
+    Object.keys(memPlates).forEach(a => { const o = memPlates[a], hit = info && info.mem && info.mem.addr === +a; o.mesh.material.emissive.setHex(hit ? (info.mem.kind === 'store' ? 0x7f1d1d : 0x1e3a8a) : 0x000000); });
+    // code column: move the program so the pc plate sits by the pointer
+    const k = asm.prog.findIndex(p => p.addr === m.pc), idx = k < 0 ? asm.prog.length - 1 : k;
+    const z = -idx * CZ + 0.0;
+    if (hasGSAP) gsap.to(codeGrp.position, {z: z, duration: 0.5, ease: 'power2.inOut'}); else codeGrp.position.z = z;
+    plates.forEach((pl, j) => { pl.visible = Math.abs(j - idx) <= 7; pl.material.emissive.setHex(j === idx && !m.halted ? 0x5a0a0e : 0x000000); });
+    const cur = asm.prog[idx];
+    ptrLbl.textContent = m.halted ? (m.error ? 'stopped' : 'finished') : 'pc ' + hex(m.pc).replace('0x00', '0x') + '  ' + (cur ? cur.basic : '');
+    conLbl.textContent = 'Console: ' + (m.out.length > 14 ? '...' + m.out.slice(-14) : m.out || '(empty)');
+  }
+  function packet(from, to, text, color, delay) {
+    if (!hasGSAP) return;
+    const g = new T.Mesh(new T.SphereGeometry(0.17, 16, 12), new T.MeshStandardMaterial({color: color, emissive: color, emissiveIntensity: 0.6}));
+    g.position.copy(from); g.visible = false; scene.add(g);
+    const div = document.createElement('div'); div.className = 'label3d pkt'; div.textContent = text; div.style.display = 'none'; $('stage').appendChild(div);
+    const rec = {g: g, div: div}; packets.push(rec);
+    const o = {t: 0};
+    gsap.to(o, {t: 1, duration: 0.7, delay: delay || 0, ease: 'power1.inOut',
+      onStart: () => { g.visible = true; div.style.display = ''; },
+      onUpdate: () => { g.position.lerpVectors(from, to, o.t); g.position.y = from.y + (to.y - from.y) * o.t + Math.sin(Math.PI * o.t) * 1.2; },
+      onComplete: () => { scene.remove(g); g.geometry.dispose(); g.material.dispose(); div.remove(); packets.splice(packets.indexOf(rec), 1); }});
+  }
+  function animate(info, before) {
+    if (!info || !info.ins) return;
+    const p = info.ins, aluP = new T.Vector3(0.25, 0.7, 2.65), codeP = new T.Vector3(-5.1, 0.4, 0), conP = new T.Vector3(3.4, 1.0, 3.4);
+    const Y = 0xfacc15, G = 0x22c55e, B = 0x60a5fa;
+    const val = i => String(i === 0 ? 0 : before[i]);
+    const short = v => Math.abs(v) > 9999 ? hex(v) : String(v);
+    const memP = a => { const o = memPlates[a]; return o ? o.mesh.position.clone().setY(0.6) : new T.Vector3(6.2, 0.6, 0); };
+    const wr = info.write;
+    if (p.op === 'lw') {
+      packet(regTop(p.rs1), aluP, short(before[p.rs1]) + ' + ' + p.imm, Y, 0);
+      packet(aluP, memP(info.mem.addr), hex(info.mem.addr), B, 0.6);
+      packet(memP(info.mem.addr), regTop(p.rd), String(info.mem.value), G, 1.2);
+    } else if (p.op === 'sw') {
+      packet(regTop(p.rs1), aluP, short(before[p.rs1]) + ' + ' + p.imm, Y, 0);
+      packet(aluP, memP(info.mem.addr), hex(info.mem.addr), B, 0.6);
+      packet(regTop(p.rs2), memP(info.mem.addr), String(info.mem.value), G, 0.6);
+    } else if (p.op === 'ecall') {
+      packet(regTop(17), conP, 'a7 = ' + val(17), Y, 0);
+      if (info.out) packet(regTop(10), conP, info.out === ' ' ? 'space' : info.out.replace(/\n/g, '\\n'), G, 0.3);
+    } else if (p.op === 'jal' || p.op === 'jalr' || ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'].includes(p.op)) {
+      if (p.rs1 !== undefined) packet(regTop(p.rs1), aluP, val(p.rs1).length > 6 ? hex(before[p.rs1]) : val(p.rs1), Y, 0);
+      if (p.rs2 !== undefined) packet(regTop(p.rs2), aluP, val(p.rs2), Y, 0);
+      if (wr && wr.reg) packet(codeP, regTop(wr.reg), hex(wr.value), G, 0.2);
+      packet(aluP, codeP, info.taken ? 'jump' : 'pc + 4', B, 0.6);
+    } else if (wr) {
+      if (p.rs1 !== undefined) packet(regTop(p.rs1), aluP, short(p.rs1 === 0 ? 0 : before[p.rs1]), Y, 0);
+      if (p.rs2 !== undefined) packet(regTop(p.rs2), aluP, short(p.rs2 === 0 ? 0 : before[p.rs2]), Y, 0);
+      if (p.imm !== undefined && p.rs2 === undefined) packet(codeP, aluP, 'imm ' + p.imm, B, 0);
+      if (wr.reg !== 0) packet(aluP, regTop(wr.reg), short(wr.value), G, 0.7);
+    }
+    if (hasGSAP) gsap.fromTo(alu.material.emissive, {r: 0.5, g: 0.35, b: 0}, {r: 0, g: 0, b: 0, duration: 1.2});
+    if ($('follow').checked && hasGSAP) {
+      const focus = p.op === 'lw' || p.op === 'sw' ? [2.4, 8.5, 8.5] : p.op === 'ecall' ? [1.5, 8.5, 9.5] : ['beq', 'bne', 'blt', 'bge', 'jal', 'jalr'].includes(p.op) ? [-2.8, 9, 9.5] : [0, 9.5, 10.5];
+      const nf = narrow() ? [focus[0] * 0.5, focus[1] * 1.35, focus[2] * 1.3] : focus;
+      gsap.to(cam.position, {x: nf[0], y: nf[1], z: nf[2], duration: 0.9, ease: 'power2.inOut'});
+    }
+  }
+  function pick(cb) {
+    const ray = new T.Raycaster(), v = new T.Vector2();
+    st.renderer.domElement.addEventListener('click', e => {
+      const r = st.renderer.domElement.getBoundingClientRect();
+      v.x = ((e.clientX - r.left) / r.width) * 2 - 1; v.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      ray.setFromCamera(v, cam);
+      const hit = ray.intersectObjects(pickables.filter(o => o.visible !== false))[0];
+      if (hit) cb(hit.object.userData);
+    });
+  }
+  if (narrow()) cam.position.set(0, 13, 13.5);
+  return {build: build, update: update, animate: animate, pick: pick};
+}
+
+// ---------- self-check (answers computed by the simulator) ----------
+function quizItems() {
+  const s = n => SAMPLES.find(x => x.id === n).code;
+  const cd = RV.run(s('countdown')).out;
+  const fn = RV.machine(RV.assemble(s('function'))); RV.step(fn); RV.step(fn);
+  const ra = hex(fn.regs[1]);
+  const big = RV.assemble('li t0, 100000').prog.length;
+  const third = hex(RV.DATA + 8);
+  return [
+    {q: 'What does the "Count down" sample print?', opts: [JSON.stringify(cd), '"3 2 1 0 "', '"321"', '"1 2 3 "'], a: 0, why: 'The loop prints t0 and a space, subtracts 1, and stops when t0 reaches 0, so 0 is never printed.'},
+    {q: 'In the "Call a function" sample, what is in ra right after jal double runs?', opts: [ra, '0x00400004', '0x00400014', '42'], a: 0, why: 'jal saves pc + 4, the address of the instruction after the call (0x00400004 + 4), so ret can come back there.'},
+    {q: 'How many basic instructions does RARS use for li t0, 100000?', opts: [String(big), '1', '3', '0'], a: 0, why: '100000 does not fit in a 12-bit immediate (-2048 to 2047), so li becomes lui (upper 20 bits) plus addi (lower 12 bits).'},
+    {q: 'nums starts at 0x10010000 and holds .word values. What is the address of the third word?', opts: [third, '0x10010003', '0x10010002', '0x10010012'], a: 0, why: 'Each word is 4 bytes: 0x10010000, 0x10010004, 0x10010008.'},
+    {q: 'Which instruction type is sw t0, 0(sp)?', opts: ['S-type (store)', 'R-type', 'I-type (load)', 'B-type (branch)'], a: 0, why: 'Stores have their own S format: two registers (the value and the base address) and a 12-bit offset, with no destination register.'}
+  ];
+}
+function buildQuiz() {
+  const box = $('quizBox'); box.innerHTML = '';
+  let answered = 0, right = 0; const items = quizItems();
+  items.forEach((it, i) => {
+    const order = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+    const d = document.createElement('div'); d.className = 'q';
+    d.innerHTML = `<p>${i + 1}. ${it.q}</p><div class="opts"></div><div class="feedback" hidden></div>`;
+    const opts = d.querySelector('.opts'), fb = d.querySelector('.feedback');
+    order.forEach(j => {
+      const b = document.createElement('button'); b.className = 'btn'; b.textContent = it.opts[j]; b.dataset.j = j;
+      b.addEventListener('click', () => {
+        if (d.dataset.done) return; d.dataset.done = '1'; answered++;
+        const ok = j === it.a; if (ok) right++;
+        b.classList.add(ok ? 'right' : 'wrong');
+        opts.querySelector(`[data-j="${it.a}"]`).classList.add('right');
+        fb.className = 'feedback ' + (ok ? 'ok' : 'bad'); fb.textContent = (ok ? 'Correct. ' : 'Not quite. ') + it.why; fb.hidden = false;
+        if (answered === items.length) { $('quizScore').hidden = false; $('quizScore').innerHTML = `<span class="big">${right}/${items.length}</span> correct`; }
+      });
+      opts.appendChild(b);
+    });
+    box.appendChild(d);
+  });
+}
+
+// ---------- start ----------
+scene3 = makeScene();
+if (scene3) {
+  scene3.pick(u => {
+    if (u.kind === 'reg') $('explain').innerHTML = `<b>${ABI[u.i]}</b> (x${u.i}) = ${m.regs[u.i]} = ${hex(m.regs[u.i])}. ` + ({0: 'x0 is wired to zero: writes to it are ignored.', 1: 'ra holds the return address saved by jal.', 2: 'sp points to the top of the stack.', 10: 'a0 holds the first argument, the return value, and the number ecall prints.', 17: 'a7 holds the ecall service number.'}[u.i] || (ABI[u.i][0] === 't' ? 'A temporary register.' : ABI[u.i][0] === 's' ? 'A saved register: functions keep its value.' : 'An argument register.'));
+    else if (u.kind === 'mem') $('explain').innerHTML = `Memory word at <b>${hex(u.a)}</b> = ${RV.readWord(m, u.a)}.` + (u.a >= 0x7fff0000 ? ' This word is on the stack.' : ' This word is in the data segment.');
+    else if (u.kind === 'code') { const p = asm.prog[u.k]; $('explain').innerHTML = `Instruction at <b>${hex(p.addr)}</b>: <span class="mono">${p.basic}</span> (source line ${p.line}: <span class="mono">${escapeHtml(p.src)}</span>).`; }
+    else if (u.kind === 'alu') $('explain').innerHTML = 'The <b>ALU</b> does the arithmetic and logic, computes load and store addresses, and compares registers for branches.';
+    else if (u.kind === 'console') $('explain').innerHTML = 'The <b>console</b> is the Run I/O pane in RARS. ecall services 1, 4, and 11 print here.';
+  });
+} else {
+  const fb = document.querySelector('#stage .fallback'); if (fb) $('stage').before(fb);
+  $('stage').hidden = true; document.querySelector('.legend').hidden = true; $('follow').parentElement.hidden = true;
+}
+fillSamples();
+$('asmBtn').addEventListener('click', assemble);
+$('stepBtn').addEventListener('click', () => { stopRun(); stepOnce(); });
+$('backBtn').addEventListener('click', stepBack);
+$('runBtn').addEventListener('click', toggleRun);
+$('resetBtn').addEventListener('click', () => { assemble(); });
+$('showAll').addEventListener('change', () => render(lastInfo));
+loadSample(0);
+buildQuiz();
+
+</script>
+</body>
+</html>
