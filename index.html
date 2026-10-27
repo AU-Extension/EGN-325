@@ -7,70 +7,226 @@
 <meta name="description" content="Interactive simulations for EGN 325 Computer Architecture.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wdth,wght@75..112.5,300..700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* ===== EGN 325 "Bay-4 bench" theme v2 (reference: build/theme/reference/tiny-machine-lab.html). Paste as the first block of every page's <style>. ===== */
   :root{
-    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
-    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
-    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
-    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
-    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
-    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
-    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --au-red:#E1141E; --au-red-dark:#A3282B;
+    --board:#0d302a; --board-deep:#061714; --panel:#0a211d; --panel-2:#0f2c27; --line:#1e4a41; --line-2:#2a5c51;
+    --silk:#e8efe4; --silk-dim:#9db6ac; --copper:#d4a24c;
+    --addr:#f2b33d; --data:#4fd1e8; --ctrl:#ff7a9a; --alu:#8fe388; --oper:#a9b4ff; --out:#b9f5b0; --led:#8fe388;
+    --ok:#8fe388; --bad:#ff7a7a; --warn:#f2b33d; --neon:#39ff14;
+    --font-mono:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --font-body:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif;
+    --mono:var(--font-mono); --sans:var(--font-body); --display:var(--font-mono);
+    --r:6px; --lab:10px;
+    /* legacy names used by older page code, mapped to the dark theme */
+    --ink:#e8efe4; --ink-2:#c4d4cb; --muted:#9db6ac; --bg:#061714; --card:#0a211d; --edge:#1e4a41; --edge-2:#2a5c51; --dim:#9db6ac; --silk-2:#c4d4cb;
+    --code-bg:#04110e; --code-ink:#b9f5b0; --au-red-soft:rgba(225,20,30,.14);
+    --net-blue:#4fd1e8; --net-green:#8fe388; --net-amber:#f2b33d; --net-purple:#ff7a9a; --net-teal:#5fe0c8;
+    --ok-soft:rgba(143,227,136,.10); --bad-soft:rgba(255,122,122,.10); --warn-soft:rgba(242,179,61,.10);
+    --radius:6px; --shadow:none;
+    color-scheme:dark;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:var(--au-red-dark)}
-  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
-  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
-  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  html{background:var(--board-deep)}
+  [hidden]{display:none!important}
+  body{color:var(--silk);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
+    background:radial-gradient(1200px 600px at 30% -10%,#12423a 0%,transparent 60%),var(--board-deep)}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:var(--data)}
+  :focus-visible{outline:2px solid var(--addr);outline-offset:2px}
+  /* brand bar: white with the AU red rule (the logo PNG is cropped with a wrapper) */
+  .topbar{position:relative;z-index:5;background:#fff;border-bottom:3px solid var(--au-red)}
+  .topbar-inner{max-width:none;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
   .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
   .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
-  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
-  .crumb b{color:var(--ink);font-weight:600}
-  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
-  .hero{margin:4px 0 20px}
-  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
-  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
-  h2{font-size:20px;margin:0 0 10px}
-  h3{font-size:16px;margin:0 0 8px}
-  .lede{color:var(--ink-2);max-width:760px;margin:0}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
-  .grid{display:grid;gap:16px}
-  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  .crumb{font-size:13px;color:#6B7280;letter-spacing:.02em;border-left:1px solid #E3E6EB;padding-left:16px}
+  .crumb b{color:#16181D;font-weight:600}
+  .crumb a{color:#A3282B}
+  /* page mode (challenges and pages with a scrolling layout) */
+  main,.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:26px 16px 36px}
+  .hero{margin:0 0 20px}
+  .eyebrow{display:block;margin:0;font:500 10.5px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--copper);background:none;padding:0}
+  h1{margin:6px 0 8px;font-family:var(--font-mono);font-weight:600;font-stretch:112%;font-size:clamp(24px,3.4vw,36px);line-height:1.15;letter-spacing:-.01em;text-wrap:balance;color:var(--silk)}
+  h1 .num{color:var(--addr)}
+  h2{margin:0 0 10px;font-family:var(--font-mono);font-weight:500;font-size:13px;letter-spacing:.04em;color:var(--silk)}
+  h2 small,h3 small{color:var(--silk-dim);font-weight:400}
+  h3{margin:0 0 8px;font-family:var(--font-mono);font-weight:500;font-size:12.5px;letter-spacing:.04em;color:var(--silk)}
+  .lede{margin:0;color:var(--silk-dim);font-size:15px;max-width:68ch}
+  .muted{color:var(--silk-dim)}
+  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0;color:var(--silk);
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .card[data-ref]::after{content:attr(data-ref);position:absolute;top:9px;right:12px;font:500 9.5px var(--font-mono);letter-spacing:.12em;color:rgba(157,182,172,.55)}
+  .grid{display:grid;gap:14px}
+  .grid>*{min-width:0}
+  @media(min-width:900px){.grid.two{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}}
+  details,details.howto{border:1px solid var(--line);border-radius:5px;background:var(--panel)}
   details.howto{margin:0 0 16px}
-  details.howto summary{cursor:pointer;font-weight:600}
-  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
-  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
-  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
-  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
-  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
-  .btn[disabled]{opacity:.5;cursor:not-allowed}
-  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
-  .mono,code,kbd{font-family:var(--mono)}
-  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
-  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
-  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
-  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
-  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
-  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
-  .score .big{font-size:28px;color:var(--au-red-dark)}
-  table.data{border-collapse:collapse;width:100%;font-size:14px}
-  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
-  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-  .scroll-x{overflow-x:auto}
-  svg text{font-family:var(--sans)}
-  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  summary{cursor:pointer;padding:10px 12px;font:500 12.5px var(--font-mono);color:var(--silk)}
+  details>*:not(summary){margin-left:12px;margin-right:12px}
+  details.howto ol,details.howto ul{margin:4px 12px 12px;padding-left:20px;color:var(--silk-dim)}
+  details.howto li{margin-bottom:5px}
+  details.howto li::marker{color:var(--copper)}
+  .btn{border:1px solid var(--line);background:var(--panel-2);border-radius:5px;padding:9px 12px;font:500 12px var(--font-mono);color:var(--silk);cursor:pointer;transition:border-color .2s,background .2s;display:inline-flex;gap:6px;align-items:center;justify-content:center}
+  .btn:hover:not(:disabled){border-color:var(--copper)}
+  .btn.primary,.btn.go{background:var(--copper);border-color:var(--copper);color:#1a1205;font-weight:600}
+  .btn.primary:hover:not(:disabled),.btn.go:hover:not(:disabled){background:#e3b461}
+  .btn[aria-pressed="true"],.btn.on{border-color:var(--data);color:var(--data)}
+  .btn:disabled,.btn[disabled]{opacity:.4;cursor:not-allowed}
+  input[type=text],input[type=number],select,textarea{background:var(--board-deep);border:1px solid var(--line);border-radius:5px;padding:8px 10px;font:500 13.5px var(--font-mono);color:var(--silk);min-width:0}
+  input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--copper)}
+  .mono,code,kbd{font-family:var(--font-mono);font-size:.92em}
+  code{background:rgba(232,239,228,.07);padding:1px 5px;border-radius:3px}
+  .cli{background:var(--code-bg);color:var(--code-ink);font:500 12.5px/1.6 var(--font-mono);border-radius:5px;padding:12px 14px;overflow:auto;white-space:pre;border:1px solid var(--line)}
+  .pill{display:inline-block;font:500 10.5px var(--font-mono);letter-spacing:.06em;padding:3px 8px;border-radius:3px;background:var(--panel-2);color:var(--silk-dim);border:1px solid var(--line)}
+  .feedback{border-radius:5px;padding:11px 13px;margin-top:12px;font-size:14.5px;color:var(--silk)}
+  .feedback.ok{background:rgba(143,227,136,.08);border:1px solid rgba(143,227,136,.45)}
+  .feedback.bad{background:rgba(255,122,122,.08);border:1px solid rgba(255,122,122,.45)}
+  .feedback.info{background:rgba(79,209,232,.07);border:1px solid rgba(79,209,232,.4)}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:500 12px var(--font-mono);color:var(--silk-dim)}
+  .score .big{font:600 34px/1 var(--font-mono);font-stretch:112%;color:var(--silk);font-variant-numeric:tabular-nums}
+  table,table.data{border-collapse:collapse;width:100%;font:500 12px var(--font-mono);font-variant-numeric:tabular-nums}
+  th,table.data th{font-weight:500;color:var(--silk-dim);text-align:left;font-size:10.5px;letter-spacing:.04em;padding:7px 8px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  td,table.data td{padding:4px 8px;border-bottom:1px solid rgba(30,74,65,.5)}
+  .scroll-x,.memwrap{overflow-x:auto}
+  .memwrap{border:1px solid var(--line);border-radius:5px}
+  svg text{font-family:var(--font-mono)}
+  /* step-by-step explanation (page mode and app mode) */
+  .stepper{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .caption,.narr{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:13px 15px;color:var(--silk)}
+  .caption{margin-top:12px;min-height:4.4em}
+  .caption .t{font:500 11px var(--font-mono);letter-spacing:.1em;color:var(--cap,var(--copper));margin-bottom:6px;text-transform:uppercase}
+  .narr{display:flex;flex-direction:column;gap:8px}
+  .narr-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:400 11px var(--font-mono);color:var(--silk-dim)}
+  .ptag{display:inline-flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.1em;color:var(--silk)}
+  .ptag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--pc,var(--silk-dim));box-shadow:0 0 8px var(--pc,transparent)}
+  .narr p{margin:0;font-size:15.5px;line-height:1.55;min-height:4.6em}
+  .controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .controls .btn{padding:10px 6px}
+  .speed{display:flex;align-items:center;gap:12px;font:400 11.5px var(--font-mono);color:var(--silk-dim)}
+  .speed input{flex:1;min-width:0}
+  .speed output{color:var(--silk);width:3.5em;text-align:right;font-variant-numeric:tabular-nums}
+  .hint{margin:0;font-size:12px;color:var(--silk-dim)}
+  .rail{display:flex;gap:2px;margin:4px 0 12px;padding:4px;list-style:none;background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px}
+  .rail>div,.rail>li{flex:1;text-align:center;font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .rail>div small{display:none}
+  .rail>.on{background:var(--c,var(--copper));color:#1a1205}
+  .rail>.done{color:var(--c,var(--copper))}
+  /* live state */
+  .regs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .reg{border:1px solid var(--line);border-radius:5px;padding:9px 11px;transition:border-color .3s,background .3s;min-width:0}
+  .reg.kv{display:grid;grid-template-columns:1fr auto;gap:1px 8px;align-items:baseline}
+  .reg.on,.reg.flash{border-color:var(--hc,var(--copper));background:rgba(212,162,76,.07)}
+  .reg .rn{font:600 12px var(--font-mono)}
+  .reg .rv{font:600 17px var(--font-mono);text-align:right;font-variant-numeric:tabular-nums}
+  .reg .rf{font-size:11.5px;color:var(--silk-dim)}
+  .reg .rs{font:400 10.5px var(--font-mono);color:var(--silk-dim);text-align:right;font-variant-numeric:tabular-nums}
+  .reg.wide{grid-column:1/-1}
+  .reg .n{display:flex;justify-content:space-between;align-items:baseline;font:600 12px var(--font-mono);color:var(--silk)}
+  .reg .n b{font:600 17px var(--font-mono);font-variant-numeric:tabular-nums}
+  .bits{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--nb,8),1fr);gap:4px;margin-top:8px}
+  .bit{display:flex;flex-direction:column;align-items:center;gap:3px;font:400 9.5px var(--font-mono);color:var(--silk-dim)}
+  .bit i{width:100%;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);transition:background .25s,box-shadow .25s}
+  .bit.one i{background:var(--led);border-color:var(--led);box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .ledbits{display:flex;gap:4px;margin:6px 0 2px;flex-wrap:wrap}
+  .ledbits i{width:16px;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);font:600 9px/14px var(--font-mono);font-style:normal;color:#3d5f50;text-align:center}
+  .ledbits i.on{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .tape{display:flex;flex-wrap:wrap;gap:4px;min-height:34px;align-content:flex-start}
+  .tape span{font:600 13px var(--font-mono);color:var(--out);background:#0b2a1a;border:1px solid #1f5a37;border-radius:3px;padding:3px 7px;font-variant-numeric:tabular-nums}
+  .tape em{font-style:normal;font-size:12px;color:var(--silk-dim)}
+  .notice{margin:0;padding-left:18px;color:var(--silk-dim);font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+  .notice li::marker{color:var(--copper)}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font:400 10.5px var(--font-mono);color:var(--silk-dim);letter-spacing:.04em}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:16px;height:3px;border-radius:2px;background:var(--c);box-shadow:0 0 8px var(--c)}
+  /* app mode: the 3D board fills the left, a control rail sits on the right (stacks under the board on phones) */
+  .app{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,410px);height:calc(100vh - 55px);min-height:560px}
+  .stage{position:relative;min-width:0;min-height:320px;overflow:hidden;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);touch-action:none}
+  .stage .gl{position:absolute;inset:0;display:block;z-index:1}
+  .stage .labels{position:absolute!important;top:0;left:0;z-index:2}
+  .stage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+  .nogl{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;text-align:center;color:var(--silk-dim);font-size:12.5px;z-index:4;background:rgba(6,23,20,.85)}
+  .hud{position:absolute;z-index:3;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hud button,.hud a{pointer-events:auto}
+  .hud-top{top:14px;left:16px;right:16px}
+  .hud-bottom{bottom:14px;left:16px;right:16px;justify-content:space-between;align-items:flex-end}
+  .hud .phases,.hud .ticks,.hud .legend,.hud .views{background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px;backdrop-filter:blur(6px)}
+  .phases{list-style:none;margin:0;padding:4px;display:flex;gap:2px}
+  .phases li{font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .phases li.on{background:var(--c,var(--copper));color:#1a1205}
+  .ticks{font:400 11px var(--font-mono);color:var(--silk-dim);padding:9px 10px;font-variant-numeric:tabular-nums}
+  .ticks b{color:var(--silk);font-weight:600}
+  .hud .legend{padding:8px 12px}
+  .views{display:flex;gap:2px;padding:4px}
+  .views button{border:0;background:transparent;font:400 11px var(--font-mono);padding:6px 10px;border-radius:4px;color:var(--silk-dim);cursor:pointer}
+  .views button:hover{color:var(--silk)}
+  .views button.on{background:var(--panel-2);color:var(--silk)}
+  .credit{flex-basis:100%;margin:2px 0 0 2px;font:600 14px var(--font-mono);letter-spacing:.08em;color:var(--neon);text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.75),0 0 26px rgba(57,255,20,.45)}
+  .tag,.stage3d .label3d{pointer-events:none;display:flex;flex-direction:column;align-items:center;font-family:var(--font-mono);line-height:1.1;text-align:center;color:var(--silk);text-shadow:0 1px 2px rgba(0,0,0,.8)}
+  .tag .nm{font-size:calc(var(--lab) * .85);letter-spacing:.1em;color:var(--silk-dim)}
+  .tag .vl{font-size:calc(var(--lab) * 1.3);font-weight:600;font-variant-numeric:tabular-nums}
+  .tag .sb{font-size:calc(var(--lab) * .72);color:var(--silk-dim);letter-spacing:.04em}
+  .tag .sb:empty{display:none}
+  .tag.on .nm{color:var(--silk)}
+  .tag.on .vl{color:#fff4d6}
+  .cell .nm{font-size:calc(var(--lab) * .75)}
+  .cell .vl{font-size:calc(var(--lab) * 1.15)}
+  .zone{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * .82);letter-spacing:.14em;text-transform:uppercase;color:var(--c,var(--silk-dim));opacity:.85;white-space:nowrap;text-align:center;line-height:1.3}
+  .lcd{pointer-events:none;font-family:var(--font-mono);font-weight:600;color:var(--out);font-size:calc(var(--lab) * 2);text-shadow:0 0 10px rgba(143,227,136,.8);font-variant-numeric:tabular-nums}
+  .pkt{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * 1.1);font-weight:700;color:#06120f;background:var(--c);padding:2px 6px;border-radius:3px;box-shadow:0 0 14px var(--c);white-space:nowrap}
+  .panel{min-width:0;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:20px 18px 28px;display:flex;flex-direction:column;gap:22px;
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .panel h1{font-size:24px;margin:4px 0 6px}
+  /* the older make3D stage (page mode) */
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:280px;border-radius:6px;overflow:hidden;touch-action:none;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);border:1px solid var(--line)}
+  @media(max-width:640px){.stage3d{aspect-ratio:4/3}}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:12px;color:var(--silk-dim);background:rgba(6,23,20,.85);text-align:center}
+  .stage3d .label3d{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:11px;font-weight:600}
+  .stage3d .label3d.pkt{color:#06120f;text-shadow:none;background:var(--c,currentColor);padding:2px 6px;border-radius:3px}
+  footer.foot{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:16px;color:var(--silk-dim);font-size:12.5px;border-top:1px solid var(--line)}
+  footer.foot .byline,.byline{margin-top:4px;font:600 13px var(--font-mono)!important;letter-spacing:.08em;color:var(--neon)!important;text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.6)}
+  .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media(max-width:860px){
+    .app{grid-template-columns:1fr;height:auto}
+    .app .stage{height:62vh;min-height:360px}
+    .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  }
+  @media(max-width:520px){
+    .hud .legend{font-size:9.5px;gap:3px 10px}
+    .phases li{padding:5px 7px;font-size:10px}
+    .controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
   @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  .weeks{display:grid;gap:16px}
-  @media(min-width:760px){.weeks{grid-template-columns:1fr 1fr}}
-  .wk h2{font-size:18px;margin:6px 0 12px}
-  .wk a.item{display:flex;justify-content:space-between;gap:12px;align-items:center;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;transition:border-color .15s,background .15s}
-  .wk a.item:hover{border-color:var(--au-red);background:var(--au-red-soft)}
-  .wk a.item span.k{font-size:12px;color:var(--muted);white-space:nowrap}
+  /* ===== end of theme ===== */
+
+  .hero{max-width:900px}
+  .weeks{display:grid;gap:16px;counter-reset:wk}
+  @media(min-width:760px){.weeks{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(min-width:1120px){.weeks{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .weeks>.card{animation:rise .75s cubic-bezier(.2,.7,.2,1) both;overflow:hidden}
+  .weeks>.card:nth-child(1){animation-delay:.15s}.weeks>.card:nth-child(2){animation-delay:.24s}.weeks>.card:nth-child(3){animation-delay:.33s}
+  .weeks>.card:nth-child(4){animation-delay:.42s}.weeks>.card:nth-child(5){animation-delay:.51s}.weeks>.card:nth-child(6){animation-delay:.6s}
+  .weeks>.card:nth-child(7){animation-delay:.69s}.weeks>.card:nth-child(8){animation-delay:.78s}.weeks>.card:nth-child(9){animation-delay:.87s}
+  .hero{animation:rise .75s cubic-bezier(.2,.7,.2,1) both}
+  .wk:not(.featured){counter-increment:wk}
+  .wk:not(.featured)::before{content:counter(wk,decimal-leading-zero);position:absolute;right:14px;top:-6px;font:700 72px/1 var(--font-mono);color:rgba(232,239,228,.045);pointer-events:none}
+  .wk h2{font:500 15px/1.35 var(--font-mono);letter-spacing:.01em;margin:8px 0 12px;max-width:85%}
+  .wk a.item{display:flex;justify-content:space-between;gap:12px;align-items:center;text-decoration:none;color:var(--silk);border:1px solid var(--edge);border-radius:10px;padding:10px 12px;margin-top:8px;background:rgba(6,19,14,.55);transition:border-color .15s,background .15s,transform .15s}
+  .wk a.item:hover{border-color:var(--copper);background:rgba(208,138,78,.10);transform:translateX(3px)}
+  .wk a.item span.k{font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;padding:3px 8px;border-radius:999px;border:1px solid currentColor;color:var(--data)}
+  .wk a.item span.k.challenge{color:var(--addr)}
+  .wk a.item span.k.simulator{color:var(--copper)}
+  .wk.featured{grid-column:1/-1;border-color:rgba(212,162,76,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 1px rgba(212,162,76,.18),0 18px 50px rgba(0,0,0,.4),0 0 60px rgba(212,162,76,.08);
+    background:radial-gradient(600px 220px at 90% 0%,rgba(212,162,76,.10),transparent 70%),linear-gradient(180deg,rgba(17,56,41,.75),rgba(9,30,22,.92))}
+  .wk.featured .eyebrow{color:var(--copper)}.wk.featured .eyebrow::before{background:var(--copper);box-shadow:0 0 10px var(--copper)}
+  .wk.featured h2{font:600 clamp(22px,3vw,30px)/1.2 var(--font-mono);font-stretch:112%}
+  .wk.featured p{max-width:760px;color:var(--silk-2)!important}
+  .wk.featured a.item{display:inline-flex;background:var(--copper);color:#1a1205;border-color:var(--copper);font:600 13px var(--mono);padding:11px 16px;box-shadow:0 0 22px rgba(212,162,76,.3)}
+  .wk.featured a.item span.k{display:none}
 </style>
 </head>
 <body>
@@ -79,19 +235,19 @@
 <div class="crumb"><b>EGN 325</b> Computer Architecture · Course interactives</div></div></header>
 <main class="wrap">
 <section class="hero"><span class="eyebrow">8 weeks · Beginner</span><h1>EGN 325 course interactives</h1>
-<p class="lede">Interactive simulations for this course: an explorer that shows how each idea works, and a scored challenge that checks whether you can apply it.</p></section>
+<p class="lede">Two hands-on simulations every week, plus the Bay-4 computer simulator. The explorer shows how each idea works inside the machine; the challenge scores whether you can apply it.</p></section>
 <div class="weeks">
-<section class="card wk"><span class="eyebrow">Simulator</span><h2>Bay-4 computer simulator</h2><p style="margin:0 0 6px;color:var(--ink-2)">A 3D Bay-4 computer that runs your program through the fetch-decode-execute cycle, with live registers, memory, and data moving on the buses. Use it in Weeks 5 to 8.</p><a class="item" href="simulator.html">Open the bay-4 computer simulator<span class="k">Simulator</span></a></section>
-<section class="card wk"><span class="eyebrow">Week 1</span><h2>Inside a computer: layers, parts, and performance</h2><a class="item" href="week1/layers-zoom.html">Computer layers zoom<span class="k">Explorer</span></a><a class="item" href="week1/build-the-right-computer.html">Build the right computer challenge<span class="k">Challenge</span></a></section>
-<section class="card wk"><span class="eyebrow">Week 2</span><h2>Data representation: how computers store numbers and text</h2><a class="item" href="week2/bit-pattern-explorer.html">Bit pattern explorer<span class="k">Explorer</span></a><a class="item" href="week2/overflow-challenge.html">Overflow and conversion challenge<span class="k">Challenge</span></a></section>
-<section class="card wk"><span class="eyebrow">Week 3</span><h2>Digital logic: gates and combinational circuits</h2><a class="item" href="week3/logic-gate-playground.html">Logic gate playground<span class="k">Explorer</span></a><a class="item" href="week3/circuit-builder-challenge.html">Circuit builder challenge<span class="k">Challenge</span></a></section>
-<section class="card wk"><span class="eyebrow">Week 4</span><h2>Sequential logic: clocks, memory, and state machines</h2><a class="item" href="week4/flip-flop-timing.html">Clock and flip-flop timing visualizer<span class="k">Explorer</span></a><a class="item" href="week4/state-machine-challenge.html">State machine challenge<span class="k">Challenge</span></a></section>
-<section class="card wk"><span class="eyebrow">Week 5</span><h2>The processor: datapath, control, and the instruction cycle</h2><a class="item" href="week5/cpu-datapath-animator.html">CPU datapath animator<span class="k">Explorer</span></a><a class="item" href="week5/fetch-decode-execute-challenge.html">Fetch, decode, execute challenge<span class="k">Challenge</span></a></section>
-<section class="card wk"><span class="eyebrow">Week 6</span><h2>Instruction sets and assembly language (RISC-V)</h2><a class="item" href="week6/riscv-step-through.html">RISC-V step-through simulator<span class="k">Explorer</span></a><a class="item" href="week6/assembly-puzzle-challenge.html">Assembly puzzle challenge<span class="k">Challenge</span></a></section>
-<section class="card wk"><span class="eyebrow">Week 7</span><h2>Memory hierarchy and performance</h2><a class="item" href="week7/cache-simulator.html">Cache simulator<span class="k">Explorer</span></a><a class="item" href="week7/performance-tuning-challenge.html">Performance tuning challenge<span class="k">Challenge</span></a></section>
-<section class="card wk"><span class="eyebrow">Week 8</span><h2>Pipelining, parallelism, and modern processors</h2><a class="item" href="week8/pipeline-visualizer.html">Pipeline visualizer<span class="k">Explorer</span></a><a class="item" href="week8/architecture-matchmaker.html">Architecture matchmaker challenge<span class="k">Challenge</span></a></section>
+<section class="card wk featured"><span class="eyebrow">Simulator</span><h2>Bay-4 computer simulator</h2><p style="margin:0 0 6px;color:var(--ink-2)">A 3D Bay-4 computer that runs your program through the fetch-decode-execute cycle, with live registers, memory, and data moving on the buses. Use it in Weeks 5 to 8.</p><a class="item" href="simulator.html">Open the simulator<span class="k simulator">Simulator</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 1</span><h2>Inside a computer: layers, parts, and performance</h2><a class="item" href="week1/layers-zoom.html">Computer layers zoom<span class="k explorer">Explorer</span></a><a class="item" href="week1/build-the-right-computer.html">Build the right computer challenge<span class="k challenge">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 2</span><h2>Data representation: how computers store numbers and text</h2><a class="item" href="week2/bit-pattern-explorer.html">Bit pattern explorer<span class="k explorer">Explorer</span></a><a class="item" href="week2/overflow-challenge.html">Overflow and conversion challenge<span class="k challenge">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 3</span><h2>Digital logic: gates and combinational circuits</h2><a class="item" href="week3/logic-gate-playground.html">Logic gate playground<span class="k explorer">Explorer</span></a><a class="item" href="week3/circuit-builder-challenge.html">Circuit builder challenge<span class="k challenge">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 4</span><h2>Sequential logic: clocks, memory, and state machines</h2><a class="item" href="week4/flip-flop-timing.html">Clock and flip-flop timing visualizer<span class="k explorer">Explorer</span></a><a class="item" href="week4/state-machine-challenge.html">State machine challenge<span class="k challenge">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 5</span><h2>The processor: datapath, control, and the instruction cycle</h2><a class="item" href="week5/cpu-datapath-animator.html">CPU datapath animator<span class="k explorer">Explorer</span></a><a class="item" href="week5/fetch-decode-execute-challenge.html">Fetch, decode, execute challenge<span class="k challenge">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 6</span><h2>Instruction sets and assembly language (RISC-V)</h2><a class="item" href="week6/riscv-step-through.html">RISC-V step-through simulator<span class="k explorer">Explorer</span></a><a class="item" href="week6/assembly-puzzle-challenge.html">Assembly puzzle challenge<span class="k challenge">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 7</span><h2>Memory hierarchy and performance</h2><a class="item" href="week7/cache-simulator.html">Cache simulator<span class="k explorer">Explorer</span></a><a class="item" href="week7/performance-tuning-challenge.html">Performance tuning challenge<span class="k challenge">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 8</span><h2>Pipelining, parallelism, and modern processors</h2><a class="item" href="week8/pipeline-visualizer.html">Pipeline visualizer<span class="k explorer">Explorer</span></a><a class="item" href="week8/architecture-matchmaker.html">Architecture matchmaker challenge<span class="k challenge">Challenge</span></a></section>
 </div>
 </main>
-<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline">By Professor De Leon</div></footer>
 </body>
 </html>
