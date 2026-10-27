@@ -7,114 +7,319 @@
 <meta name="description" content="EGN 325 Week 4 interactive: Draw a data signal, play the clock, and watch a latch, a flip-flop, and a register of 3D bit cells decide when to store a bit.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wdth,wght@75..112.5,300..700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/renderers/CSS2DRenderer.js"></script>
 <style>
+  /* ===== EGN 325 "Bay-4 bench" theme v2 (reference: build/theme/reference/tiny-machine-lab.html). Paste as the first block of every page's <style>. ===== */
   :root{
-    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
-    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
-    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
-    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
-    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
-    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
-    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --au-red:#E1141E; --au-red-dark:#A3282B;
+    --board:#0d302a; --board-deep:#061714; --panel:#0a211d; --panel-2:#0f2c27; --line:#1e4a41; --line-2:#2a5c51;
+    --silk:#e8efe4; --silk-dim:#9db6ac; --copper:#d4a24c;
+    --addr:#f2b33d; --data:#4fd1e8; --ctrl:#ff7a9a; --alu:#8fe388; --oper:#a9b4ff; --out:#b9f5b0; --led:#8fe388;
+    --ok:#8fe388; --bad:#ff7a7a; --warn:#f2b33d; --neon:#39ff14;
+    --font-mono:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --font-body:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif;
+    --mono:var(--font-mono); --sans:var(--font-body); --display:var(--font-mono);
+    --r:6px; --lab:10px;
+    /* legacy names used by older page code, mapped to the dark theme */
+    --ink:#e8efe4; --ink-2:#c4d4cb; --muted:#9db6ac; --bg:#061714; --card:#0a211d; --edge:#1e4a41; --edge-2:#2a5c51; --dim:#9db6ac; --silk-2:#c4d4cb;
+    --code-bg:#04110e; --code-ink:#b9f5b0; --au-red-soft:rgba(225,20,30,.14);
+    --net-blue:#4fd1e8; --net-green:#8fe388; --net-amber:#f2b33d; --net-purple:#ff7a9a; --net-teal:#5fe0c8;
+    --ok-soft:rgba(143,227,136,.10); --bad-soft:rgba(255,122,122,.10); --warn-soft:rgba(242,179,61,.10);
+    --radius:6px; --shadow:none;
+    color-scheme:dark;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:var(--au-red-dark)}
-  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
-  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
-  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  html{background:var(--board-deep)}
+  [hidden]{display:none!important}
+  body{color:var(--silk);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
+    background:radial-gradient(1200px 600px at 30% -10%,#12423a 0%,transparent 60%),var(--board-deep)}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:var(--data)}
+  :focus-visible{outline:2px solid var(--addr);outline-offset:2px}
+  /* brand bar: white with the AU red rule (the logo PNG is cropped with a wrapper) */
+  .topbar{position:relative;z-index:5;background:#fff;border-bottom:3px solid var(--au-red)}
+  .topbar-inner{max-width:none;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
   .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
   .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
-  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
-  .crumb b{color:var(--ink);font-weight:600}
-  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
-  .hero{margin:4px 0 20px}
-  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
-  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
-  h2{font-size:20px;margin:0 0 10px}
-  h3{font-size:16px;margin:0 0 8px}
-  .lede{color:var(--ink-2);max-width:760px;margin:0}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
-  .grid{display:grid;gap:16px}
-  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  .crumb{font-size:13px;color:#6B7280;letter-spacing:.02em;border-left:1px solid #E3E6EB;padding-left:16px}
+  .crumb b{color:#16181D;font-weight:600}
+  .crumb a{color:#A3282B}
+  /* page mode (challenges and pages with a scrolling layout) */
+  main,.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:26px 16px 36px}
+  .hero{margin:0 0 20px}
+  .eyebrow{display:block;margin:0;font:500 10.5px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--copper);background:none;padding:0}
+  h1{margin:6px 0 8px;font-family:var(--font-mono);font-weight:600;font-stretch:112%;font-size:clamp(24px,3.4vw,36px);line-height:1.15;letter-spacing:-.01em;text-wrap:balance;color:var(--silk)}
+  h1 .num{color:var(--addr)}
+  h2{margin:0 0 10px;font-family:var(--font-mono);font-weight:500;font-size:13px;letter-spacing:.04em;color:var(--silk)}
+  h2 small,h3 small{color:var(--silk-dim);font-weight:400}
+  h3{margin:0 0 8px;font-family:var(--font-mono);font-weight:500;font-size:12.5px;letter-spacing:.04em;color:var(--silk)}
+  .lede{margin:0;color:var(--silk-dim);font-size:15px;max-width:68ch}
+  .muted{color:var(--silk-dim)}
+  .spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .spec div{background:var(--panel);padding:9px 11px}
+  .spec b{display:block;font:600 15px var(--font-mono);color:var(--silk)}
+  .spec span{font-size:12px;color:var(--silk-dim)}
+  @media(min-width:960px){.hero.split{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;align-items:end}}
+  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0;color:var(--silk);
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .card[data-ref]::after{content:attr(data-ref);position:absolute;top:9px;right:12px;font:500 9.5px var(--font-mono);letter-spacing:.12em;color:rgba(157,182,172,.55)}
+  .grid{display:grid;gap:14px}
+  .grid>*{min-width:0}
+  @media(min-width:900px){.grid.two{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}}
+  details,details.howto{border:1px solid var(--line);border-radius:5px;background:var(--panel)}
   details.howto{margin:0 0 16px}
-  details.howto summary{cursor:pointer;font-weight:600}
-  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
-  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
-  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
-  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
-  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
-  .btn[disabled]{opacity:.5;cursor:not-allowed}
-  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
-  .mono,code,kbd{font-family:var(--mono)}
-  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
-  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
-  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
-  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
-  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
-  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
-  .score .big{font-size:28px;color:var(--au-red-dark)}
-  table.data{border-collapse:collapse;width:100%;font-size:14px}
-  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
-  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-  .scroll-x{overflow-x:auto}
-  svg text{font-family:var(--sans)}
-  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
-  .stage3d canvas{display:block;width:100%!important;height:100%!important}
-  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
-  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
-  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
-  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
-  .muted{color:var(--muted)} .small{font-size:13px} .mt{margin-top:16px} .row{display:flex;flex-wrap:wrap;align-items:center} .gap{gap:8px}
-  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
-  .tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
-  .tab[aria-selected="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
-  .presets .btn{padding:6px 10px;font-size:13px}
+  summary{cursor:pointer;padding:10px 12px;font:500 12.5px var(--font-mono);color:var(--silk)}
+  details>*:not(summary){margin-left:12px;margin-right:12px}
+  details.howto ol,details.howto ul{margin:4px 12px 12px;padding-left:20px;color:var(--silk-dim)}
+  details.howto li{margin-bottom:5px}
+  details.howto li::marker{color:var(--copper)}
+  .btn{border:1px solid var(--line);background:var(--panel-2);border-radius:5px;padding:9px 12px;font:500 12px var(--font-mono);color:var(--silk);cursor:pointer;transition:border-color .2s,background .2s;display:inline-flex;gap:6px;align-items:center;justify-content:center}
+  .btn:hover:not(:disabled){border-color:var(--copper)}
+  .btn.primary,.btn.go{background:var(--copper);border-color:var(--copper);color:#1a1205;font-weight:600}
+  .btn.primary:hover:not(:disabled),.btn.go:hover:not(:disabled){background:#e3b461}
+  .btn[aria-pressed="true"],.btn.on{border-color:var(--data);color:var(--data)}
+  .btn:disabled,.btn[disabled]{opacity:.4;cursor:not-allowed}
+  input[type=text],input[type=number],select,textarea{background:var(--board-deep);border:1px solid var(--line);border-radius:5px;padding:8px 10px;font:500 13.5px var(--font-mono);color:var(--silk);min-width:0}
+  input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--copper)}
+  .mono,code,kbd{font-family:var(--font-mono);font-size:.92em}
+  code{background:rgba(232,239,228,.07);padding:1px 5px;border-radius:3px}
+  .cli{background:var(--code-bg);color:var(--code-ink);font:500 12.5px/1.6 var(--font-mono);border-radius:5px;padding:12px 14px;overflow:auto;white-space:pre;border:1px solid var(--line)}
+  .pill{display:inline-block;font:500 10.5px var(--font-mono);letter-spacing:.06em;padding:3px 8px;border-radius:3px;background:var(--panel-2);color:var(--silk-dim);border:1px solid var(--line)}
+  .feedback{border-radius:5px;padding:11px 13px;margin-top:12px;font-size:14.5px;color:var(--silk)}
+  .feedback.ok{background:rgba(143,227,136,.08);border:1px solid rgba(143,227,136,.45)}
+  .feedback.bad{background:rgba(255,122,122,.08);border:1px solid rgba(255,122,122,.45)}
+  .feedback.info{background:rgba(79,209,232,.07);border:1px solid rgba(79,209,232,.4)}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:500 12px var(--font-mono);color:var(--silk-dim)}
+  .score .big{font:600 34px/1 var(--font-mono);font-stretch:112%;color:var(--silk);font-variant-numeric:tabular-nums}
+  table,table.data{border-collapse:collapse;width:100%;font:500 12px var(--font-mono);font-variant-numeric:tabular-nums}
+  th,table.data th{font-weight:500;color:var(--silk-dim);text-align:left;font-size:10.5px;letter-spacing:.04em;padding:7px 8px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  td,table.data td{padding:4px 8px;border-bottom:1px solid rgba(30,74,65,.5)}
+  .scroll-x,.memwrap{overflow-x:auto}
+  .memwrap{border:1px solid var(--line);border-radius:5px}
+  svg text{font-family:var(--font-mono)}
+  /* step-by-step explanation (page mode and app mode) */
+  .stepper{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .caption,.narr{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:13px 15px;color:var(--silk)}
+  .caption{margin-top:12px;min-height:4.4em}
+  .caption .t{font:500 11px var(--font-mono);letter-spacing:.1em;color:var(--cap,var(--copper));margin-bottom:6px;text-transform:uppercase}
+  .narr{display:flex;flex-direction:column;gap:8px}
+  .narr-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:400 11px var(--font-mono);color:var(--silk-dim)}
+  .ptag{display:inline-flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.1em;color:var(--silk)}
+  .ptag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--pc,var(--silk-dim));box-shadow:0 0 8px var(--pc,transparent)}
+  .narr p{margin:0;font-size:15.5px;line-height:1.55;min-height:4.6em}
+  .controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .controls .btn{padding:10px 6px}
+  .speed{display:flex;align-items:center;gap:12px;font:400 11.5px var(--font-mono);color:var(--silk-dim)}
+  .speed input{flex:1;min-width:0}
+  .speed output{color:var(--silk);width:3.5em;text-align:right;font-variant-numeric:tabular-nums}
+  .hint{margin:0;font-size:12px;color:var(--silk-dim)}
+  .rail{display:flex;gap:2px;margin:4px 0 12px;padding:4px;list-style:none;background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px}
+  .rail>div,.rail>li{flex:1;text-align:center;font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .rail>div small{display:block;font:400 9.5px var(--font-body);letter-spacing:.02em;text-transform:none;margin-top:2px;opacity:.85}
+  .rail>.on{background:var(--c,var(--copper));color:#1a1205}
+  .rail>.done{color:var(--c,var(--copper))}
+  /* live state */
+  .regs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .reg{border:1px solid var(--line);border-radius:5px;padding:9px 11px;transition:border-color .3s,background .3s;min-width:0}
+  .reg.kv{display:grid;grid-template-columns:1fr auto;gap:1px 8px;align-items:baseline}
+  .reg.on,.reg.flash{border-color:var(--hc,var(--copper));background:rgba(212,162,76,.07)}
+  .reg .rn{font:600 12px var(--font-mono)}
+  .reg .rv{font:600 17px var(--font-mono);text-align:right;font-variant-numeric:tabular-nums}
+  .reg .rf{font-size:11.5px;color:var(--silk-dim)}
+  .reg .rs{font:400 10.5px var(--font-mono);color:var(--silk-dim);text-align:right;font-variant-numeric:tabular-nums}
+  .reg.wide{grid-column:1/-1}
+  .reg .n{display:flex;justify-content:space-between;align-items:baseline;font:600 12px var(--font-mono);color:var(--silk)}
+  .reg .n b{font:600 17px var(--font-mono);font-variant-numeric:tabular-nums}
+  .bits{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--nb,8),1fr);gap:4px;margin-top:8px}
+  .bit{display:flex;flex-direction:column;align-items:center;gap:3px;font:400 9.5px var(--font-mono);color:var(--silk-dim)}
+  .bit i{width:100%;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);transition:background .25s,box-shadow .25s}
+  .bit.one i{background:var(--led);border-color:var(--led);box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .ledbits{display:flex;gap:4px;margin:6px 0 2px;flex-wrap:wrap}
+  .ledbits i{width:16px;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);font:600 9px/14px var(--font-mono);font-style:normal;color:#3d5f50;text-align:center}
+  .ledbits i.on{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .tape{display:flex;flex-wrap:wrap;gap:4px;min-height:34px;align-content:flex-start}
+  .tape span{font:600 13px var(--font-mono);color:var(--out);background:#0b2a1a;border:1px solid #1f5a37;border-radius:3px;padding:3px 7px;font-variant-numeric:tabular-nums}
+  .tape em{font-style:normal;font-size:12px;color:var(--silk-dim)}
+  .notice{margin:0;padding-left:18px;color:var(--silk-dim);font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+  .notice li::marker{color:var(--copper)}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font:400 10.5px var(--font-mono);color:var(--silk-dim);letter-spacing:.04em}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:16px;height:3px;border-radius:2px;background:var(--c);box-shadow:0 0 8px var(--c)}
+  /* app mode: the 3D board fills the left, a control rail sits on the right (stacks under the board on phones) */
+  .app{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,410px);height:calc(100vh - 55px);min-height:560px}
+  .stage{position:relative;min-width:0;min-height:320px;overflow:hidden;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);touch-action:none}
+  .stage .gl{position:absolute;inset:0;display:block;z-index:1}
+  .stage .labels{position:absolute!important;top:0;left:0;z-index:2}
+  .stage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+  .nogl{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;text-align:center;color:var(--silk-dim);font-size:12.5px;z-index:4;background:rgba(6,23,20,.85)}
+  .hud{position:absolute;z-index:3;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hud button,.hud a{pointer-events:auto}
+  .hud-top{top:14px;left:16px;right:16px}
+  .hud-bottom{bottom:14px;left:16px;right:16px;justify-content:space-between;align-items:flex-end}
+  .hud .phases,.hud .ticks,.hud .legend,.hud .views{background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px;backdrop-filter:blur(6px)}
+  .phases{list-style:none;margin:0;padding:4px;display:flex;gap:2px}
+  .phases li{font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .phases li.on{background:var(--c,var(--copper));color:#1a1205}
+  .ticks{font:400 11px var(--font-mono);color:var(--silk-dim);padding:9px 10px;font-variant-numeric:tabular-nums}
+  .ticks b{color:var(--silk);font-weight:600}
+  .hud .legend{padding:8px 12px}
+  .views{display:flex;gap:2px;padding:4px}
+  .views button{border:0;background:transparent;font:400 11px var(--font-mono);padding:6px 10px;border-radius:4px;color:var(--silk-dim);cursor:pointer}
+  .views button:hover{color:var(--silk)}
+  .views button.on{background:var(--panel-2);color:var(--silk)}
+  .credit{flex-basis:100%;margin:2px 0 0 2px;font:600 14px var(--font-mono);letter-spacing:.08em;color:var(--neon);text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.75),0 0 26px rgba(57,255,20,.45)}
+  .tag,.stage3d .label3d{pointer-events:none;display:flex;flex-direction:column;align-items:center;font-family:var(--font-mono);line-height:1.1;text-align:center;color:var(--silk);text-shadow:0 1px 2px rgba(0,0,0,.8)}
+  .tag .nm{font-size:calc(var(--lab) * .85);letter-spacing:.1em;color:var(--silk-dim)}
+  .tag .vl{font-size:calc(var(--lab) * 1.3);font-weight:600;font-variant-numeric:tabular-nums}
+  .tag .sb{font-size:calc(var(--lab) * .72);color:var(--silk-dim);letter-spacing:.04em}
+  .tag .sb:empty{display:none}
+  .tag.on .nm{color:var(--silk)}
+  .tag.on .vl{color:#fff4d6}
+  .cell .nm{font-size:calc(var(--lab) * .75)}
+  .cell .vl{font-size:calc(var(--lab) * 1.15)}
+  .zone{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * .82);letter-spacing:.14em;text-transform:uppercase;color:var(--c,var(--silk-dim));opacity:.85;white-space:nowrap;text-align:center;line-height:1.3}
+  .lcd{pointer-events:none;font-family:var(--font-mono);font-weight:600;color:var(--out);font-size:calc(var(--lab) * 2);text-shadow:0 0 10px rgba(143,227,136,.8);font-variant-numeric:tabular-nums}
+  .pkt{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * 1.1);font-weight:700;color:#06120f;background:var(--c);padding:2px 6px;border-radius:3px;box-shadow:0 0 14px var(--c);white-space:nowrap}
+  .panel{min-width:0;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:20px 18px 28px;display:flex;flex-direction:column;gap:22px;
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .panel h1{font-size:24px;margin:4px 0 6px}
+  /* the older make3D stage (page mode) */
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:280px;border-radius:6px;overflow:hidden;touch-action:none;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);border:1px solid var(--line)}
+  @media(max-width:640px){.stage3d{aspect-ratio:4/3}}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:12px;color:var(--silk-dim);background:rgba(6,23,20,.85);text-align:center}
+  .stage3d .label3d{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:11px;font-weight:600}
+  .stage3d .label3d.pkt{color:#06120f;text-shadow:none;background:var(--c,currentColor);padding:2px 6px;border-radius:3px}
+  footer.foot{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:16px;color:var(--silk-dim);font-size:12.5px;border-top:1px solid var(--line)}
+  footer.foot .byline,.byline{margin-top:4px;font:600 13px var(--font-mono)!important;letter-spacing:.08em;color:var(--neon)!important;text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.6)}
+  .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media(max-width:860px){
+    .app{grid-template-columns:1fr;height:auto}
+    .app .stage{height:62vh;min-height:360px}
+    .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  }
+  @media(max-width:520px){
+    .hud .legend{font-size:9.5px;gap:3px 10px}
+    .phases li{padding:5px 7px;font-size:10px}
+    .controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* ===== end of theme ===== */
+  /* ===== page CSS: Bay-4 bench, Week 3 and 4 shared parts ===== */
+  .small{font-size:13px} .mt{margin-top:16px} .row{display:flex;flex-wrap:wrap;align-items:center} .gap{gap:8px}
+  h3.sec{margin:18px 0 8px}
+  h3.sec .muted{font:500 12px var(--sans);letter-spacing:0}
+  p.help{margin:0 0 10px;color:var(--silk-2);font-size:14px}
+  .card3d{margin-bottom:16px}
+  .stage3d .label3d.big{font-size:13px;padding:3px 8px;border-color:rgba(234,242,232,.3)}
+  .stage3d .hint3d{position:absolute;left:10px;top:8px;z-index:2;font:500 11px var(--mono);color:var(--silk-2);background:rgba(6,23,20,.82);border:1px solid var(--edge);padding:3px 8px;border-radius:6px;pointer-events:none}
+  .stage3d .fallback{z-index:2}
+  .stagebar{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:12px}
+  .legend .dash i{background:repeating-linear-gradient(90deg,#2A5C51 0 4px,transparent 4px 7px);box-shadow:none}
+  label.chk{display:inline-flex;gap:6px;align-items:center;cursor:pointer;font-size:13px;color:var(--silk-2)}
+  label.chk input{width:16px;height:16px}
+  .stepper .count{font:600 11px var(--mono);color:var(--dim);margin-left:auto;letter-spacing:.06em}
+  .speed{display:inline-flex;gap:8px;align-items:center;font:500 12px var(--mono);color:var(--silk-2)}
+  .speed input{width:100px}
+  .caption b{color:var(--silk)}
+  .caption [data-n="caption"]{font-size:15px}
+  .predict{margin-top:12px;padding:12px;border-radius:6px;border:1px dashed var(--ctrl);background:rgba(255,122,154,.07)}
+  .predict .q{font-weight:600}
+  .predict .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .predict .btn.right,.opt.right{border-color:var(--ok);background:rgba(143,227,136,.12);color:var(--silk);opacity:1}
+  .predict .btn.wrong,.opt.wrong{border-color:var(--bad);background:rgba(255,122,122,.12);color:var(--silk);opacity:1}
+  .live{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-top:12px}
+  .live .reg{padding:6px 8px}
+  .live .reg .n{gap:4px 8px;flex-wrap:wrap}
+  .live .reg .n b{font-size:16px}
+  .reg .sub{font:500 10px var(--mono);color:var(--silk-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ledbits i.unk{color:#3D5F50}
+  .rail>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:520px){.rail{gap:4px}.rail>div{font-size:10px;padding:6px 1px}.rail>div small{font-size:9px}}
+  .sw{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--edge-2);border-radius:6px;padding:8px 12px;background:rgba(6,23,20,.6);color:var(--silk);cursor:pointer;font:600 14px var(--mono);transition:border-color .15s,box-shadow .15s}
+  .sw:hover{border-color:var(--copper)}
+  .sw .bit{min-width:30px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:#13312b;border:1px solid #1e4a41;color:#5E8072;font:600 13px var(--mono)}
+  .sw[aria-pressed="true"]{border-color:rgba(143,227,136,.6)}
+  .sw[aria-pressed="true"] .bit{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 12px rgba(143,227,136,.6)}
+  .val{font:600 13px var(--mono);border-radius:6px;padding:2px 8px;background:#13312b;border:1px solid #1e4a41;color:var(--dim)}
+  .val.on{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 10px rgba(143,227,136,.5)}
+  .active-step{box-shadow:0 0 0 2px var(--addr),0 0 22px rgba(242,179,61,.28)!important;border-color:var(--addr)!important}
+  svg .lit{filter:drop-shadow(0 0 3px rgba(143,227,136,.85))}
+  .q{border-top:1px solid var(--edge);padding:14px 0}
+  .q>p{margin:0 0 8px;font-weight:600}
+  .opts{display:grid;gap:6px}
+  .opt{justify-content:flex-start;text-align:left;font:500 14px var(--sans);letter-spacing:0;padding:10px 12px}
+  .opt[disabled]{opacity:.6;cursor:default}
+  .progress{height:10px;border-radius:99px;background:#13312b;border:1px solid var(--edge);overflow:hidden;margin-top:12px}
+  .progress>div{height:100%;width:0;background:linear-gradient(90deg,var(--addr),var(--oper) 60%,var(--led));box-shadow:0 0 14px rgba(143,227,136,.45);transition:width .5s}
+  table.data select{font-size:13px;padding:5px 8px}
+  table.data td.ok{background:rgba(143,227,136,.10)} table.data td.bad{background:rgba(255,122,122,.10)}
+  /* app mode and Lab3D stages */
+  .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .phases{flex-wrap:wrap}
+  .phases li.done{color:var(--c,var(--copper))}
+  .ticks b{color:var(--silk)}
+  .panel>section>h2,.panel>div>h2{margin-bottom:10px}
+  .narr p{font-size:15px}
+  .narr p b{color:var(--silk)}
+  @media(min-width:521px){.app .controls{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .speed output{width:3.5em}
+  .chk{display:inline-flex;gap:8px;align-items:flex-start;cursor:pointer;font-size:13.5px;color:var(--silk-dim)}
+  .chk input{margin-top:2px}
+  .regs.live{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+  .reg.one{border-color:var(--led)}
+  .reg.one .rv{color:var(--led)}
+  .reg.bad{border-color:var(--bad);background:rgba(255,122,122,.07)}
+  .reg.bad .rv{color:var(--bad)}
+  .labstage{position:relative;width:100%;aspect-ratio:16/10;min-height:320px;border-radius:6px;overflow:hidden;touch-action:none;border:1px solid var(--line);background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%)}
+  @media(max-width:640px){.labstage{aspect-ratio:auto;height:62vh;min-height:340px}}
+  .labstage .gl{position:absolute;inset:0;display:block;z-index:1}
+  .labstage .labels{position:absolute!important;top:0;left:0;z-index:2}
+  .labstage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+  .labstage .hud{z-index:3}
+  @media(max-width:700px){.stage .tag .sb,.labstage .tag .sb{display:none}.stage .zone,.labstage .zone{opacity:.6}}
+  .notice li{margin-bottom:2px}
+  .panel>*{flex-shrink:0}
+  .stage:has(#nogl:not([hidden])) .hud-bottom,.labstage:has(.nogl:not([hidden])) .hud-bottom{bottom:52px}
+  @media(max-width:520px){.hud .views{flex-wrap:wrap}.views button{padding:6px 7px}.hud .phases li{padding:5px 6px}}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+  .tab{border:1px solid var(--line);background:var(--panel-2);border-radius:5px;padding:8px 12px;font:500 12px var(--font-mono);color:var(--silk-dim);cursor:pointer}
+  .tab:hover{border-color:var(--copper)}
+  .tab[aria-selected="true"]{border-color:var(--data);color:var(--data);background:rgba(79,209,232,.08);box-shadow:inset 0 -2px 0 var(--data)}
+  .presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+  .presets .btn{padding:7px 10px;font-size:11px}
+  .presets .muted{font:500 10.5px var(--font-mono);letter-spacing:.12em;text-transform:uppercase}
+  .tbox{border:1px solid var(--line);border-radius:6px;background:rgba(6,23,20,.6)}
   .tsvg{display:block;width:100%;min-width:560px;height:auto}
   .tsvg .dslot{cursor:pointer}
-  .tsvg .dslot:focus{outline:none;stroke:var(--au-red);stroke-width:2}
-  table.tt td,table.tt th{text-align:center;font-family:var(--mono);font-size:13px;padding:4px 6px}
-  table.tt td.one{color:var(--au-red-dark);font-weight:700}
-  table.tt td.cur,table.tt th.cur{background:var(--au-red-soft)}
+  .tsvg .dslot:hover{stroke:var(--copper)}
+  .tsvg .dslot:focus{outline:none;stroke:var(--addr);stroke-width:2}
+  table.tt td,table.tt th{text-align:center;padding:4px 6px}
+  table.tt td.one{color:var(--led);font-weight:600;text-shadow:0 0 8px rgba(143,227,136,.5)}
+  table.tt td.cur,table.tt th.cur{background:rgba(242,179,61,.14)}
+  .lbl{font:500 10.5px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--silk-dim);margin-bottom:6px}
   .regrow{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
-  .bits{display:flex;gap:6px}
-  .bits .sw{min-width:52px;justify-content:center}
-  .sw{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#fff;cursor:pointer;font:inherit;font-weight:600}
-  .sw .bit{display:inline-block;min-width:24px;text-align:center;border-radius:6px;padding:2px 6px;font-family:var(--mono);background:#EEF1F5;color:var(--ink-2)}
-  .sw[aria-pressed="true"] .bit{background:var(--au-red);color:#fff}
-  .cells{display:flex;gap:8px;perspective:400px}
-  .cell{width:56px;height:56px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);font-size:22px;font-weight:700;background:#E5E7EB;color:var(--ink-2);border:2px solid #CBD5E1}
-  .cell small{font-size:10px;font-weight:600;opacity:.75}
-  .cell.on{background:var(--au-red);color:#fff;border-color:var(--au-red-dark);box-shadow:0 0 12px rgba(225,20,30,.45)}
-  .cntval{margin-top:10px;font-family:var(--mono);font-size:15px}
-  .q{border-top:1px solid var(--line);padding:12px 0}
-  .q p{margin:0 0 8px;font-weight:600}
-  .opts{display:grid;gap:6px}
-  .opt{text-align:left}
-  .opt.right{border-color:var(--ok);background:var(--ok-soft)}
-  .opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
-  .grid>*{min-width:0}
-  .stage3d{position:relative}
-  .stage3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
-  .stage3d .label3d.big{font-size:14px;padding:3px 8px}
-  .stage3d .hint3d{position:absolute;left:10px;bottom:8px;font-size:12px;color:#CBD5E1;background:rgba(15,23,34,.6);padding:2px 8px;border-radius:6px;pointer-events:none}
-  .stepper .btn{padding:7px 12px}
-  .stepper .count{font-size:13px;color:var(--muted);margin-left:auto}
-  .caption b{color:var(--au-red-dark)}
-  .card3d{margin-bottom:16px}
-  .active-step{outline:3px solid var(--au-red);outline-offset:2px}
-  @media(max-width:520px){.stage3d{aspect-ratio:4/3}}
-  [hidden]{display:none!important}
-  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  #regD.bits{display:flex;gap:6px;margin:0;grid-column:auto}
+  #regD .sw{min-width:64px;justify-content:center}
+  .cells{display:flex;gap:8px;perspective:400px;flex-wrap:wrap}
+  .cell{width:56px;height:56px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font:600 22px var(--font-mono);background:#13312b;color:#5e8072;border:1px solid var(--line)}
+  .cell small{font-size:9.5px;font-weight:500;opacity:.8;letter-spacing:.06em}
+  .cell.on{background:var(--led);color:#06220f;border-color:var(--led);box-shadow:0 0 14px rgba(143,227,136,.55)}
+  .cntval{margin-top:10px;font:500 14px var(--font-mono);color:var(--out)}
+  #quizScore{margin-top:10px}
+  .tabs{margin:0}
+  .info{font-size:13.5px;color:var(--silk-dim);border:1px solid var(--line);border-radius:5px;padding:10px 12px}
+  .info b{color:var(--silk)}
+  .panel footer{font-size:12px;color:var(--silk-dim);border-top:1px solid var(--line);padding-top:12px}
+  .help{font-size:13.5px;color:var(--silk-dim);margin:0 0 10px}
+  .cells{gap:6px}
+  .cell{width:52px;height:52px}
 </style>
 </head>
 <body>
@@ -127,92 +332,153 @@
   </div>
 </header>
 
-<main class="wrap">
-  <section class="hero">
-    <span class="eyebrow">Week 4 · Explorer</span>
-    <h1>Clock and flip-flop timing visualizer</h1>
-    <p class="lede">Draw a data signal, play the clock, and watch a latch, a flip-flop, and a register of 3D bit cells decide when to store a bit.</p>
+<div class="app card3d">
+  <section class="stage" id="stage" aria-labelledby="flow-h">
+    <h2 id="flow-h" class="vh">Clocked storage in 3D: drag to orbit, scroll or pinch to zoom, click a D pad to flip it or a chip to read what it does</h2>
+    <div class="hud hud-top">
+      <ol class="phases" id="rail" aria-label="Clock phase"></ol>
+      <div class="ticks" id="hudTick">slot <b>·</b></div>
+      <p class="credit">By Professor De Leon</p>
+    </div>
+    <div class="hud hud-bottom">
+      <div class="legend" aria-label="Colors">
+        <span style="--c:var(--addr)"><i></i>clock and rising edge</span>
+        <span style="--c:var(--led)"><i></i>a 1 (stored or driven)</span>
+        <span style="--c:var(--data)"><i></i>latch open</span>
+        <span style="--c:#2a5c51"><i></i>a 0</span>
+      </div>
+      <div class="views" role="group" aria-label="Camera views">
+        <button type="button" data-view="overview">Overview</button>
+        <button type="button" data-view="timing" class="on">Timing</button>
+        <button type="button" data-view="register">Register</button>
+        <button type="button" data-view="counter">Counter</button>
+      </div>
+    </div>
+    <div class="nogl" id="nogl" hidden>The 3D board needs WebGL and the 3D libraries, which are not available here. The flat board shows the same circuit and steps, and the panel has every value.</div>
   </section>
 
-  <details class="howto card">
-    <summary>How to use this interactive</summary>
-    <ol>
-      <li>Start on the Timing ribbon tab. The clock (CLK) ticks in the top lane, your data signal D is below it, and the bottom two lanes show what a latch and an edge-triggered flip-flop store.</li>
-      <li>Tap any D slot (in the 3D ribbon or in the 2D diagram) to draw your own signal, or load a preset such as a glitch while the clock is high.</li>
-      <li>Press Play to sweep through time one slot at a time. The caption explains what each storage element does at that moment, and every rising clock edge flashes.</li>
+  <aside class="panel">
+    <header>
+      <p class="eyebrow">Week 4 · Explorer</p>
+      <h1>Clock and flip-flop <span class="num">timing</span> visualizer</h1>
+      <p class="lede">Draw a data signal, play the clock, and watch a latch, a flip-flop, and a register of 3D bit cells decide when to store a bit.</p>
+    </header>
+
+    <div class="spec" aria-label="The clock at a glance">
+      <div><b>0 0 1 1</b><span>the clock (CLK) pattern, repeated</span></div>
+      <div><b>16 slots</b><span>of time on the logic analyzer</span></div>
+      <div><b>2 6 10 14</b><span>rising edges, when the flip-flop samples D</span></div>
+      <div><b>4 bits</b><span>in the register and the counter (0 to 15)</span></div>
+    </div>
+
+    <details class="howto">
+      <summary>How to use this interactive</summary>
+      <ol>
+      <li>Start on the Timing ribbon tab. The clock (CLK) ticks in the top lane, your data signal D is below it, and the bottom two lanes show what a latch and an edge-triggered flip-flop store. A lit green pad or a green trace is a 1.</li>
+      <li>Tap any D slot (on the board's logic analyzer or in the timing diagram) to draw your own signal, or load a preset such as a glitch while the clock is high.</li>
+      <li>Press Run to sweep through time one slot at a time, or Step and Step back to move by hand. The caption explains what each storage element does at that moment, the clock rail shows the clock phase, and every rising clock edge flashes amber.</li>
+      <li>Turn on Predict before you see it: at each rising edge (and when D changes while the latch is open) you answer what Q will be before it appears.</li>
       <li>Open the Register tab: set the D inputs and the load enable (LE), then press Clock tick and watch the bit cells latch.</li>
       <li>Open the Counter tab: tick the 4-bit counter from 0 to 15 and see which bits flip on each tick, then finish with the self-check.</li>
     </ol>
-  </details>
+    </details>
 
-  <section class="card card3d" aria-labelledby="flow-h">
-    <h2 id="flow-h">Clocked storage in 3D</h2>
     <div class="tabs" role="tablist" aria-label="Views">
-      <button class="tab" role="tab" id="tab-timing" aria-selected="true" data-tab="timing">Timing ribbon</button>
-      <button class="tab" role="tab" id="tab-register" aria-selected="false" data-tab="register">4-bit register</button>
-      <button class="tab" role="tab" id="tab-counter" aria-selected="false" data-tab="counter">4-bit counter</button>
+      <button class="tab" type="button" role="tab" id="tab-timing" aria-selected="true" data-tab="timing">Timing ribbon</button>
+      <button class="tab" type="button" role="tab" id="tab-register" aria-selected="false" data-tab="register">4-bit register</button>
+      <button class="tab" type="button" role="tab" id="tab-counter" aria-selected="false" data-tab="counter">4-bit counter</button>
     </div>
-    <p class="small muted" id="stageHelp"></p>
-    <div class="stage3d" id="stage"><span class="hint3d" id="hint3d">Red = 1, gray = 0</span></div>
-    <div class="stepper" role="group" aria-label="Step-by-step explanation">
-      <button class="btn" data-n="restart" aria-label="Restart">&#9198; Restart</button>
-      <button class="btn" data-n="prev" aria-label="Step back">&#9664; Back</button>
-      <button class="btn primary" data-n="play">&#9654; Play</button>
-      <button class="btn primary" data-n="pause" hidden>&#10074;&#10074; Pause</button>
-      <button class="btn" data-n="next" aria-label="Step forward">Next &#9654;</button>
-      <span class="count" data-n="counter"></span>
-    </div>
-    <div class="caption" data-n="caption" aria-live="polite"></div>
-  </section>
 
-  <section class="card" id="panel-timing" aria-labelledby="timing-h">
+    <section class="narr" data-n="box" aria-live="polite">
+      <div class="narr-head"><span class="ptag" data-n="title">Ready</span><span data-n="counter"></span></div>
+      <p data-n="caption"></p>
+    </section>
+
+    <div>
+      <div class="controls" role="group" aria-label="Step-by-step explanation">
+        <button class="btn primary" type="button" data-n="play">Run</button>
+        <button class="btn primary" type="button" data-n="pause" hidden>Pause</button>
+        <button class="btn" type="button" data-n="next">Step</button>
+        <button class="btn" type="button" data-n="prev">Step back</button>
+        <button class="btn" type="button" data-n="restart" title="Back to the first step">Reset</button>
+      </div>
+      <div class="speed" style="margin-top:12px"><label for="spd">Speed</label><input type="range" id="spd" data-n="speed" min="0.25" max="4" step="0.25" value="1"><output data-n="speedv" for="spd">1×</output></div>
+      <p class="hint" style="margin-top:8px"><span id="stageHelp"></span> Keyboard: Space steps, B steps back, R runs or pauses.</p>
+      <p style="margin:10px 0 0"><label class="chk"><input type="checkbox" data-n="predict"> Predict before you see it: guess Q at each rising edge and each register tick</label></p>
+      <div class="predict" data-n="pq" hidden style="margin-top:10px">
+        <div class="q" data-n="pqT"></div>
+        <div class="row" data-n="pqOpts"></div>
+        <div data-n="pqFb"></div>
+        <div class="small muted mt" data-n="pqScore"></div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Live state <small>at this step</small></h2>
+      <div class="regs live" id="live"></div>
+    </section>
+
+  <section id="panel-timing" aria-labelledby="timing-h">
     <h2 id="timing-h">Timing diagram</h2>
     <div class="presets" role="group" aria-label="D signal presets">
-      <span class="muted small">D presets:</span>
-      <button class="btn" data-preset="steady">Slow change</button>
-      <button class="btn" data-preset="glitchHigh">Glitch while CLK = 1</button>
-      <button class="btn" data-preset="glitchLow">Glitch while CLK = 0</button>
-      <button class="btn" data-preset="beforeEdge">Pulse just before an edge</button>
-      <button class="btn" data-preset="clear">Clear D</button>
+      <span class="muted">D presets</span>
+      <button class="btn" type="button" data-preset="steady">Slow change</button>
+      <button class="btn" type="button" data-preset="glitchHigh">Glitch while CLK = 1</button>
+      <button class="btn" type="button" data-preset="glitchLow">Glitch while CLK = 0</button>
+      <button class="btn" type="button" data-preset="beforeEdge">Pulse just before an edge</button>
+      <button class="btn" type="button" data-preset="clear">Clear D</button>
     </div>
-    <p class="small muted">Tap a slot in the D row to flip it between 0 and 1. Dashed lines mark rising clock edges, the only moments the flip-flop can change.</p>
-    <div class="scroll-x"><svg id="tsvg" class="tsvg" role="img" aria-label="Timing diagram of CLK, D, latch Q, and flip-flop Q"></svg></div>
-    <div class="grid two mt">
+    <p class="help">Tap a slot in the D row to flip it between 0 and 1. Dashed amber lines mark rising clock edges, the only moments the flip-flop can change.</p>
+    <div class="scroll-x tbox"><svg id="tsvg" class="tsvg" role="img" aria-label="Timing diagram of CLK, D, latch Q, and flip-flop Q"></svg></div>
+    <div class="mt">
       <div class="feedback info small" id="timingNote"></div>
-      <div class="scroll-x"><table class="data tt" id="ttiming"></table></div>
+      <div class="memwrap mt"><table class="data tt" id="ttiming"></table></div>
     </div>
   </section>
 
-  <section class="card" id="panel-register" hidden aria-labelledby="reg-h">
+  <section id="panel-register" hidden aria-labelledby="reg-h">
     <h2 id="reg-h">4-bit register with load enable</h2>
-    <p class="small muted">A register is four D flip-flops that share one clock. Load enable (LE) decides whether a clock tick copies D into Q or keeps the old value.</p>
+    <p class="help">A register is four D flip-flops that share one clock. Load enable (LE) decides whether a clock tick copies D into Q or keeps the old value.</p>
     <div class="regrow">
-      <div><div class="small muted">D inputs (b3 to b0)</div><div class="bits" id="regD"></div></div>
-      <div><div class="small muted">Load enable</div><button class="sw" id="regLE" aria-pressed="true">LE <span class="bit">1</span></button></div>
+      <div><div class="lbl">D inputs (b3 to b0)</div><div class="bits" id="regD"></div></div>
+      <div><div class="lbl">Load enable</div><button class="sw" type="button" id="regLE" aria-pressed="true">LE <span class="bit">1</span></button></div>
     </div>
-    <div class="row gap mt"><button class="btn primary" id="regTick">Clock tick</button><button class="btn" id="regClear">Clear Q to 0000</button></div>
-    <div class="mt"><div class="small muted">Stored value Q (b3 to b0)</div><div class="cells" id="regQ"></div></div>
+    <div class="row gap mt"><button class="btn primary" type="button" id="regTick">Clock tick</button><button class="btn" type="button" id="regClear">Clear Q to 0000</button></div>
+    <div class="mt"><div class="lbl">Stored value Q (b3 to b0)</div><div class="cells" id="regQ"></div></div>
     <div class="feedback info mt" id="regNote"></div>
   </section>
 
-  <section class="card" id="panel-counter" hidden aria-labelledby="cnt-h">
+  <section id="panel-counter" hidden aria-labelledby="cnt-h">
     <h2 id="cnt-h">4-bit counter</h2>
-    <p class="small muted">A counter is a register that loads its own value plus 1 on every tick. Four bits count from 0 to 15, then wrap back to 0.</p>
-    <div class="row gap"><button class="btn primary" id="cntTick">Clock tick</button><button class="btn" id="cntRun">Run 16 ticks</button><button class="btn" id="cntReset">Reset</button></div>
+    <p class="help">A counter is a register that loads its own value plus 1 on every tick. Four bits count from 0 to 15, then wrap back to 0.</p>
+    <div class="row gap"><button class="btn primary" type="button" id="cntTick">Clock tick</button><button class="btn" type="button" id="cntRun">Run 16 ticks</button><button class="btn" type="button" id="cntReset">Reset</button></div>
     <div class="mt"><div class="cells" id="cntQ"></div></div>
     <div class="cntval" id="cntVal"></div>
     <div class="feedback info mt" id="cntNote"></div>
   </section>
 
-  <section class="card mt" aria-labelledby="quiz-h">
-    <h2 id="quiz-h">Self-check</h2>
-    <div id="quiz"></div>
-    <div class="score" id="quizScore" hidden><span>Your score:</span><span class="big" id="quizBig"></span></div>
-  </section>
+    <div class="info" id="info">Click any chip on the board to learn what it does.</div>
 
-</main>
+    <section aria-labelledby="quiz-h">
+      <h2 id="quiz-h">Self-check</h2>
+      <div id="quiz"></div>
+      <div class="score" id="quizScore" hidden><span>Your score</span><span class="big" id="quizBig"></span></div>
+    </section>
 
-<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+    <section>
+      <h2>Things to notice</h2>
+      <ul class="notice">
+        <li>The latch copies D the whole time CLK is 1. The flip-flop looks at D only at a rising edge, using the value from just before it.</li>
+        <li>A glitch while CLK is 1 reaches the latch and stays there after the clock falls. The flip-flop never sees it.</li>
+        <li>With LE = 0 a clock tick changes nothing: the register keeps its value until a tick with LE = 1.</li>
+        <li>In the counter, bit 0 flips on every tick, and a higher bit flips only when every bit below it was 1.</li>
+        <li>After 15 (1111) the 4-bit counter wraps around to 0.</li>
+      </ul>
+    </section>
+
+    <footer>Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline">By Professor De Leon</div></footer>
+  </aside>
+</div>
 
 <script>
 // All logic inline. Guard GSAP so the page still works if the CDN fails:
@@ -250,6 +516,503 @@ function make3D(el, opts = {}) {
 }
 
 
+// LAB3D START: EGN 325 3D kit (modeled on the professor's "Tiny Machine Lab" reference). Paste as one block.
+// Needs Three.js r147 (three.min.js), examples/js/controls/OrbitControls.js, examples/js/renderers/CSS2DRenderer.js and GSAP 3.12.5.
+// Returns null when any of them (or WebGL) is missing: then draw the 2D fallback.
+//
+// const lab = Lab3D(stageEl, {
+//   board: {w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: 'BAY-4  REV 1.0  ...', seed: 11},
+//   views: {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}, cpu: {...}},
+//   colors: {copper: '#d4a24c'}
+// });
+// lab.chip(key, {x, z, w, d, h, nm, body, metal, cell})  -> rec {g, mat, el, val, sub, h, key}
+// lab.silkRect(x0, x1, z0, z1)   lab.zone(text, x, z, color)   lab.label(html, cls, x, y, z, parent)
+// lab.busMat(color, {base, rest})  lab.trace([{x,z}...], lines, mat)  lab.glowBus(mat)
+// lab.fly([{x,z}...], text, color, {y, dur}) -> GSAP timeline (packet sphere + halo + pill label)
+// lab.hi(rec, color)  lab.clear()  lab.pop(rec)  lab.setView(name)  lab.zoom(factor)  lab.intro()  lab.onPick(fn)  lab.clearPackets()
+// Zoom buttons (+, -, FIT) and the + - 0 keys are added to the stage automatically (opts.zoomUI: false turns them off; opts.fitView picks the FIT view).
+function Lab3D(stage, opts) {
+  opts = opts || {};
+  const hasG = typeof window.gsap !== 'undefined';
+  if (!window.THREE || !THREE.OrbitControls || !THREE.CSS2DRenderer || !hasG) return null;
+  try { const t = document.createElement('canvas'); if (!(t.getContext('webgl') || t.getContext('experimental-webgl'))) return null; } catch (e) { return null; }
+  const T = THREE;
+  const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const B = Object.assign({w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: '', seed: 11}, opts.board || {});
+  const COPPER = (opts.colors && opts.colors.copper) || '#d4a24c';
+
+  const renderer = new T.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = T.sRGBEncoding;
+  renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.setClearColor(0x061714, 0);
+  renderer.domElement.className = 'gl';
+  stage.prepend(renderer.domElement);
+  const labelR = new T.CSS2DRenderer();
+  labelR.domElement.className = 'labels';
+  renderer.domElement.after(labelR.domElement);
+
+  const scene = new T.Scene();
+  scene.fog = new T.Fog(0x061714, 34, 70);
+  const camera = new T.PerspectiveCamera(40, 1, 0.1, 200);
+  const controls = new T.OrbitControls(camera, labelR.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.maxPolarAngle = Math.PI * 0.46; controls.minDistance = 5; controls.maxDistance = 42;
+  controls.zoomSpeed = 1.1;
+  // keep the mouse wheel inside the 3D view: zoom the board, do not scroll the page
+  stage.addEventListener('wheel', e => e.preventDefault(), {passive: false});
+
+  scene.add(new T.HemisphereLight(0xd6efe6, 0x0b2a26, 0.6));
+  const sun = new T.DirectionalLight(0xfff1dc, 1.0); sun.position.set(-7, 16, 9); sun.castShadow = true;
+  sun.shadow.mapSize.set(1536, 1536);
+  Object.assign(sun.shadow.camera, {left: -B.w / 2 - 2, right: B.w / 2 + 2, top: B.d / 2 + 2, bottom: -B.d / 2 - 2, near: 1, far: 44});
+  sun.shadow.bias = -0.0005; scene.add(sun);
+  const rim = new T.DirectionalLight(0x4fd1e8, 0.35); rim.position.set(12, 6, -10); scene.add(rim);
+
+  // board: a canvas texture with a dot grid, random copper traces, vias, mounting holes and silkscreen
+  function rng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const cv = document.createElement('canvas'); cv.width = 2048; cv.height = Math.round(2048 * B.d / B.w);
+  function drawBoard() {
+    const g = cv.getContext('2d'), W = cv.width, H = cv.height, rnd = rng(B.seed);
+    const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#10372f'); grd.addColorStop(1, '#0a2823');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(232,239,228,0.035)';
+    for (let x = 0; x < W; x += 28) for (let y = 0; y < H; y += 28) g.fillRect(x, y, 2, 2);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let i = 0; i < 85; i++) {
+      let x = rnd() * W, y = rnd() * H, dir = Math.floor(rnd() * 8);
+      g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 4; k++) { dir = (dir + (rnd() < .5 ? 1 : 7)) % 8; const len = 30 + rnd() * 170, a = dir * Math.PI / 4; x += Math.cos(a) * len; y += Math.sin(a) * len; g.lineTo(x, y); }
+      g.strokeStyle = 'rgba(212,162,76,' + (0.06 + rnd() * 0.09) + ')'; g.lineWidth = 2 + rnd() * 3; g.stroke();
+      g.beginPath(); g.arc(x, y, 5.5, 0, Math.PI * 2); g.fillStyle = 'rgba(212,162,76,0.22)'; g.fill();
+      g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fillStyle = '#071c19'; g.fill();
+    }
+    [[60, 60], [W - 60, 60], [60, H - 60], [W - 60, H - 60]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 26, 0, Math.PI * 2); g.fillStyle = 'rgba(212,162,76,0.35)'; g.fill(); g.beginPath(); g.arc(x, y, 15, 0, Math.PI * 2); g.fillStyle = '#04100e'; g.fill(); });
+    g.font = '500 24px "Martian Mono", ui-monospace, monospace';
+    g.fillStyle = 'rgba(232,239,228,0.32)';
+    if (B.silk) g.fillText(B.silk, 120, H - 48);
+    g.fillText('U1', 120, 92);
+  }
+  drawBoard();
+  const tex = new T.CanvasTexture(cv); tex.encoding = T.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawBoard(); tex.needsUpdate = true; });
+  const edge = new T.MeshStandardMaterial({color: 0x0a241f, roughness: .8});
+  const topM = new T.MeshStandardMaterial({map: tex, roughness: .62, metalness: .05});
+  const board = new T.Mesh(new T.BoxGeometry(B.w, 0.36, B.d), [edge, edge, topM, edge, edge, edge]);
+  board.position.set(B.cx, -0.18, B.cz); board.receiveShadow = true; scene.add(board);
+
+  const unit = new T.BoxGeometry(1, 1, 1);
+  const silk = new T.MeshBasicMaterial({color: 0xe8efe4, transparent: true, opacity: .5});
+  function silkRect(x0, x1, z0, z1) {
+    const t = 0.05;
+    [[x0, x1, z0, z0], [x0, x1, z1, z1], [x0, x0, z0, z1], [x1, x1, z0, z1]].forEach(([a, b, c, d]) => {
+      const m = new T.Mesh(unit, silk); m.scale.set(Math.abs(b - a) + t, 0.01, Math.abs(d - c) + t);
+      m.position.set((a + b) / 2, 0.006, (c + d) / 2); scene.add(m);
+    });
+  }
+  function busMat(color, o) {
+    o = o || {};
+    const m = new T.MeshStandardMaterial({color: new T.Color(o.base || color).multiplyScalar(o.base ? 1 : 0.55), emissive: new T.Color(color), emissiveIntensity: o.rest != null ? o.rest : 0.22, roughness: .35, metalness: .65});
+    m.userData.rest = m.emissiveIntensity; return m;
+  }
+  const nrm = (a, b) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return {x: -dz / L, z: dx / L}; };
+  function offsetLine(p, o) {
+    return p.map((q, i) => {
+      const nIn = i > 0 ? nrm(p[i - 1], q) : null, nOut = i < p.length - 1 ? nrm(q, p[i + 1]) : null;
+      let n = nIn || nOut;
+      if (nIn && nOut) { const k = 1 / (1 + nIn.x * nOut.x + nIn.z * nOut.z); n = {x: (nIn.x + nOut.x) * k, z: (nIn.z + nOut.z) * k}; }
+      return {x: q.x + n.x * o, z: q.z + n.z * o};
+    });
+  }
+  function trace(points, lines, mat) {
+    const gap = 0.075, w = 0.04;
+    for (let li = 0; li < lines; li++) {
+      const pts = offsetLine(points, (li - (lines - 1) / 2) * gap);
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
+        const m = new T.Mesh(unit, mat); m.scale.set(L + w, 0.03, w); m.position.set((a.x + b.x) / 2, 0.016, (a.z + b.z) / 2); m.rotation.y = -Math.atan2(dz, dx);
+        m.receiveShadow = true; scene.add(m);
+      }
+      [pts[0], pts[pts.length - 1]].forEach(p => { const pad = new T.Mesh(unit, mat); pad.scale.set(0.07, 0.032, 0.07); pad.position.set(p.x, 0.016, p.z); scene.add(pad); });
+    }
+  }
+  function glowBus(m) {
+    if (!m) return;
+    gsap.killTweensOf(m);
+    gsap.timeline().to(m, {emissiveIntensity: 1.8, duration: 0.2}).to(m, {emissiveIntensity: m.userData.rest, duration: 1.4});
+  }
+  function label(html, cls, x, y, z, parent) {
+    const el = document.createElement('div'); el.className = cls; el.innerHTML = html;
+    const o = new T.CSS2DObject(el); o.position.set(x, y, z); (parent || scene).add(o); el._obj = o; return el;
+  }
+  function zone(text, x, z, color) { const el = label(text, 'zone', x, 0.05, z); if (color) el.style.setProperty('--c', color); return el; }
+
+  const pinSpots = [], recs = {}, pickables = [];
+  const dotMat = new T.MeshBasicMaterial({color: 0x6c7a78});
+  function chip(key, o) {
+    const w = o.w || 1.4, d = o.d || 1.2, h = o.h || (o.cell ? 0.28 : 0.34);
+    const g = new T.Group(); g.position.set(o.x, 0, o.z);
+    const mat = new T.MeshStandardMaterial({color: o.body || (o.cell ? '#1b2124' : '#15191b'), roughness: .42, metalness: o.metal || .22, emissive: new T.Color(0xffffff), emissiveIntensity: 0});
+    const body = new T.Mesh(unit, mat); body.scale.set(w, h, d); body.position.y = h / 2 + 0.03; body.castShadow = true; body.receiveShadow = true; g.add(body);
+    body.userData.key = key; pickables.push(body);
+    if (!o.metal) { const dot = new T.Mesh(new T.CircleGeometry(0.05, 16), dotMat); dot.rotation.x = -Math.PI / 2; dot.position.set(-w / 2 + 0.14, h + 0.035, -d / 2 + 0.14); g.add(dot); }
+    if (!o.noPins) {
+      const n = Math.max(2, Math.floor((w - 0.2) / 0.22));
+      for (let i = 0; i < n; i++) { const px = -w / 2 + 0.14 + i * ((w - 0.28) / (n - 1)); pinSpots.push([o.x + px, o.z - d / 2 - 0.07], [o.x + px, o.z + d / 2 + 0.07]); }
+    }
+    scene.add(g);
+    const el = label('<span class="nm">' + (o.nm || key) + '</span><span class="vl"></span><span class="sb"></span>', 'tag' + (o.cell ? ' cell' : ''), 0, h + 0.08, 0, g);
+    const rec = {key: key, cell: !!o.cell, g: g, mat: mat, el: el, val: el.querySelector('.vl'), sub: el.querySelector('.sb'), h: h, x: o.x, z: o.z};
+    recs[key] = rec; return rec;
+  }
+  function finishPins() {
+    const pinGeo = new T.BoxGeometry(0.07, 0.05, 0.16), pinMat = new T.MeshStandardMaterial({color: 0xc9ced1, metalness: .9, roughness: .3});
+    const pins = new T.InstancedMesh(pinGeo, pinMat, Math.max(1, pinSpots.length)), mtx = new T.Matrix4();
+    pinSpots.forEach(([x, z], i) => { mtx.makeTranslation(x, 0.045, z); pins.setMatrixAt(i, mtx); });
+    scene.add(pins);
+  }
+
+  // packets: a small sphere with an additive halo and a pill label
+  const haloCv = document.createElement('canvas'); haloCv.width = haloCv.height = 64;
+  const hg = haloCv.getContext('2d'), rg = hg.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(.35, 'rgba(255,255,255,.35)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  hg.fillStyle = rg; hg.fillRect(0, 0, 64, 64);
+  const haloTex = new T.CanvasTexture(haloCv);
+  const pktGeo = new T.SphereGeometry(0.13, 20, 14);
+  const live = new Set();
+  function removePacket(p) {
+    scene.remove(p.mesh); if (p.el.parentNode) p.el.parentNode.removeChild(p.el);
+    p.mesh.material.dispose(); p.halo.material.dispose(); live.delete(p);
+  }
+  function fly(path, text, color, o) {
+    o = o || {};
+    const y = o.y != null ? o.y : 0.8;
+    const v = path.map(p => new T.Vector3(p.x, y, p.z));
+    const mesh = new T.Mesh(pktGeo, new T.MeshBasicMaterial({color: new T.Color(color)}));
+    const halo = new T.Sprite(new T.SpriteMaterial({map: haloTex, color: new T.Color(color), blending: T.AdditiveBlending, depthWrite: false, transparent: true}));
+    halo.scale.set(1.1, 1.1, 1.1); mesh.add(halo);
+    const el = document.createElement('div'); el.className = 'pkt'; el.style.setProperty('--c', color); el.textContent = text;
+    const lab = new T.CSS2DObject(el); lab.position.set(0, 0.42, 0); mesh.add(lab);
+    mesh.position.copy(v[0]); mesh.scale.setScalar(0.01); mesh.visible = false; scene.add(mesh);
+    const p = {mesh: mesh, halo: halo, el: el}; live.add(p);
+    let L = 0; for (let i = 1; i < v.length; i++) L += v[i].distanceTo(v[i - 1]);
+    const total = o.dur || Math.max(0.5, Math.min(2.2, L / 7));
+    const tl = gsap.timeline({onComplete: () => removePacket(p)});
+    tl.call(() => { mesh.visible = true; });
+    tl.to(mesh.scale, {x: 1, y: 1, z: 1, duration: 0.18, ease: 'back.out(2)'});
+    for (let i = 1; i < v.length; i++) { const seg = v[i].distanceTo(v[i - 1]); tl.to(mesh.position, {x: v[i].x, y: v[i].y, z: v[i].z, duration: L ? total * seg / L : 0.1, ease: 'none'}); }
+    tl.to(mesh.scale, {x: 0.01, y: 0.01, z: 0.01, duration: 0.18, ease: 'power2.in'});
+    return tl;
+  }
+  function clearPackets() { Array.from(live).forEach(removePacket); }
+
+  const active = new Set();
+  function hi(rec, color) {
+    if (!rec) return;
+    rec.mat.emissive.set(color); gsap.to(rec.mat, {emissiveIntensity: rec.cell ? 0.6 : 0.5, duration: 0.3, overwrite: 'auto'});
+    rec.el.classList.add('on'); active.add(rec);
+  }
+  function clear() {
+    active.forEach(r => { gsap.to(r.mat, {emissiveIntensity: 0, duration: 0.5, overwrite: 'auto'}); r.el.classList.remove('on'); });
+    active.clear();
+  }
+  function pop(rec, big) {
+    if (!rec || RM) return;
+    gsap.fromTo(rec.g.scale, {x: 1.12, y: big ? 1.8 : 1.5, z: 1.12}, {x: 1, y: 1, z: 1, duration: 0.65, ease: 'elastic.out(1,0.5)'});
+  }
+
+  // camera views keep the whole subject in frame on narrow screens
+  const views = opts.views || {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}};
+  function viewFor(name) {
+    const b = views[name] || views.overview;
+    const tgt = new T.Vector3(...b.tgt), pos = new T.Vector3(...b.pos);
+    const want = b.want || 1.25, f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    pos.sub(tgt).multiplyScalar(f).add(tgt);
+    return {pos: pos, tgt: tgt};
+  }
+  function setView(name, instant) {
+    const v = viewFor(name), d = (RM || instant) ? 0 : 1.2;
+    const k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: v.pos.x, y: v.pos.y, z: v.pos.z, duration: d, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+    gsap.to(controls.target, {x: v.tgt.x, y: v.tgt.y, z: v.tgt.z, duration: d, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+  }
+  function focusOn(x, z, dist) {
+    const d = (dist || 7) * (camera.aspect < 1.2 ? Math.min(2.2, 1.25 / camera.aspect) : 1);
+    const k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: x * 0.8, y: d * 1.15, z: z + d, duration: RM ? 0 : 1.0, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+    gsap.to(controls.target, {x: x, y: 0, z: z, duration: RM ? 0 : 1.0, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+  }
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); renderer.domElement.style.width = w + 'px'; renderer.domElement.style.height = h + 'px';
+    labelR.setSize(w, h);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    stage.style.setProperty('--lab', Math.max(7, Math.min(12, w / 92)) + 'px');
+  }
+  // zoom buttons (+, -, Fit) and keys (+, -, 0): the mouse wheel and pinch still work, but buttons always do
+  function zoom(f) {
+    const t = controls.target, off = camera.position.clone().sub(t);
+    off.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, off.length() * f)));
+    const p = t.clone().add(off), k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: p.x, y: p.y, z: p.z, duration: RM ? 0 : 0.45, ease: 'power2.out', overwrite: 'auto'}).timeScale(k);
+  }
+  if (opts.zoomUI !== false) {
+    if (!document.getElementById('lab3d-zoom-css')) {
+      const st = document.createElement('style'); st.id = 'lab3d-zoom-css';
+      st.textContent = '.zoomctl{position:absolute;z-index:4;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:4px;background:rgba(6,23,20,.82);border:1px solid #1e4a41;border-radius:6px;backdrop-filter:blur(6px)}' +
+        '.zoomctl button{width:38px;height:34px;border:0;border-radius:4px;background:transparent;color:#e8efe4;font:600 18px/1 "Martian Mono",ui-monospace,monospace;cursor:pointer;padding:0}' +
+        '.zoomctl button.fit{font-size:10px;letter-spacing:.06em;height:28px}.zoomctl button:hover{background:#0f2c27;color:#f2b33d}' +
+        '.zoomctl button:focus-visible{outline:2px solid #f2b33d;outline-offset:1px}@media(max-width:520px){.zoomctl{right:10px}.zoomctl button{width:34px;height:32px}}';
+      document.head.appendChild(st);
+    }
+    const box = document.createElement('div'); box.className = 'zoomctl'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Zoom');
+    box.innerHTML = '<button type="button" data-z="in" aria-label="Zoom in" title="Zoom in (+)">+</button>' +
+      '<button type="button" data-z="out" aria-label="Zoom out" title="Zoom out (-)">&minus;</button>' +
+      '<button type="button" class="fit" data-z="fit" aria-label="Show the whole board" title="Show the whole board (0)">FIT</button>';
+    stage.appendChild(box);
+    ['pointerdown', 'pointerup', 'wheel', 'click'].forEach(ev => box.addEventListener(ev, e => e.stopPropagation()));
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.z === 'in') zoom(0.75); else if (b.dataset.z === 'out') zoom(1.33); else setView(opts.fitView || 'overview');
+    });
+    document.addEventListener('keydown', e => {
+      const t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if (e.key === '+' || e.key === '=') zoom(0.75);
+      else if (e.key === '-' || e.key === '_') zoom(1.33);
+      else if (e.key === '0') setView(opts.fitView || 'overview');
+    });
+  }
+  new ResizeObserver(resize).observe(stage); resize();
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); labelR.render(scene, camera); })();
+
+  // picking: click (not drag) on a chip body
+  const ray = new T.Raycaster(), mouse = new T.Vector2(); let down = null, pickCb = null;
+  labelR.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  labelR.domElement.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || !pickCb) return;
+    const r = labelR.domElement.getBoundingClientRect();
+    mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (hit) pickCb(hit.object.userData.key);
+  });
+
+  function intro() {
+    const v = viewFor('overview'); camera.position.copy(v.pos); controls.target.copy(v.tgt);
+    if (RM) return;
+    gsap.from(camera.position, {x: v.pos.x - 4, y: v.pos.y + 12, z: v.pos.z + 10, duration: 1.8, ease: 'power3.out'});
+    gsap.from(Object.values(recs).map(r => r.g.position), {y: 2.2, duration: 0.7, ease: 'back.out(1.6)', stagger: 0.03, delay: 0.2});
+  }
+
+  const labApi = {T: T, scene: scene, camera: camera, controls: controls, renderer: renderer, recs: recs,
+    chip: chip, finishPins: finishPins, silkRect: silkRect, zone: zone, label: label, busMat: busMat, trace: trace, glowBus: glowBus,
+    fly: fly, clearPackets: clearPackets, hi: hi, clear: clear, pop: pop, setView: setView, focusOn: focusOn, intro: intro, zoom: zoom,
+    onPick: cb => { pickCb = cb; }, unit: unit};
+  (window.__labs = window.__labs || []).push(labApi);   // lets tests reach the camera
+  return labApi;
+}
+// LAB3D END
+
+// ---------- Week 4A board: a clock, a D latch, a D flip-flop, a 16-slot logic analyzer, a register, and a counter ----------
+// Same API for the 3D board (FlipLab) and the flat SVG board (FlipFlat):
+// buildRibbon(), reveal(cur, animate), regView(animate), regTick(loaded), cntView(animate), cntTick(), show(tab, animate)
+const CSSV = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const FB = {
+  lane0: -3.4, pitch: 0.9, lanes: {clk: -5.9, d: -4.8, lq: -3.7, fq: -2.6},
+  chips: {
+    clk: {x: -9.6, z: -5.9, w: 1.7, d: 0.9, nm: 'CLOCK'}, din: {x: -9.6, z: -4.8, w: 1.7, d: 0.9, nm: 'D IN'},
+    latch: {x: -6.3, z: -3.7, w: 1.8, d: 0.9, nm: 'D LATCH'}, ff: {x: -6.3, z: -2.6, w: 1.8, d: 0.9, nm: 'FLIP-FLOP'},
+    d3: {x: -9.6, z: 1.7, w: 1.2, d: 0.9, nm: 'D3'}, d2: {x: -8.1, z: 1.7, w: 1.2, d: 0.9, nm: 'D2'}, d1: {x: -6.6, z: 1.7, w: 1.2, d: 0.9, nm: 'D1'}, d0: {x: -5.1, z: 1.7, w: 1.2, d: 0.9, nm: 'D0'},
+    le: {x: -3.3, z: 1.7, w: 1.2, d: 0.9, nm: 'LE'}, rclk: {x: -3.3, z: 4.5, w: 1.2, d: 0.9, nm: 'CLK'},
+    q3: {x: -9.6, z: 4.5, w: 1.2, d: 1.2, nm: 'Q3', cell: true}, q2: {x: -8.1, z: 4.5, w: 1.2, d: 1.2, nm: 'Q2', cell: true}, q1: {x: -6.6, z: 4.5, w: 1.2, d: 1.2, nm: 'Q1', cell: true}, q0: {x: -5.1, z: 4.5, w: 1.2, d: 1.2, nm: 'Q0', cell: true},
+    c3: {x: 2.6, z: 3.1, w: 1.2, d: 1.2, nm: 'Q3', cell: true}, c2: {x: 4.1, z: 3.1, w: 1.2, d: 1.2, nm: 'Q2', cell: true}, c1: {x: 5.6, z: 3.1, w: 1.2, d: 1.2, nm: 'Q1', cell: true}, c0: {x: 7.1, z: 3.1, w: 1.2, d: 1.2, nm: 'Q0', cell: true},
+    add: {x: 9.6, z: 3.1, w: 1.5, d: 1.2, nm: 'PLUS 1'}, cclk: {x: 9.6, z: 5.3, w: 1.3, d: 0.8, nm: 'CLK'}
+  },
+  traces: [
+    {pts: [{x: -8.75, z: -5.9}, {x: -3.7, z: -5.9}], bus: 'clk'}, {pts: [{x: -8.75, z: -4.8}, {x: -3.7, z: -4.8}], bus: 'd'},
+    {pts: [{x: -5.4, z: -3.7}, {x: -3.7, z: -3.7}], bus: 'lq'}, {pts: [{x: -5.4, z: -2.6}, {x: -3.7, z: -2.6}], bus: 'fq'},
+    {pts: [{x: -8.4, z: -5.9}, {x: -8.4, z: -3.85}, {x: -7.2, z: -3.85}], bus: 'clk'}, {pts: [{x: -8.2, z: -5.9}, {x: -8.2, z: -2.75}, {x: -7.2, z: -2.75}], bus: 'clk'},
+    {pts: [{x: -7.8, z: -4.8}, {x: -7.8, z: -3.55}, {x: -7.2, z: -3.55}], bus: 'd'}, {pts: [{x: -7.6, z: -4.8}, {x: -7.6, z: -2.45}, {x: -7.2, z: -2.45}], bus: 'd'},
+    {pts: [{x: -9.6, z: 2.15}, {x: -9.6, z: 3.9}], bus: 'reg'}, {pts: [{x: -8.1, z: 2.15}, {x: -8.1, z: 3.9}], bus: 'reg'}, {pts: [{x: -6.6, z: 2.15}, {x: -6.6, z: 3.9}], bus: 'reg'}, {pts: [{x: -5.1, z: 2.15}, {x: -5.1, z: 3.9}], bus: 'reg'},
+    {pts: [{x: -3.3, z: 2.15}, {x: -3.3, z: 3.0}, {x: -10.2, z: 3.0}], bus: 'le'}, {pts: [{x: -3.3, z: 4.95}, {x: -3.3, z: 5.5}, {x: -10.2, z: 5.5}], bus: 'rclk'},
+    {pts: [{x: 7.7, z: 3.1}, {x: 8.85, z: 3.1}], bus: 'cnt', lines: 4}, {pts: [{x: 9.6, z: 2.5}, {x: 9.6, z: 1.4}, {x: 4.85, z: 1.4}, {x: 4.85, z: 2.5}], bus: 'cnt', lines: 4},
+    {pts: [{x: 8.95, z: 5.3}, {x: 4.85, z: 5.3}, {x: 4.85, z: 3.7}], bus: 'cclk'}
+  ],
+  paths: {
+    dToFf: [{x: -8.75, z: -4.8}, {x: -7.6, z: -4.8}, {x: -7.6, z: -2.45}, {x: -7.2, z: -2.45}],
+    dToLatch: [{x: -8.75, z: -4.8}, {x: -7.8, z: -4.8}, {x: -7.8, z: -3.55}, {x: -7.2, z: -3.55}],
+    regD: i => [{x: FB.chips['d' + i].x, z: 2.15}, {x: FB.chips['d' + i].x, z: 3.9}],
+    cntBack: [{x: 9.6, z: 2.5}, {x: 9.6, z: 1.4}, {x: 4.85, z: 1.4}, {x: 4.85, z: 2.5}]
+  },
+  info: {
+    clk: '<b>Clock.</b> It repeats 0, 0, 1, 1. The moment it goes from 0 to 1 is a rising edge (slots 2, 6, 10, and 14), the only moment a flip-flop can change.',
+    din: '<b>D, the data input.</b> The value you draw in the D lane. Click any D pad on the analyzer to flip it.',
+    latch: '<b>Gated D latch.</b> Level-sensitive: while CLK = 1 it is open and its Q follows D right away; while CLK = 0 it is closed and holds.',
+    ff: '<b>D flip-flop.</b> Edge-triggered: at each rising clock edge it copies the value D had just before the edge, then holds it until the next rising edge.',
+    reg: '<b>4-bit register.</b> Four D flip-flops that share one clock. Click a D chip to flip that input, or the LE chip to change load enable.',
+    le: '<b>Load enable (LE).</b> With LE = 1 a clock tick copies D into Q. With LE = 0 the register keeps its value. Click to flip it.',
+    cnt: '<b>4-bit counter.</b> A register that loads its own value plus 1 on every tick. After 15 it wraps around to 0.',
+    add: '<b>Plus 1 adder.</b> It always shows the next count. On a tick, that value travels back into the four bit cells.'
+  }
+};
+FB.slotX = t => FB.lane0 + t * FB.pitch + FB.pitch / 2;
+
+function FlipLab(stage, onPick, onInfo){
+  const lab = Lab3D(stage, {
+    board: {w: 24, d: 15, cx: 0, cz: 0, silk: 'CLOCKED STORAGE  REV 1.0  EGN 325 WEEK 4', seed: 41},
+    views: {overview: {pos: [0, 19, 15], tgt: [0, 0, 0], want: 1.5}, timing: {pos: [0.6, 17, 7.6], tgt: [0.6, 0, -3.8], want: 1.9},
+      register: {pos: [-6.4, 10.5, 12], tgt: [-6.4, 0, 3.2], want: 1.3}, counter: {pos: [6, 10.5, 12], tgt: [6, 0, 3.2], want: 1.3}}
+  });
+  if (!lab) return null;
+  window.__lab = lab; // test hook: the camera and controls
+  const HI = c => new lab.T.Color(c).multiplyScalar(0.35); // highlight glow kept dark so chips do not wash out to white
+  const T = lab.T, scene = lab.scene;
+  const C = {on: CSSV('--led'), addr: CSSV('--addr'), data: CSSV('--data'), copper: CSSV('--copper'), ctrl: CSSV('--ctrl'), bad: CSSV('--bad')};
+  lab.silkRect(-10.9, -4.9, -6.6, -2.0); lab.silkRect(-3.6, 11.3, -6.6, -2.0); lab.silkRect(-10.9, -2.4, 0.6, 6.1); lab.silkRect(1.6, 10.8, 0.6, 6.1);
+  lab.zone('clocked storage', -7.9, -6.95); lab.zone('logic analyzer · 16 time slots', 3.8, -6.95, C.addr);
+  lab.zone('4-bit register', -6.6, 6.5); lab.zone('4-bit counter', 6.2, 6.5);
+  [['clk', 'CLK'], ['d', 'D'], ['lq', 'LATCH Q'], ['fq', 'FF Q']].forEach(([k, t]) => lab.zone(t, 11.85, FB.lanes[k], k === 'clk' ? C.addr : C.on));
+  for (let t = 0; t < N; t++) lab.label(String(t), 'zone', FB.slotX(t), 0.05, -1.95);
+  const mats = {clk: lab.busMat(C.addr), d: lab.busMat(C.on), lq: lab.busMat(C.on), fq: lab.busMat(C.on), reg: lab.busMat(C.on), le: lab.busMat(C.ctrl), rclk: lab.busMat(C.addr), cnt: lab.busMat(C.on), cclk: lab.busMat(C.addr)};
+  FB.traces.forEach(t => lab.trace(t.pts, t.lines || 1, mats[t.bus]));
+  const ledOn = new T.MeshStandardMaterial({color: new T.Color(C.on).multiplyScalar(0.6), emissive: new T.Color(C.on), emissiveIntensity: 0.42, roughness: .4});
+  const ledOff = new T.MeshStandardMaterial({color: '#1d3a31', roughness: .6});
+  const R = {};
+  Object.keys(FB.chips).forEach(k => {
+    const c = FB.chips[k], rec = lab.chip(k, c);
+    const led = new T.Mesh(lab.unit, ledOff); led.scale.set(0.3, 0.06, 0.3); led.position.set(c.w / 2 - 0.25, rec.h + 0.06, c.d / 2 - 0.22); rec.g.add(led); rec.led = led;
+    R[k] = rec;
+  });
+  lab.finishPins();
+  const bit = (rec, v, txt) => { const on = v === 1 || v === true; rec.led.material = on ? ledOn : ledOff; rec.val.textContent = txt != null ? txt : (on ? 1 : 0); rec.val.style.color = on ? C.on : ''; };
+  // analyzer pads
+  const padMat = {clk1: new T.MeshBasicMaterial({color: new T.Color(C.addr).multiplyScalar(0.45)}), one: new T.MeshBasicMaterial({color: new T.Color(C.on).multiplyScalar(0.8)}),
+    zero: new T.MeshBasicMaterial({color: '#123029'}), idle: new T.MeshBasicMaterial({color: '#08130f'})};
+  [padMat.clk1, padMat.one, padMat.zero, padMat.idle].forEach(m => { m.color.convertSRGBToLinear(); });
+  const pads = {}, dPads = [];
+  Object.keys(FB.lanes).forEach(k => { pads[k] = []; for (let t = 0; t < N; t++){ const m = new T.Mesh(lab.unit, padMat.zero); m.scale.set(FB.pitch - 0.12, 0.05, 0.7); m.position.set(FB.slotX(t), 0.03, FB.lanes[k]); m.receiveShadow = true; scene.add(m); pads[k].push(m); if (k === 'd'){ m.userData.t = t; dPads.push(m); } } });
+  const edgeMat = new T.MeshStandardMaterial({color: C.addr, emissive: new T.Color(C.addr), emissiveIntensity: 0.5});
+  const edges = []; for (let t = 0; t < N; t++){ const m = new T.Mesh(new T.ConeGeometry(0.16, 0.34, 3), edgeMat); m.position.set(FB.lane0 + t * FB.pitch, 0.3, FB.lanes.clk - 0.55); m.visible = false; scene.add(m); edges.push(m); }
+  const cursor = new T.Mesh(lab.unit, new T.MeshBasicMaterial({color: C.addr, transparent: true, opacity: 0.18, depthWrite: false}));
+  cursor.scale.set(FB.pitch, 0.5, 4.3); cursor.position.set(FB.slotX(0), 0.25, (FB.lanes.clk + FB.lanes.fq) / 2); cursor.visible = false; scene.add(cursor);
+  // clicking a D pad flips it (the kit's picking only covers chips)
+  const layer = stage.querySelector('.labels'), ray = new T.Raycaster(), mouse = new T.Vector2(); let down = null;
+  layer.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  layer.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+    const r = layer.getBoundingClientRect(); mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(mouse, lab.camera); const hit = ray.intersectObjects(dPads, false)[0];
+    if (hit) onPick({kind: 'd', t: hit.object.userData.t});
+  });
+  lab.onPick(k => {
+    if (/^d[0-3]$/.test(k)) onPick({kind: 'regD', i: 3 - +k.slice(1)});
+    else if (k === 'le') onPick({kind: 'le'});
+    if (onInfo) onInfo(FB.info[k] || (/^q/.test(k) || k === 'rclk' ? FB.info.reg : /^c\d|cclk/.test(k) ? FB.info.cnt : /^d\d/.test(k) ? FB.info.reg : ''));
+  });
+  let last = {};
+  function chipsAt(cur){
+    const W = waves(), at = k => cur < 0 ? null : W[k][cur];
+    [['clk', 'clk'], ['din', 'd'], ['latch', 'lq'], ['ff', 'fq']].forEach(([c, k]) => { const v = at(k); bit(R[c], v === 1, v === null ? '·' : v); });
+    R.clk.sub.textContent = cur < 0 ? '0 0 1 1' : isEdge(cur) ? 'rising edge' : 'slot ' + cur;
+    R.latch.sub.textContent = cur < 0 ? '' : W.clk[cur] ? 'open' : 'closed';
+    R.ff.sub.textContent = cur < 0 ? '' : isEdge(cur) ? 'samples D' : 'holds';
+  }
+  function buildRibbon(){
+    const W = waves();
+    for (let t = 0; t < N; t++){ pads.clk[t].material = W.clk[t] ? padMat.clk1 : padMat.zero; pads.d[t].material = W.d[t] ? padMat.one : padMat.zero; edges[t].visible = isEdge(t); }
+    reveal(S.cur, false);
+  }
+  function reveal(cur, animate){
+    const W = waves();
+    ['lq', 'fq'].forEach(k => pads[k].forEach((m, t) => { m.material = (cur < 0 || t <= cur) ? (W[k][t] ? padMat.one : padMat.zero) : padMat.idle; }));
+    chipsAt(cur); lab.clear();
+    if (cur < 0){ cursor.visible = false; return; }
+    cursor.visible = true;
+    if (animate) gsap.to(cursor.position, {x: FB.slotX(cur), duration: 0.45, ease: 'power2.out', overwrite: 'auto'}); else cursor.position.x = FB.slotX(cur);
+    if (!animate) return;
+    if (isEdge(cur)){
+      lab.glowBus(mats.clk); lab.hi(R.clk, HI(C.addr)); lab.hi(R.ff, HI(C.addr));
+      lab.fly(FB.paths.dToFf, 'D=' + W.d[cur - 1], C.addr, {y: 0.6, dur: 0.8}); if (last.fq !== W.fq[cur]) lab.pop(R.ff);
+    }
+    if (W.clk[cur]){ lab.hi(R.latch, HI(C.data)); lab.fly(FB.paths.dToLatch, 'D=' + W.d[cur], W.d[cur] ? C.on : C.copper, {y: 0.6, dur: 0.7}); if (last.lq !== W.lq[cur]) lab.pop(R.latch); }
+    last = {lq: W.lq[cur], fq: W.fq[cur]};
+  }
+  function regView(){
+    S.regD.forEach((v, i) => bit(R['d' + (3 - i)], v === 1));
+    S.regQ.forEach((v, i) => bit(R['q' + (3 - i)], v === 1));
+    bit(R.le, S.le === 1); R.le.sub.textContent = S.le ? 'load' : 'hold';
+    R.rclk.val.textContent = '↑';
+  }
+  let prevQ = [0, 0, 0, 0];
+  function regTick(loaded){
+    lab.clear(); lab.glowBus(mats.rclk); lab.hi(R.rclk, HI(C.addr));
+    if (loaded){ lab.glowBus(mats.le); S.regD.forEach((v, i) => lab.fly(FB.paths.regD(3 - i), String(v), v ? C.on : C.copper, {y: 0.5, dur: 0.6})); }
+    else lab.hi(R.le, HI(C.ctrl));
+    S.regQ.forEach((v, i) => { if (v !== prevQ[i]) lab.pop(R['q' + (3 - i)]); });
+    prevQ = S.regQ.slice(); regView();
+  }
+  function cntView(){
+    const b = toBits(S.cnt), nx = counterStep(S.cnt);
+    b.forEach((v, i) => bit(R['c' + (3 - i)], v === 1));
+    R.add.val.textContent = nx; R.add.sub.textContent = toBits(nx).join('');
+    R.c0.sub.textContent = ''; R.cclk.val.textContent = '↑';
+  }
+  let prevC = 0;
+  function cntTick(){
+    lab.clear(); lab.glowBus(mats.cclk); lab.glowBus(mats.cnt); lab.hi(R.cclk, HI(C.addr));
+    lab.fly(FB.paths.cntBack, toBits(S.cnt).join(''), C.on, {y: 0.5, dur: 0.7});
+    const a = toBits(prevC), b = toBits(S.cnt); b.forEach((v, i) => { if (v !== a[i]) lab.pop(R['c' + (3 - i)]); });
+    prevC = S.cnt; cntView();
+  }
+  let intro = false;
+  function show(tab, animate){ if (!intro){ intro = true; lab.intro(); setTimeout(() => lab.setView(tab), 1900); return; } lab.setView(tab, !animate); }
+  return {kind: '3d', buildRibbon, reveal, regView, regTick, cntView, cntTick, show, view: n => lab.setView(n)};
+}
+
+function FlipFlat(stage, onPick, onInfo){
+  const NS = 'http://www.w3.org/2000/svg', S0 = 36, X = x => (x + 12) * S0, Y = z => (z + 7.5) * S0;
+  const C = {on: CSSV('--led'), addr: CSSV('--addr'), data: CSSV('--data'), copper: CSSV('--copper')};
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 864 540'); svg.setAttribute('class', 'flat'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Flat diagram of the clocked storage board');
+  stage.appendChild(svg);
+  const mk = (tag, at, parent) => { const e = document.createElementNS(NS, tag); Object.keys(at).forEach(k => e.setAttribute(k, at[k])); (parent || svg).appendChild(e); return e; };
+  mk('rect', {x: 4, y: 4, width: 856, height: 532, rx: 12, fill: '#0d302a', stroke: '#2a5c51'});
+  [[-10.9, -4.9, -6.6, -2.0], [-3.6, 11.3, -6.6, -2.0], [-10.9, -2.4, 0.6, 6.1], [1.6, 10.8, 0.6, 6.1]].forEach(([a, b, c, d]) => mk('rect', {x: X(a), y: Y(c), width: (b - a) * S0, height: (d - c) * S0, fill: 'none', stroke: 'rgba(232,239,228,.3)'}));
+  [['CLOCKED STORAGE', -7.9, -6.95], ['LOGIC ANALYZER · 16 TIME SLOTS', 3.8, -6.95], ['4-BIT REGISTER', -6.6, 6.6], ['4-BIT COUNTER', 6.2, 6.6]].forEach(([t, x, z]) => { mk('text', {x: X(x), y: Y(z), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 10, 'letter-spacing': 1.5}).textContent = t; });
+  const busCol = {clk: C.addr, d: C.on, lq: C.on, fq: C.on, reg: C.on, le: CSSV('--ctrl'), rclk: C.addr, cnt: C.on, cclk: C.addr};
+  FB.traces.forEach(t => mk('polyline', {points: t.pts.map(p => X(p.x) + ',' + Y(p.z)).join(' '), fill: 'none', stroke: busCol[t.bus], 'stroke-opacity': .5, 'stroke-width': (t.lines || 1) * 2 + 1, 'stroke-linejoin': 'round'}));
+  const pads = {}, edges = [];
+  Object.keys(FB.lanes).forEach(k => { pads[k] = []; mk('text', {x: X(11.4), y: Y(FB.lanes[k]) + 4, fill: '#9db6ac', 'font-size': 10}).textContent = {clk: 'CLK', d: 'D', lq: 'LQ', fq: 'FF Q'}[k];
+    for (let t = 0; t < N; t++){ const at = {x: X(FB.slotX(t) - (FB.pitch - 0.12) / 2), y: Y(FB.lanes[k] - 0.35), width: (FB.pitch - 0.12) * S0, height: 0.7 * S0, rx: 3};
+      if (k === 'd') Object.assign(at, {'data-slot': t, tabindex: 0, role: 'button', 'aria-label': 'D at slot ' + t + ', tap to flip', style: 'cursor:pointer'});
+      pads[k].push(mk('rect', at)); } });
+  for (let t = 0; t < N; t++){ edges.push(mk('path', {d: `M${X(FB.lane0 + t * FB.pitch) - 5},${Y(FB.lanes.clk - 0.55) + 4} l5,-8 l5,8 z`, fill: C.addr})); mk('text', {x: X(FB.slotX(t)), y: Y(-1.95), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 9}).textContent = t; }
+  const cursor = mk('rect', {x: 0, y: Y(FB.lanes.clk - 0.5), width: FB.pitch * S0, height: (FB.lanes.fq - FB.lanes.clk + 1) * S0, fill: 'rgba(242,179,61,.16)', stroke: C.addr, opacity: 0});
+  const R = {};
+  Object.keys(FB.chips).forEach(k => {
+    const c = FB.chips[k], g = mk('g', {style: 'cursor:pointer'});
+    if (/^d[0-3]$/.test(k)){ g.setAttribute('data-regd', 3 - +k.slice(1)); g.setAttribute('tabindex', 0); g.setAttribute('role', 'button'); g.setAttribute('aria-label', 'Register input ' + c.nm); }
+    const r = mk('rect', {x: X(c.x - c.w / 2), y: Y(c.z - c.d / 2), width: c.w * S0, height: c.d * S0, rx: 4, fill: '#15191b', stroke: '#3c5a52', 'stroke-width': 1.5}, g);
+    mk('text', {x: X(c.x), y: Y(c.z) - 4, 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 8.5, 'letter-spacing': 1}, g).textContent = c.nm;
+    const v = mk('text', {x: X(c.x), y: Y(c.z) + 11, 'text-anchor': 'middle', fill: '#e8efe4', 'font-size': 13, 'font-weight': 600}, g);
+    g.addEventListener('click', () => { if (k === 'le') onPick({kind: 'le'}); if (onInfo) onInfo(FB.info[k] || (/^q|rclk|^d\d/.test(k) ? FB.info.reg : FB.info.cnt)); });
+    R[k] = {r, v};
+  });
+  const bit = (k, v, txt) => { R[k].v.textContent = txt != null ? txt : v; R[k].v.setAttribute('fill', v === 1 ? C.on : '#e8efe4'); R[k].r.setAttribute('stroke', v === 1 ? C.on : '#3c5a52'); };
+  function buildRibbon(){ const W = waves(); for (let t = 0; t < N; t++){ pads.clk[t].setAttribute('fill', W.clk[t] ? 'rgba(242,179,61,.55)' : '#1d3a31'); pads.d[t].setAttribute('fill', W.d[t] ? C.on : '#1d3a31'); edges[t].setAttribute('opacity', isEdge(t) ? 1 : 0); } reveal(S.cur, false); }
+  function reveal(cur){
+    const W = waves();
+    ['lq', 'fq'].forEach(k => pads[k].forEach((m, t) => m.setAttribute('fill', (cur < 0 || t <= cur) ? (W[k][t] ? C.on : '#1d3a31') : '#0f1d19')));
+    const at = k => cur < 0 ? null : W[k][cur];
+    [['clk', 'clk'], ['din', 'd'], ['latch', 'lq'], ['ff', 'fq']].forEach(([c, k]) => { const v = at(k); bit(c, v, v === null ? '·' : v); });
+    cursor.setAttribute('opacity', cur < 0 ? 0 : 1); if (cur >= 0) cursor.setAttribute('x', X(FB.lane0 + cur * FB.pitch));
+  }
+  function regView(){ S.regD.forEach((v, i) => bit('d' + (3 - i), v)); S.regQ.forEach((v, i) => bit('q' + (3 - i), v)); bit('le', S.le); R.rclk.v.textContent = '↑'; }
+  function cntView(){ toBits(S.cnt).forEach((v, i) => bit('c' + (3 - i), v)); R.add.v.textContent = counterStep(S.cnt); R.cclk.v.textContent = '↑'; }
+  return {kind: '2d', buildRibbon, reveal, regView, regTick: () => regView(), cntView, cntTick: () => cntView(), show(){}, view(){}};
+}
 /* ---- page code ---- */
 // Shared logic engine for the Week 3 pages (gate circuits) and Week 4 pages (timing, state machines).
 const GATES = {
@@ -327,7 +1090,7 @@ function toBits(n){ return [3, 2, 1, 0].map(i => (n >> i) & 1); }
 function runFSM(fsm, start, inputs){ let s = start; const trace = [s]; const outs = []; for (const x of inputs){ const tr = fsm[s][x]; if (!tr) return {error:'no transition from ' + s + ' on ' + x}; if (tr.out) outs.push(tr.out); s = tr.next; trace.push(s); } return {state:s, trace, outs}; }
 
 // ---------- Helpers on top of the skeleton's make3D (Three.js r147) ----------
-const COL = {on:0xFF3B44, off:0x475569, idle:0x2B3546, ink:0x0F1722, white:0xF8FAFC, ok:0x22C55E, bad:0xEF4444, amber:0xF59E0B, blue:0x60A5FA};
+const COL = {on:0x58C462, off:0x35574A, idle:0x121614, copper:0xB87333, dark:0x3A2A1C, ink:0x0C2419, white:0xEAF2E8, ok:0x3FD96A, bad:0xFF6B6B, amber:0xFFB020, blue:0x38D6FF};
 // Fit the camera to a box, looking along `view` (a direction from the target to the camera). Refits on resize.
 function fitter(st, el, view){
   const T = THREE; let box = null; const dir = new T.Vector3(...(view || [0.2, 0.35, 1])).normalize();
@@ -366,9 +1129,9 @@ function labelLayer(st, el){
   };
 }
 function disposeGroup(g){ while (g.children.length){ const c = g.children.pop(); c.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); }); } }
-function glowMat(color, on){ return new THREE.MeshStandardMaterial({color, emissive: on ? color : 0x000000, emissiveIntensity: on ? 0.75 : 0, roughness: 0.45, metalness: 0.1}); }
+function glowMat(color, on){ return new THREE.MeshStandardMaterial({color, emissive: on ? color : 0x000000, emissiveIntensity: on ? 0.45 : 0, roughness: 0.5, metalness: 0.15}); }
 function setGlow(mat, color, on, animate){
-  const target = new THREE.Color(color), em = on ? new THREE.Color(color) : new THREE.Color(0x000000), ei = on ? 0.8 : 0;
+  const target = new THREE.Color(color), em = on ? new THREE.Color(color) : new THREE.Color(0x000000), ei = on ? 0.45 : 0;
   if (animate && hasGSAP){ gsap.to(mat.color, {r:target.r, g:target.g, b:target.b, duration:0.35}); gsap.to(mat.emissive, {r:em.r, g:em.g, b:em.b, duration:0.35}); gsap.to(mat, {emissiveIntensity:ei, duration:0.35}); }
   else { mat.color.copy(target); mat.emissive.copy(em); mat.emissiveIntensity = ei; }
 }
@@ -385,30 +1148,82 @@ function picker(st, objectsFn, onPick){
 }
 // ---------- Step-by-step narrator driven by a GSAP timeline (manual fallback without GSAP) ----------
 function Narrator(ui){
-  // ui: {caption, counter, play, pause, prev, next, restart}; steps: [{text, show(animate), dur}]
-  let steps = [], i = -1, tl = null, timer = null;
-  function go(k, animate){ if (!steps.length) return; i = Math.max(0, Math.min(steps.length - 1, k)); ui.caption.innerHTML = steps[i].text; steps[i].show(animate); ui.counter.textContent = 'Step ' + (i + 1) + ' of ' + steps.length; ui.prev.disabled = i <= 0; ui.next.disabled = i >= steps.length - 1; }
-  function stop(){ if (tl){ tl.kill(); tl = null; } if (timer){ clearTimeout(timer); timer = null; } ui.play.hidden = false; ui.pause.hidden = true; }
+  // Full stepper: Reset, Step back, Play/Pause, Step, speed, a titled caption, and an optional "predict before you see it" question.
+  // steps: [{text, title, c (caption color), show(animate), dur, ph (rail key), ask:{q, choices, answer, why}}]
+  let steps = [], i = -1, tl = null, timer = null, speed = 1, pending = null, asked = {};
+  const api = {onGo:null, onLoad:null, score:{ok:0, n:0}};
+  const dur = k => (steps[k] && steps[k].dur) || 2.2;
+  function go(k, animate){
+    if (!steps.length) return;
+    i = Math.max(0, Math.min(steps.length - 1, k)); const s = steps[i];
+    ui.caption.innerHTML = s.text;
+    if (ui.title) ui.title.textContent = s.title || ('Step ' + (i + 1));
+    if (ui.box) ui.box.style.setProperty('--cap', s.c || 'var(--addr)');
+    if (ui.title) ui.title.style.setProperty('--pc', s.c || 'var(--addr)');
+    s.show(animate);
+    ui.counter.textContent = 'Step ' + (i + 1) + ' of ' + steps.length; ui.prev.disabled = i <= 0; ui.next.disabled = i >= steps.length - 1;
+    if (ui.pq && !pending && ui.pq.dataset.k !== String(i)) ui.pq.hidden = true;
+    if (api.onGo) api.onGo(i, s, steps);
+  }
+  const wantsAsk = k => !!(steps[k] && steps[k].ask && ui.predict && ui.predict.checked && !asked[k]);
+  function ask(k, resume){
+    const a = steps[k].ask; pending = {k, resume};
+    ui.pq.dataset.k = String(k); ui.pq.hidden = false; ui.pqT.innerHTML = a.q; ui.pqFb.innerHTML = '';
+    ui.pqOpts.innerHTML = a.choices.map((c, j) => `<button class="btn" type="button" data-pa="${j}">${c}</button>`).join('');
+    try { ui.pqOpts.querySelector('button').focus({preventScroll:true}); } catch (e) {}
+  }
+  function answer(j){
+    if (!pending) return;
+    const {k, resume} = pending, a = steps[k].ask, ok = String(a.choices[j]) === String(a.answer);
+    pending = null; asked[k] = true; api.score.n++; if (ok) api.score.ok++;
+    ui.pqOpts.querySelectorAll('button').forEach((b, x) => { b.disabled = true; if (String(a.choices[x]) === String(a.answer)) b.classList.add('right'); else if (x === j) b.classList.add('wrong'); });
+    ui.pqFb.innerHTML = `<div class="feedback ${ok ? 'ok' : 'bad'}">${ok ? 'Correct. ' : 'Not this time: the answer is ' + a.answer + '. '}${a.why || ''}</div>`;
+    if (ui.pqScore) ui.pqScore.textContent = api.score.ok + ' of ' + api.score.n + ' predictions correct';
+    go(k, true);
+    if (resume) resume();
+  }
+  function stop(){
+    if (tl){ tl.kill(); tl = null; } if (timer){ clearTimeout(timer); timer = null; }
+    ui.play.hidden = false; ui.pause.hidden = true;
+    if (pending){ pending = null; ui.pq.hidden = true; }
+  }
   function play(){
     stop(); if (i >= steps.length - 1) go(0, true);
     ui.play.hidden = true; ui.pause.hidden = false;
+    const schedule = () => { timer = setTimeout(tick, dur(i) * 1000 / speed); };
+    const resume = () => { if (tl) tl.play(); else if (!hasGSAP) schedule(); };
+    const enter = k => { if (wantsAsk(k)){ if (tl) tl.pause(); ask(k, resume); return false; } go(k, true); return true; };
+    function tick(){ timer = null; if (i >= steps.length - 1){ stop(); return; } if (enter(i + 1)) schedule(); }
     if (hasGSAP){
       tl = gsap.timeline({onComplete: stop});
-      tl.to({}, {duration: steps[i].dur || 2.2});
-      for (let k = i + 1; k < steps.length; k++){ tl.add('step' + k); tl.call(() => go(k, true)); tl.to({}, {duration: steps[k].dur || 2.2}); }
-    } else {
-      const tick = () => { if (i >= steps.length - 1){ stop(); return; } go(i + 1, true); timer = setTimeout(tick, (steps[i].dur || 2.2) * 1000); };
-      timer = setTimeout(tick, (steps[i].dur || 2.2) * 1000);
-    }
+      tl.to({}, {duration: dur(i)});
+      for (let k = i + 1; k < steps.length; k++){ tl.call(() => enter(k)); tl.to({}, {duration: dur(k)}); }
+      tl.timeScale(speed);
+    } else schedule();
   }
   ui.play.addEventListener('click', play);
   ui.pause.addEventListener('click', stop);
   ui.prev.addEventListener('click', () => { stop(); go(i - 1, false); });
-  ui.next.addEventListener('click', () => { stop(); go(i + 1, true); });
+  ui.next.addEventListener('click', () => { stop(); if (wantsAsk(i + 1)) ask(i + 1, null); else go(i + 1, true); });
   ui.restart.addEventListener('click', () => { stop(); go(0, true); });
-  return { load(s, atEnd){ stop(); steps = s; go(atEnd ? s.length - 1 : 0, false); }, go, stop, play, get index(){ return i; } };
+  if (ui.speed) ui.speed.addEventListener('input', () => { speed = parseFloat(ui.speed.value) || 1; if (ui.speedv) ui.speedv.textContent = speed + '×'; if (tl) tl.timeScale(speed); });
+  if (ui.pqOpts) ui.pqOpts.addEventListener('click', e => { const b = e.target.closest('[data-pa]'); if (b) answer(+b.dataset.pa); });
+  if (ui.predict) ui.predict.addEventListener('change', () => { if (!ui.predict.checked && pending){ const r = pending; pending = null; ui.pq.hidden = true; go(r.k, true); if (r.resume) r.resume(); } });
+  api.load = (s, atEnd) => { stop(); steps = s; asked = {}; if (ui.pq){ ui.pq.hidden = true; ui.pq.dataset.k = ''; } if (api.onLoad) api.onLoad(s); go(atEnd ? s.length - 1 : 0, false); };
+  api.go = go; api.stop = stop; api.play = play;
+  api.say = (title, html, c) => { if (ui.title){ ui.title.textContent = title; ui.title.style.setProperty('--pc', c || 'var(--data)'); } if (ui.box) ui.box.style.setProperty('--cap', c || 'var(--data)'); ui.caption.innerHTML = html; };
+  api.toggle = () => { if (ui.play.hidden) stop(); else play(); };
+  Object.defineProperty(api, 'index', {get: () => i});
+  return api;
 }
-function narratorUI(root){ const q = n => root.querySelector('[data-n="' + n + '"]'); return {caption:q('caption'), counter:q('counter'), play:q('play'), pause:q('pause'), prev:q('prev'), next:q('next'), restart:q('restart')}; }
+function narratorUI(root){ const q = n => root.querySelector('[data-n="' + n + '"]'); return {caption:q('caption'), title:q('title'), box:q('box'), counter:q('counter'), play:q('play'), pause:q('pause'), prev:q('prev'), next:q('next'), restart:q('restart'), speed:q('speed'), speedv:q('speedv'), predict:q('predict'), pq:q('pq'), pqT:q('pqT'), pqOpts:q('pqOpts'), pqFb:q('pqFb'), pqScore:q('pqScore')}; }
+function Rail(el){
+  // Phase rail: one cell per named stage; the current stage glows, earlier stages keep their color.
+  return {
+    set(list){ const tag = el.tagName === 'OL' || el.tagName === 'UL' ? 'li' : 'div'; el.innerHTML = list.map(c => `<${tag} data-p="${c.k}" style="--c:${c.c || 'var(--addr)'}"${c.s ? ` title="${c.s}"` : ''}>${c.l}${c.s && tag === 'div' ? `<small>${c.s}</small>` : ''}</${tag}>`).join(''); el.hidden = !list.length; },
+    mark(on, done){ const ON = [].concat(on || []), D = [].concat(done || []); el.querySelectorAll('[data-p]').forEach(d => { const k = d.dataset.p; d.classList.toggle('on', ON.indexOf(k) >= 0); d.classList.toggle('done', ON.indexOf(k) < 0 && D.indexOf(k) >= 0); }); }
+  };
+}
 
 const $ = id => document.getElementById(id);
 const N = 16, CLK = Array.from({length:N}, (x, t) => (t % 4) >= 2 ? 1 : 0);
@@ -430,16 +1245,16 @@ function drawSVG(){
   const W = waves(), X0 = 92, SW = 36, LH = 46, H = LANES.length * LH + 26, svg = $('tsvg');
   svg.setAttribute('viewBox', `0 0 ${X0 + N * SW + 10} ${H}`);
   let h = '';
-  for (let t = 0; t < N; t++){ if (isEdge(t)) h += `<line x1="${X0 + t * SW}" y1="4" x2="${X0 + t * SW}" y2="${H - 22}" stroke="#F59E0B" stroke-dasharray="4 4"/>`; h += `<text x="${X0 + t * SW + SW / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="#6B7280" font-family="IBM Plex Mono, monospace">${t}</text>`; }
-  if (S.cur >= 0) h += `<rect x="${X0 + S.cur * SW}" y="2" width="${SW}" height="${H - 22}" fill="rgba(225,20,30,.10)" stroke="#E1141E" stroke-width="1.5"/>`;
+  for (let t = 0; t < N; t++){ if (isEdge(t)) h += `<line x1="${X0 + t * SW}" y1="4" x2="${X0 + t * SW}" y2="${H - 22}" stroke="#F2B33D" stroke-dasharray="4 4"/>`; h += `<text x="${X0 + t * SW + SW / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="#9DB6AC" font-family="Martian Mono, monospace">${t}</text>`; }
+  if (S.cur >= 0) h += `<rect x="${X0 + S.cur * SW}" y="2" width="${SW}" height="${H - 22}" fill="rgba(242,179,61,.12)" stroke="#F2B33D" stroke-width="1.5"/>`;
   LANES.forEach(([k, name], li) => {
     const y0 = li * LH + 10, hi = y0 + 6, lo = y0 + 30, v = W[k];
-    h += `<text x="4" y="${y0 + 22}" font-size="13" font-weight="600" fill="#1F2937" font-family="IBM Plex Sans, sans-serif">${name}</text>`;
+    h += `<text x="4" y="${y0 + 22}" font-size="11" font-weight="600" fill="#E8EFE4" font-family="Martian Mono, monospace">${name}</text>`;
     let d = `M${X0},${v[0] ? hi : lo}`;
     for (let t = 0; t < N; t++){ const y = v[t] ? hi : lo; if (t > 0 && v[t] !== v[t - 1]) d += ` L${X0 + t * SW},${y}`; d += ` L${X0 + (t + 1) * SW},${y}`; }
-    for (let t = 0; t < N; t++) if (v[t]) h += `<rect x="${X0 + t * SW}" y="${hi}" width="${SW}" height="${lo - hi}" fill="${k === 'clk' ? 'rgba(100,116,139,.12)' : 'rgba(225,20,30,.10)'}"/>`;
-    h += `<path d="${d}" fill="none" stroke="${k === 'clk' ? '#475569' : '#E1141E'}" stroke-width="2.5"/>`;
-    if (k === 'd') for (let t = 0; t < N; t++) h += `<rect class="dslot" data-slot="${t}" tabindex="0" role="button" aria-label="D at slot ${t} is ${v[t]}, tap to flip" x="${X0 + t * SW + 1}" y="${y0}" width="${SW - 2}" height="${LH - 8}" fill="transparent" stroke="#CBD5E1" stroke-dasharray="2 3" rx="4"/>`;
+    for (let t = 0; t < N; t++) if (v[t]) h += `<rect x="${X0 + t * SW}" y="${hi}" width="${SW}" height="${lo - hi}" fill="${k === 'clk' ? 'rgba(242,179,61,.10)' : 'rgba(143,227,136,.12)'}"/>`;
+    h += `<path d="${d}" fill="none" stroke="${k === 'clk' ? '#F2B33D' : '#8FE388'}" stroke-width="2.5"${k === 'clk' ? '' : ' class="lit"'}/>`;
+    if (k === 'd') for (let t = 0; t < N; t++) h += `<rect class="dslot" data-slot="${t}" tabindex="0" role="button" aria-label="D at slot ${t} is ${v[t]}, tap to flip" x="${X0 + t * SW + 1}" y="${y0}" width="${SW - 2}" height="${LH - 8}" fill="transparent" stroke="#2A5C51" stroke-dasharray="2 3" rx="4"/>`;
   });
   svg.innerHTML = h;
 }
@@ -460,94 +1275,42 @@ function explainSlot(t){
 }
 
 // ---------- 3D scene: timing ribbon, register, counter ----------
-const stageEl = $('stage'), st = make3D(stageEl, {camera:[0, 3, 18]});
+const stageEl = $('stage');
 let R = null;
-if (st) R = (function(){
-  const T = THREE, fit = fitter(st, stageEl, [0.25, 0.45, 1]), labels = labelLayer(st, stageEl);
-  const gT = new T.Group(), gR = new T.Group(), gC = new T.Group(); st.scene.add(gT, gR, gC);
-  gR.position.x = 40; gC.position.x = 70;
-  const LY = k => -k * 2.1, slabs = {}, ribbon = new T.Group(); gT.add(ribbon);
-  LANES.forEach(([k, name], li) => { const m = new T.Mesh(new T.BoxGeometry(0.1, 0.1, 0.1), new T.MeshBasicMaterial({visible:false})); m.position.set(-1.2, LY(li) + 0.45, 0); gT.add(m); labels.add(m, name, 'big'); });
-  const floor = new T.GridHelper(N + 4, N + 4, 0x334155, 0x1E293B); floor.position.set(N / 2, LY(3) - 1, 0); gT.add(floor);
-  const head = new T.Mesh(new T.BoxGeometry(1, 4 * 2.1 + 0.6, 1.3), new T.MeshBasicMaterial({color:0xF59E0B, transparent:true, opacity:0.16, depthWrite:false}));
-  head.position.set(-5, LY(1.5) + 0.4, 0); gT.add(head);
-  const beam = new T.Mesh(new T.CylinderGeometry(0.09, 0.09, 1, 12), new T.MeshBasicMaterial({color:0xFFF4B0, transparent:true, opacity:0})); gT.add(beam);
-  const ring = new T.Mesh(new T.TorusGeometry(0.6, 0.07, 10, 40), new T.MeshBasicMaterial({color:0xF59E0B, transparent:true, opacity:0})); gT.add(ring);
-  function buildRibbon(){
-    disposeGroup(ribbon); const W = waves();
-    LANES.forEach(([k], li) => {
-      slabs[k] = [];
-      for (let t = 0; t < N; t++){
-        const v = W[k][t], mat = glowMat(v ? COL.on : COL.off, v === 1 && k !== 'clk');
-        if (k === 'clk' && v) mat.color.set(0x94A3B8);
-        const m = new T.Mesh(new T.BoxGeometry(0.98, 0.16, 0.9), mat); m.position.set(t + 0.5, LY(li) + (v ? 0.9 : 0), 0);
-        if (k === 'd') m.userData.pick = {kind:'d', t};
-        ribbon.add(m); slabs[k].push({m, mat, v});
-        if (t > 0 && W[k][t] !== W[k][t - 1]){ const r = new T.Mesh(new T.BoxGeometry(0.08, 1.06, 0.9), new T.MeshStandardMaterial({color:0xCBD5E1})); r.position.set(t, LY(li) + 0.45, 0); ribbon.add(r); }
-        if (k === 'clk' && isEdge(t)){ const c = new T.Mesh(new T.ConeGeometry(0.22, 0.45, 16), new T.MeshStandardMaterial({color:0xF59E0B, emissive:0xF59E0B, emissiveIntensity:0.5})); c.position.set(t, LY(0) + 1.55, 0); ribbon.add(c); }
-      }
-    });
-    reveal(S.cur, false);
-  }
-  function reveal(cur, animate){
-    ['lq', 'fq'].forEach(k => (slabs[k] || []).forEach((s, t) => { const shown = cur < 0 || t <= cur; setGlow(s.mat, shown ? (s.v ? COL.on : COL.off) : COL.idle, shown && s.v === 1, animate); }));
-    if (cur < 0){ head.visible = false; return; }
-    head.visible = true;
-    if (animate && hasGSAP) gsap.to(head.position, {x:cur + 0.5, duration:0.45, ease:'power2.out'}); else head.position.x = cur + 0.5;
-    if (animate && isEdge(cur) && hasGSAP){
-      ring.position.set(cur, LY(0) + 0.45, 0.5); ring.material.opacity = 1; ring.scale.set(0.3, 0.3, 0.3);
-      gsap.to(ring.scale, {x:1.6, y:1.6, z:1.6, duration:0.7}); gsap.to(ring.material, {opacity:0, duration:0.7});
-      const a = new T.Vector3(cur - 0.5, LY(1) + 0.9, 0.5), b = new T.Vector3(cur + 0.5, LY(3) + 0.9, 0.5), mid = a.clone().add(b).multiplyScalar(0.5), len = a.distanceTo(b);
-      beam.position.copy(mid); beam.scale.set(1, len, 1); beam.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), b.clone().sub(a).normalize());
-      gsap.fromTo(beam.material, {opacity:0.95}, {opacity:0, duration:1.1, delay:0.2});
-    }
-  }
-  // register and counter: rows of bit cells on a chip
-  function bitRow(g, title, withPins){
-    const base = new T.Mesh(new T.BoxGeometry(7, 0.3, 3), new T.MeshStandardMaterial({color:0x1F2937})); base.position.y = -0.2; g.add(base);
-    const tag = new T.Mesh(new T.BoxGeometry(0.1, 0.1, 0.1), new T.MeshBasicMaterial({visible:false})); tag.position.set(0, 2.9, 0); g.add(tag); const tagEl = labels.add(tag, title, 'big');
-    const cells = [0, 1, 2, 3].map(i => {
-      const mat = glowMat(COL.off, false), m = new T.Mesh(new T.BoxGeometry(1.15, 1.15, 1.15), mat); m.position.set((i - 1.5) * 1.6, 0.6, 0); g.add(m);
-      const lab = new T.Object3D(); lab.position.set((i - 1.5) * 1.6, 1.75, 0); g.add(lab); labels.add(lab, 'Q' + (3 - i));
-      let pin = null;
-      if (withPins){ const pm = glowMat(COL.off, false); pin = {mat:pm, m:new T.Mesh(new T.CylinderGeometry(0.16, 0.16, 1.2, 12), pm)}; pin.m.rotation.x = Math.PI / 2; pin.m.position.set((i - 1.5) * 1.6, 0.3, 2.0); g.add(pin.m); const pl = new T.Object3D(); pl.position.set((i - 1.5) * 1.6, 0.3, 2.8); g.add(pl); labels.add(pl, 'D' + (3 - i)); pin.m.userData.pick = {kind:'regD', i}; }
-      m.userData.pick = {kind:g === gR ? 'regQ' : 'cnt', i};
-      return {m, mat, v:0, pin};
-    });
-    const cm = glowMat(COL.off, false), clk = new T.Mesh(new T.BoxGeometry(0.5, 0.5, 2.4), cm); clk.position.set(-4.0, 0.3, 0); g.add(clk);
-    const cl = new T.Object3D(); cl.position.set(-4.0, 1.0, 0); g.add(cl); labels.add(cl, 'CLK');
-    return {cells, clk:cm, tagEl};
-  }
-  const reg = bitRow(gR, 'Register', true), cnt = bitRow(gC, 'Counter: 0', false);
-  const lem = glowMat(COL.on, true), le = new T.Mesh(new T.BoxGeometry(0.5, 0.5, 2.4), lem); le.position.set(4.0, 0.3, 0); le.userData.pick = {kind:'le'}; gR.add(le);
-  const lel = new T.Object3D(); lel.position.set(4.0, 1.0, 0); gR.add(lel); labels.add(lel, 'LE');
-  function setCells(row, bits, animate){
-    row.cells.forEach((c, i) => { const v = bits[i];
-      if (animate && hasGSAP && v !== c.v) gsap.fromTo(c.m.rotation, {x:0}, {x:Math.PI, duration:0.5, delay:i * 0.04, ease:'power2.inOut', onComplete:() => { c.m.rotation.x = 0; }});
-      setGlow(c.mat, v ? COL.on : COL.off, v === 1, animate); c.v = v; });
-  }
-  function flashClk(row){ setGlow(row.clk, COL.amber, true, false); if (hasGSAP) gsap.delayedCall(0.35, () => setGlow(row.clk, COL.off, false, true)); else setGlow(row.clk, COL.off, false, false); }
-  function regView(animate){ setCells(reg, S.regQ, animate); reg.cells.forEach((c, i) => setGlow(c.pin.mat, S.regD[i] ? COL.on : COL.off, S.regD[i] === 1, animate)); setGlow(lem, S.le ? COL.on : COL.off, S.le === 1, animate); }
-  function regTick(loaded){ flashClk(reg); if (!loaded && hasGSAP) reg.cells.forEach(c => gsap.fromTo(c.m.position, {y:0.6}, {y:0.75, duration:0.12, yoyo:true, repeat:1})); regView(true); }
-  function cntView(animate){ setCells(cnt, toBits(S.cnt), animate); cnt.tagEl.textContent = 'Counter: ' + S.cnt; }
-  function cntTick(){ flashClk(cnt); cntView(true); }
-  picker(st, () => [ribbon, gR], p => onPick(p));
-  const groups = {timing:gT, register:gR, counter:gC};
-  function show(tab, animate){ Object.keys(groups).forEach(k => groups[k].visible = k === tab); const g = groups[tab]; g.updateMatrixWorld(true); const box = new T.Box3().setFromObject(g); if (tab !== 'timing') box.expandByScalar(0.8); fit.set(box, animate, tab === 'timing' ? [0.12, 0.22, 1] : [0.2, 0.55, 1]); }
-  return {buildRibbon, reveal, regView, regTick, cntView, cntTick, show};
-})();
-if (!st) { stageEl.hidden = true; $('stageHelp').textContent = '3D is not available on this device. The diagrams and bit cells below show the same steps.'; }
+const showInfo = html => { if (html) $('info').innerHTML = html; };
+try { R = FlipLab(stageEl, p => onPick(p), showInfo); } catch (e) { console.error(e); R = null; }
+if (!R){ $('nogl').hidden = false; document.querySelectorAll('.views').forEach(v => { v.hidden = true; }); R = FlipFlat(stageEl, p => onPick(p), showInfo); }
 
 // ---------- HTML panels ----------
 function cellsHTML(bits, labelFn){ return bits.map((v, i) => `<div class="cell${v ? ' on' : ''}" data-i="${i}">${v}<small>${labelFn(i)}</small></div>`).join(''); }
 function flipCells(id, before, after){ if (!hasGSAP) return; document.querySelectorAll('#' + id + ' .cell').forEach((c, i) => { if (before[i] !== after[i]) gsap.fromTo(c, {rotateX:-90}, {rotateX:0, duration:0.45, delay:i * 0.04}); }); }
-function renderTiming(){ drawSVG(); drawTable(); $('timingNote').textContent = note; }
-function renderReg(){
-  $('regD').innerHTML = S.regD.map((v, i) => `<button class="sw" data-regd="${i}" aria-pressed="${v ? 'true' : 'false'}" aria-label="D${3 - i}">D${3 - i} <span class="bit">${v}</span></button>`).join('');
-  $('regLE').setAttribute('aria-pressed', S.le ? 'true' : 'false'); $('regLE').querySelector('.bit').textContent = S.le;
-  $('regQ').innerHTML = cellsHTML(S.regQ, i => 'Q' + (3 - i));
+function renderTiming(){ drawSVG(); drawTable(); $('timingNote').textContent = note; renderLive(); }
+let liveWas = {};
+function leds(bits){ return '<div class="bits" style="--nb:' + bits.length + '">' + bits.map(b => `<div class="bit${b ? ' one' : ''}"><i></i>${b}</div>`).join('') + '</div>'; }
+function renderLive(){
+  let items;
+  if (S.tab === 'timing'){
+    const W = waves(), t = S.cur, at = k => t < 0 ? null : W[k][t];
+    const one = (n, k, sub) => [n, at(k) === null ? '·' : at(k), at(k) === null ? '' : leds([at(k)]), sub];
+    items = [['Slot', t < 0 ? '·' : t, '', t < 0 ? 'press Step' : PH[phaseOf(t)].l], one('CLK', 'clk', t < 0 ? '' : (isEdge(t) ? 'rising edge' : 'clock')), one('D', 'd', 'data in'),
+      one('Latch Q', 'lq', t < 0 ? '' : (W.clk[t] ? 'open: follows D' : 'closed: holds')), one('Flip-flop Q', 'fq', t < 0 ? '' : (isEdge(t) ? 'sampled D now' : 'holds until an edge'))];
+  } else if (S.tab === 'register'){
+    items = [['D', S.regD.join(''), leds(S.regD), 'waiting at the inputs'], ['LE', S.le, leds([S.le]), S.le ? 'next tick loads D' : 'next tick keeps Q'], ['Q', S.regQ.join(''), leds(S.regQ), 'stored value']];
+  } else {
+    const b = toBits(S.cnt), nx = counterStep(S.cnt);
+    items = [['Q', b.join(''), leds(b), 'binary'], ['Decimal', S.cnt, '', 'value'], ['Hex', S.cnt.toString(16).toUpperCase(), '', 'hexadecimal'], ['Next', nx, leds(toBits(nx)), 'after one tick']];
+  }
+  $('live').innerHTML = items.map(([n, v, bits, sub]) => { const ch = liveWas[S.tab + n] !== undefined && liveWas[S.tab + n] !== String(v); return `<div class="reg kv${String(v) === '1' ? ' one' : ''}${ch ? ' flash' : ''}"><span class="rn">${n}</span><span class="rv">${v}</span><span class="rf">${sub}</span><span class="rs"></span>${bits}</div>`; }).join('');
+  $('hudTick').innerHTML = S.tab === 'timing' ? (S.cur < 0 ? 'slot <b>·</b>' : 'slot <b>' + S.cur + '</b> · CLK <b>' + CLK[S.cur] + '</b>') : S.tab === 'register' ? 'Q <b>' + S.regQ.join('') + '</b> · LE <b>' + S.le + '</b>' : 'count <b>' + S.cnt + '</b>';
+  items.forEach(([n, v]) => { liveWas[S.tab + n] = String(v); });
+  setTimeout(() => document.querySelectorAll('#live .reg.flash').forEach(e => e.classList.remove('flash')), 650);
 }
-function renderCnt(){ const b = toBits(S.cnt); $('cntQ').innerHTML = cellsHTML(b, i => 'Q' + (3 - i)); $('cntVal').textContent = 'Binary ' + b.join('') + ' = decimal ' + S.cnt + ' = hex ' + S.cnt.toString(16).toUpperCase(); }
+function renderReg(){
+  $('regD').innerHTML = S.regD.map((v, i) => `<button class="sw" type="button" data-regd="${i}" aria-pressed="${v ? 'true' : 'false'}" aria-label="D${3 - i}">D${3 - i} <span class="bit">${v}</span></button>`).join('');
+  $('regLE').setAttribute('aria-pressed', S.le ? 'true' : 'false'); $('regLE').querySelector('.bit').textContent = S.le;
+  $('regQ').innerHTML = cellsHTML(S.regQ, i => 'Q' + (3 - i)); renderLive();
+}
+function renderCnt(){ const b = toBits(S.cnt); $('cntQ').innerHTML = cellsHTML(b, i => 'Q' + (3 - i)); $('cntVal').textContent = 'Binary ' + b.join('') + ' = decimal ' + S.cnt + ' = hex ' + S.cnt.toString(16).toUpperCase(); renderLive(); }
 function doRegTick(){
   const before = S.regQ.slice(); S.regQ = registerStep(S.regQ, S.regD, S.le); renderReg(); flipCells('regQ', before, S.regQ);
   const msg = S.le ? `Tick with LE = 1: every flip-flop copied its D input, so Q = ${S.regQ.join('')}.` + (before.join('') === S.regQ.join('') ? ' (Q already had that value, so nothing visibly changed.)' : '') : `Tick with LE = 0: the register ignored D (${S.regD.join('')}) and kept Q = ${S.regQ.join('')}. This is how a CPU keeps a value in a register until an instruction writes a new one.`;
@@ -561,11 +1324,37 @@ function doCntTick(){
 }
 
 // ---------- narrated steps per tab ----------
-const ui = narratorUI(document.querySelector('.card3d')); const narr = Narrator(ui);
+const ui = narratorUI(document.querySelector('.card3d')); const narr = Narrator(ui), rail = Rail($('rail'));
+const PH = {fall:{l:'CLK falls', s:'latch closes', c:'var(--ctrl)'}, low:{l:'CLK low', s:'both hold', c:'var(--silk-dim)'}, edge:{l:'Rising edge', r:'CLK rises', s:'flip-flop samples', c:'var(--addr)'}, high:{l:'CLK high', s:'latch follows D', c:'var(--data)'}};
+function phaseOf(t){ return isEdge(t) ? 'edge' : CLK[t] ? 'high' : (t > 0 && CLK[t - 1] ? 'fall' : 'low'); }
+function slotMeta(t){
+  const W = waves(), p = phaseOf(t), m = {title:'Slot ' + t + ' · ' + PH[p].l, c:PH[p].c, ph:p};
+  if (p === 'edge') m.ask = {q:`Slot ${t} is a rising edge. Just before it, at slot ${t - 1}, D = ${W.d[t - 1]}. What will the flip-flop Q be now?`, choices:['0', '1'], answer:String(W.fq[t]), why:`At a rising edge the flip-flop copies the value D had just before the edge (${W.d[t - 1]}), so flip-flop Q = ${W.fq[t]}.`};
+  else if (p === 'high' && W.d[t] !== W.d[t - 1]) m.ask = {q:`CLK is still 1 at slot ${t}, and D changes to ${W.d[t]}. What will the latch Q be?`, choices:['0', '1'], answer:String(W.lq[t]), why:`While CLK = 1 the latch is open, so it follows D right away: latch Q = ${W.lq[t]}. The flip-flop ignores the change until the next rising edge.`};
+  return m;
+}
+function flipKeys(from){ const a = toBits(from), b = toBits(counterStep(from)); return [0, 1, 2, 3].filter(i => a[3 - i] !== b[3 - i]).map(i => 'b' + i); }
+const REGMETA = [{title:'Start', c:'var(--data)'},
+  {title:'Clock tick with LE = 1', c:'var(--addr)', ask:{q:'Q = 0000, D = 1011, and LE = 1. What will Q be after the tick?', choices:['1011', '0000'], answer:'1011', why:'With LE = 1 every flip-flop copies its D input at the rising edge, so Q becomes 1011.'}},
+  {title:'New data, LE = 0', c:'var(--data)'},
+  {title:'Clock tick with LE = 0', c:'var(--addr)', ask:{q:'Q = 1011, D = 0110, and LE = 0. What will Q be after the tick?', choices:['0110', '1011'], answer:'1011', why:'With LE = 0 the register ignores D and keeps its value, so Q stays 1011.'}},
+  {title:'LE back to 1, tick again', c:'var(--addr)', ask:{q:'Q = 1011, D = 0110, and LE = 1. What will Q be after the tick?', choices:['0110', '1011'], answer:'0110', why:'LE is 1 again, so the tick copies D into Q: Q becomes 0110.'}}];
+const RAILS = {
+  timing:['fall', 'low', 'edge', 'high'].map(k => ({k, l:PH[k].r || PH[k].l, s:PH[k].s, c:PH[k].c})),
+  register:[['START', 'Q = 0000'], ['TICK 1', 'LE = 1'], ['NEW D', 'LE = 0'], ['TICK 2', 'LE = 0'], ['TICK 3', 'LE = 1']].map((x, k) => ({k:'r' + k, l:x[0], s:x[1], c:k % 2 ? 'var(--addr)' : 'var(--data)'})),
+  counter:[3, 2, 1, 0].map(i => ({k:'b' + i, l:'Bit ' + i, s:'flips', c:'var(--led)'}))
+};
+function decorate(tab, steps){
+  if (tab === 'register') steps.forEach((s, k) => Object.assign(s, REGMETA[k], {ph:'r' + k}));
+  if (tab === 'counter') steps.forEach((s, k) => { if (k === 0) Object.assign(s, {title:'Reset', c:'var(--data)', flips:[]}); else Object.assign(s, {title:'Tick ' + k + ' · ' + (k - 1) + ' to ' + counterStep(k - 1), c:'var(--addr)', flips:flipKeys(k - 1)}); });
+  return steps;
+}
+narr.onLoad = () => rail.set(RAILS[S.tab]);
+narr.onGo = (i, s, steps) => { if (S.tab === 'counter') rail.mark(s.flips || [], []); else if (S.tab === 'register') rail.mark(s.ph, steps.slice(0, i).map(x => x.ph)); else rail.mark(s.ph, []); };
 function timingSteps(){
-  const steps = [{text:'<b>Before we start.</b> The clock repeats 0, 0, 1, 1. Amber markers show its rising edges (slots 2, 6, 10, and 14). Press Play or Next to sweep through time and watch the two Q lanes fill in.', show:a => { S.cur = -1; renderTiming(); if (R) R.reveal(-1, a); }, dur:3}];
-  for (let t = 0; t < N; t++) steps.push({text:explainSlot(t), show:a => { S.cur = t; renderTiming(); if (R) R.reveal(t, a); }, dur:isEdge(t) ? 2.8 : 1.8});
-  steps.push({text:'<b>Summary.</b> The latch is level-sensitive: it follows D the whole time CLK = 1. The flip-flop is edge-triggered: it changes only at a rising edge, using the value D had just before it. That is why CPUs build registers from flip-flops.', show:a => { S.cur = -1; renderTiming(); if (R) R.reveal(-1, a); }, dur:3});
+  const steps = [{text:'<b>Before we start.</b> The clock repeats 0, 0, 1, 1. Amber markers show its rising edges (slots 2, 6, 10, and 14). Press Run or Step to sweep through time and watch the two Q lanes fill in.', title:'Before we start', c:'var(--addr)', show:a => { S.cur = -1; renderTiming(); if (R) R.reveal(-1, a); }, dur:3}];
+  for (let t = 0; t < N; t++) steps.push(Object.assign({text:explainSlot(t), show:a => { S.cur = t; renderTiming(); if (R) R.reveal(t, a); }, dur:isEdge(t) ? 2.8 : 1.8}, slotMeta(t)));
+  steps.push({text:'<b>Summary.</b> The latch is level-sensitive: it follows D the whole time CLK = 1. The flip-flop is edge-triggered: it changes only at a rising edge, using the value D had just before it. That is why CPUs build registers from flip-flops.', title:'Summary', c:'var(--led)', show:a => { S.cur = -1; renderTiming(); if (R) R.reveal(-1, a); }, dur:3});
   return steps;
 }
 function regSteps(){
@@ -584,15 +1373,17 @@ function cntSteps(){
   steps.forEach((s, k) => { if (k > 0){ const from = k - 1; s.text = `<b>Tick ${k}.</b> ${toBits(from).join('')} (${from}) becomes ${toBits(counterStep(from)).join('')} (${counterStep(from)}): ${flipsText(from)}.`; } });
   return steps;
 }
-const HELP = {timing:'Drag to orbit, pinch or scroll to zoom. Tap a D slab to flip it. The amber band is the current moment in time.', register:'Tap a D pin or the LE block to change it, then press Clock tick below. Four bit cells share one clock.', counter:'Press Clock tick or Run 16 ticks below and watch which bit cells flip.'};
+const HELP = {timing:'Drag to orbit, pinch or scroll to zoom. Tap a D pad on the analyzer to flip it. The amber band is the current moment in time.', register:'Click a D chip or the LE chip on the board to change it, then press Clock tick below. Four bit cells share one clock.', counter:'Press Clock tick or Run 16 ticks below and watch which bit cells flip.'};
 function setTab(tab, animate){
   S.tab = tab;
   document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
   ['timing', 'register', 'counter'].forEach(k => $('panel-' + k).hidden = k !== tab);
-  if (st) $('stageHelp').textContent = HELP[tab];
+  $('stageHelp').textContent = HELP[tab];
+  document.querySelectorAll('.views button[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === tab));
   if (R) R.show(tab, animate);
-  narr.load(tab === 'timing' ? timingSteps() : tab === 'register' ? regSteps() : cntSteps(), false);
-  if (tab !== 'timing'){ ui.caption.innerHTML = tab === 'register' ? '<b>Register.</b> Press Play for a guided demo, or use the controls below.' : '<b>Counter.</b> Press Play to tick through all 16 values, or use the controls below.'; }
+  narr.load(tab === 'timing' ? timingSteps() : tab === 'register' ? decorate(tab, regSteps()) : decorate(tab, cntSteps()), false);
+  if (tab !== 'timing'){ narr.say(tab === 'register' ? '4-bit register' : '4-bit counter', tab === 'register' ? '<b>Register.</b> Press Run for a guided demo, or use the controls below.' : '<b>Counter.</b> Press Run to tick through all 16 values, or use the controls below.', 'var(--data)'); }
+  renderLive();
 }
 function onPick(p){
   if (p.kind === 'd'){ flipD(p.t); }
@@ -611,11 +1402,11 @@ document.addEventListener('click', e => {
 });
 $('tsvg').addEventListener('keydown', e => { const ds = e.target.closest('[data-slot]'); if (ds && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); const t = +ds.dataset.slot; flipD(t); const again = document.querySelector(`[data-slot="${t}"]`); if (again) again.focus(); } });
 $('regLE').addEventListener('click', () => { S.le ^= 1; renderReg(); if (R) R.regView(true); });
-$('regTick').addEventListener('click', () => { narr.stop(); ui.caption.innerHTML = doRegTick(); });
+$('regTick').addEventListener('click', () => { narr.stop(); narr.say('Clock tick', doRegTick(), 'var(--addr)'); });
 $('regClear').addEventListener('click', () => { S.regQ = [0,0,0,0]; renderReg(); if (R) R.regView(true); $('regNote').textContent = 'Q cleared to 0000.'; });
-$('cntTick').addEventListener('click', () => { narr.stop(); ui.caption.innerHTML = doCntTick(); });
+$('cntTick').addEventListener('click', () => { narr.stop(); const from = S.cnt; narr.say('Clock tick', doCntTick(), 'var(--addr)'); rail.mark(flipKeys(from), []); });
 $('cntReset').addEventListener('click', () => { narr.stop(); S.cnt = 0; renderCnt(); if (R) R.cntView(true); $('cntNote').textContent = 'Reset forces every bit to 0, whatever the count was.'; });
-$('cntRun').addEventListener('click', () => { narr.load(cntSteps(), false); narr.play(); });
+$('cntRun').addEventListener('click', () => { narr.load(decorate('counter', cntSteps()), false); narr.play(); });
 
 // ---------- self-check ----------
 const QUIZ = [
@@ -627,7 +1418,7 @@ const QUIZ = [
   {q:'A 4-bit counter shows 1111. What does it show after one more tick?', o:['10000','1111','0000','1110'], a:2, why:'Four bits cannot hold 16, so the counter wraps around to 0000.'}
 ];
 let answered = 0, correct = 0;
-$('quiz').innerHTML = QUIZ.map((x, i) => `<div class="q"><p>${i + 1}. ${x.q}</p><div class="opts">${x.o.map((o, j) => `<button class="btn opt" data-q="${i}" data-o="${j}">${o}</button>`).join('')}</div><div class="feedback" id="qf${i}" hidden></div></div>`).join('');
+$('quiz').innerHTML = QUIZ.map((x, i) => `<div class="q"><p>${i + 1}. ${x.q}</p><div class="opts">${x.o.map((o, j) => `<button class="btn opt" type="button" data-q="${i}" data-o="${j}">${o}</button>`).join('')}</div><div class="feedback" id="qf${i}" hidden></div></div>`).join('');
 $('quiz').addEventListener('click', e => {
   const b = e.target.closest('button[data-q]'); if (!b) return;
   const i = +b.dataset.q, j = +b.dataset.o, x = QUIZ[i], box = b.closest('.q');
@@ -641,6 +1432,15 @@ $('quiz').addEventListener('click', e => {
 if (R){ R.buildRibbon(); R.regView(false); R.cntView(false); }
 renderTiming(); renderReg(); renderCnt();
 $('regNote').textContent = 'Set D and LE, then press Clock tick.'; $('cntNote').textContent = 'Press Clock tick to count up by one.';
+document.querySelectorAll('.views button[data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.views button[data-view]').forEach(x => x.classList.toggle('on', x === b)); R.view(b.dataset.view); }));
+document.addEventListener('keydown', e => {
+  const tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SUMMARY') return;
+  if (e.key === ' '){ e.preventDefault(); if (!ui.next.disabled) ui.next.click(); }
+  else if (e.key === 'b' || e.key === 'B'){ if (!ui.prev.disabled) ui.prev.click(); }
+  else if (e.key === 'r' || e.key === 'R') narr.toggle();
+});
+if (!hasGSAP) setTimeout(() => { $('info').innerHTML = 'Animations are off because the animation library did not load; every step still works.'; }, 0);
 setTab('timing', false);
 
 </script>

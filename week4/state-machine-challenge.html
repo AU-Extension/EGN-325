@@ -7,109 +7,324 @@
 <meta name="description" content="EGN 325 Week 4 interactive: Complete state diagrams, predict where a machine ends up, and run traffic light controllers on a 3D Calle Ocho intersection to find the unsafe one.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wdth,wght@75..112.5,300..700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/renderers/CSS2DRenderer.js"></script>
 <style>
+  /* ===== EGN 325 "Bay-4 bench" theme v2 (reference: build/theme/reference/tiny-machine-lab.html). Paste as the first block of every page's <style>. ===== */
   :root{
-    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
-    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
-    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
-    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
-    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
-    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
-    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --au-red:#E1141E; --au-red-dark:#A3282B;
+    --board:#0d302a; --board-deep:#061714; --panel:#0a211d; --panel-2:#0f2c27; --line:#1e4a41; --line-2:#2a5c51;
+    --silk:#e8efe4; --silk-dim:#9db6ac; --copper:#d4a24c;
+    --addr:#f2b33d; --data:#4fd1e8; --ctrl:#ff7a9a; --alu:#8fe388; --oper:#a9b4ff; --out:#b9f5b0; --led:#8fe388;
+    --ok:#8fe388; --bad:#ff7a7a; --warn:#f2b33d; --neon:#39ff14;
+    --font-mono:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --font-body:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif;
+    --mono:var(--font-mono); --sans:var(--font-body); --display:var(--font-mono);
+    --r:6px; --lab:10px;
+    /* legacy names used by older page code, mapped to the dark theme */
+    --ink:#e8efe4; --ink-2:#c4d4cb; --muted:#9db6ac; --bg:#061714; --card:#0a211d; --edge:#1e4a41; --edge-2:#2a5c51; --dim:#9db6ac; --silk-2:#c4d4cb;
+    --code-bg:#04110e; --code-ink:#b9f5b0; --au-red-soft:rgba(225,20,30,.14);
+    --net-blue:#4fd1e8; --net-green:#8fe388; --net-amber:#f2b33d; --net-purple:#ff7a9a; --net-teal:#5fe0c8;
+    --ok-soft:rgba(143,227,136,.10); --bad-soft:rgba(255,122,122,.10); --warn-soft:rgba(242,179,61,.10);
+    --radius:6px; --shadow:none;
+    color-scheme:dark;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  a{color:var(--au-red-dark)}
-  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
-  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
-  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  html{background:var(--board-deep)}
+  [hidden]{display:none!important}
+  body{color:var(--silk);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
+    background:radial-gradient(1200px 600px at 30% -10%,#12423a 0%,transparent 60%),var(--board-deep)}
+  button,input,select,textarea{font:inherit;color:inherit}
+  a{color:var(--data)}
+  :focus-visible{outline:2px solid var(--addr);outline-offset:2px}
+  /* brand bar: white with the AU red rule (the logo PNG is cropped with a wrapper) */
+  .topbar{position:relative;z-index:5;background:#fff;border-bottom:3px solid var(--au-red)}
+  .topbar-inner{max-width:none;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
   .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
   .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
-  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
-  .crumb b{color:var(--ink);font-weight:600}
-  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
-  .hero{margin:4px 0 20px}
-  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
-  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
-  h2{font-size:20px;margin:0 0 10px}
-  h3{font-size:16px;margin:0 0 8px}
-  .lede{color:var(--ink-2);max-width:760px;margin:0}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
-  .grid{display:grid;gap:16px}
-  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  .crumb{font-size:13px;color:#6B7280;letter-spacing:.02em;border-left:1px solid #E3E6EB;padding-left:16px}
+  .crumb b{color:#16181D;font-weight:600}
+  .crumb a{color:#A3282B}
+  /* page mode (challenges and pages with a scrolling layout) */
+  main,.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:26px 16px 36px}
+  .hero{margin:0 0 20px}
+  .eyebrow{display:block;margin:0;font:500 10.5px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--copper);background:none;padding:0}
+  h1{margin:6px 0 8px;font-family:var(--font-mono);font-weight:600;font-stretch:112%;font-size:clamp(24px,3.4vw,36px);line-height:1.15;letter-spacing:-.01em;text-wrap:balance;color:var(--silk)}
+  h1 .num{color:var(--addr)}
+  h2{margin:0 0 10px;font-family:var(--font-mono);font-weight:500;font-size:13px;letter-spacing:.04em;color:var(--silk)}
+  h2 small,h3 small{color:var(--silk-dim);font-weight:400}
+  h3{margin:0 0 8px;font-family:var(--font-mono);font-weight:500;font-size:12.5px;letter-spacing:.04em;color:var(--silk)}
+  .lede{margin:0;color:var(--silk-dim);font-size:15px;max-width:68ch}
+  .muted{color:var(--silk-dim)}
+  .spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .spec div{background:var(--panel);padding:9px 11px}
+  .spec b{display:block;font:600 15px var(--font-mono);color:var(--silk)}
+  .spec span{font-size:12px;color:var(--silk-dim)}
+  @media(min-width:960px){.hero.split{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;align-items:end}}
+  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0;color:var(--silk);
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .card[data-ref]::after{content:attr(data-ref);position:absolute;top:9px;right:12px;font:500 9.5px var(--font-mono);letter-spacing:.12em;color:rgba(157,182,172,.55)}
+  .grid{display:grid;gap:14px}
+  .grid>*{min-width:0}
+  @media(min-width:900px){.grid.two{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}}
+  details,details.howto{border:1px solid var(--line);border-radius:5px;background:var(--panel)}
   details.howto{margin:0 0 16px}
-  details.howto summary{cursor:pointer;font-weight:600}
-  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
-  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
-  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
-  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
-  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
-  .btn[disabled]{opacity:.5;cursor:not-allowed}
-  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
-  .mono,code,kbd{font-family:var(--mono)}
-  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
-  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
-  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
-  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
-  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
-  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
-  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
-  .score .big{font-size:28px;color:var(--au-red-dark)}
-  table.data{border-collapse:collapse;width:100%;font-size:14px}
-  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
-  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-  .scroll-x{overflow-x:auto}
-  svg text{font-family:var(--sans)}
-  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
-  .stage3d canvas{display:block;width:100%!important;height:100%!important}
-  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
-  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
-  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
-  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
-  .muted{color:var(--muted)} .small{font-size:13px} .mt{margin-top:16px} .row{display:flex;flex-wrap:wrap;align-items:center} .gap{gap:8px}
-  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
-  .tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
-  .tab[aria-selected="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:600;background:var(--ink);color:#fff}
-  .scorebar{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;padding:12px 16px}
-  .scorebar .big{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--au-red-dark)}
-  .dsvg{width:100%;height:auto;display:block;max-width:460px}
+  summary{cursor:pointer;padding:10px 12px;font:500 12.5px var(--font-mono);color:var(--silk)}
+  details>*:not(summary){margin-left:12px;margin-right:12px}
+  details.howto ol,details.howto ul{margin:4px 12px 12px;padding-left:20px;color:var(--silk-dim)}
+  details.howto li{margin-bottom:5px}
+  details.howto li::marker{color:var(--copper)}
+  .btn{border:1px solid var(--line);background:var(--panel-2);border-radius:5px;padding:9px 12px;font:500 12px var(--font-mono);color:var(--silk);cursor:pointer;transition:border-color .2s,background .2s;display:inline-flex;gap:6px;align-items:center;justify-content:center}
+  .btn:hover:not(:disabled){border-color:var(--copper)}
+  .btn.primary,.btn.go{background:var(--copper);border-color:var(--copper);color:#1a1205;font-weight:600}
+  .btn.primary:hover:not(:disabled),.btn.go:hover:not(:disabled){background:#e3b461}
+  .btn[aria-pressed="true"],.btn.on{border-color:var(--data);color:var(--data)}
+  .btn:disabled,.btn[disabled]{opacity:.4;cursor:not-allowed}
+  input[type=text],input[type=number],select,textarea{background:var(--board-deep);border:1px solid var(--line);border-radius:5px;padding:8px 10px;font:500 13.5px var(--font-mono);color:var(--silk);min-width:0}
+  input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--copper)}
+  .mono,code,kbd{font-family:var(--font-mono);font-size:.92em}
+  code{background:rgba(232,239,228,.07);padding:1px 5px;border-radius:3px}
+  .cli{background:var(--code-bg);color:var(--code-ink);font:500 12.5px/1.6 var(--font-mono);border-radius:5px;padding:12px 14px;overflow:auto;white-space:pre;border:1px solid var(--line)}
+  .pill{display:inline-block;font:500 10.5px var(--font-mono);letter-spacing:.06em;padding:3px 8px;border-radius:3px;background:var(--panel-2);color:var(--silk-dim);border:1px solid var(--line)}
+  .feedback{border-radius:5px;padding:11px 13px;margin-top:12px;font-size:14.5px;color:var(--silk)}
+  .feedback.ok{background:rgba(143,227,136,.08);border:1px solid rgba(143,227,136,.45)}
+  .feedback.bad{background:rgba(255,122,122,.08);border:1px solid rgba(255,122,122,.45)}
+  .feedback.info{background:rgba(79,209,232,.07);border:1px solid rgba(79,209,232,.4)}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:500 12px var(--font-mono);color:var(--silk-dim)}
+  .score .big{font:600 34px/1 var(--font-mono);font-stretch:112%;color:var(--silk);font-variant-numeric:tabular-nums}
+  table,table.data{border-collapse:collapse;width:100%;font:500 12px var(--font-mono);font-variant-numeric:tabular-nums}
+  th,table.data th{font-weight:500;color:var(--silk-dim);text-align:left;font-size:10.5px;letter-spacing:.04em;padding:7px 8px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  td,table.data td{padding:4px 8px;border-bottom:1px solid rgba(30,74,65,.5)}
+  .scroll-x,.memwrap{overflow-x:auto}
+  .memwrap{border:1px solid var(--line);border-radius:5px}
+  svg text{font-family:var(--font-mono)}
+  /* step-by-step explanation (page mode and app mode) */
+  .stepper{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .caption,.narr{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:13px 15px;color:var(--silk)}
+  .caption{margin-top:12px;min-height:4.4em}
+  .caption .t{font:500 11px var(--font-mono);letter-spacing:.1em;color:var(--cap,var(--copper));margin-bottom:6px;text-transform:uppercase}
+  .narr{display:flex;flex-direction:column;gap:8px}
+  .narr-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:400 11px var(--font-mono);color:var(--silk-dim)}
+  .ptag{display:inline-flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.1em;color:var(--silk)}
+  .ptag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--pc,var(--silk-dim));box-shadow:0 0 8px var(--pc,transparent)}
+  .narr p{margin:0;font-size:15.5px;line-height:1.55;min-height:4.6em}
+  .controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .controls .btn{padding:10px 6px}
+  .speed{display:flex;align-items:center;gap:12px;font:400 11.5px var(--font-mono);color:var(--silk-dim)}
+  .speed input{flex:1;min-width:0}
+  .speed output{color:var(--silk);width:3.5em;text-align:right;font-variant-numeric:tabular-nums}
+  .hint{margin:0;font-size:12px;color:var(--silk-dim)}
+  .rail{display:flex;gap:2px;margin:4px 0 12px;padding:4px;list-style:none;background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px}
+  .rail>div,.rail>li{flex:1;text-align:center;font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .rail>div small{display:block;font:400 9.5px var(--font-body);letter-spacing:.02em;text-transform:none;margin-top:2px;opacity:.85}
+  .rail>.on{background:var(--c,var(--copper));color:#1a1205}
+  .rail>.done{color:var(--c,var(--copper))}
+  /* live state */
+  .regs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .reg{border:1px solid var(--line);border-radius:5px;padding:9px 11px;transition:border-color .3s,background .3s;min-width:0}
+  .reg.kv{display:grid;grid-template-columns:1fr auto;gap:1px 8px;align-items:baseline}
+  .reg.on,.reg.flash{border-color:var(--hc,var(--copper));background:rgba(212,162,76,.07)}
+  .reg .rn{font:600 12px var(--font-mono)}
+  .reg .rv{font:600 17px var(--font-mono);text-align:right;font-variant-numeric:tabular-nums}
+  .reg .rf{font-size:11.5px;color:var(--silk-dim)}
+  .reg .rs{font:400 10.5px var(--font-mono);color:var(--silk-dim);text-align:right;font-variant-numeric:tabular-nums}
+  .reg.wide{grid-column:1/-1}
+  .reg .n{display:flex;justify-content:space-between;align-items:baseline;font:600 12px var(--font-mono);color:var(--silk)}
+  .reg .n b{font:600 17px var(--font-mono);font-variant-numeric:tabular-nums}
+  .bits{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--nb,8),1fr);gap:4px;margin-top:8px}
+  .bit{display:flex;flex-direction:column;align-items:center;gap:3px;font:400 9.5px var(--font-mono);color:var(--silk-dim)}
+  .bit i{width:100%;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);transition:background .25s,box-shadow .25s}
+  .bit.one i{background:var(--led);border-color:var(--led);box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .ledbits{display:flex;gap:4px;margin:6px 0 2px;flex-wrap:wrap}
+  .ledbits i{width:16px;height:16px;border-radius:2px;background:#13312b;border:1px solid var(--line);font:600 9px/14px var(--font-mono);font-style:normal;color:#3d5f50;text-align:center}
+  .ledbits i.on{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 8px rgba(143,227,136,.55)}
+  .tape{display:flex;flex-wrap:wrap;gap:4px;min-height:34px;align-content:flex-start}
+  .tape span{font:600 13px var(--font-mono);color:var(--out);background:#0b2a1a;border:1px solid #1f5a37;border-radius:3px;padding:3px 7px;font-variant-numeric:tabular-nums}
+  .tape em{font-style:normal;font-size:12px;color:var(--silk-dim)}
+  .notice{margin:0;padding-left:18px;color:var(--silk-dim);font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+  .notice li::marker{color:var(--copper)}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font:400 10.5px var(--font-mono);color:var(--silk-dim);letter-spacing:.04em}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:16px;height:3px;border-radius:2px;background:var(--c);box-shadow:0 0 8px var(--c)}
+  /* app mode: the 3D board fills the left, a control rail sits on the right (stacks under the board on phones) */
+  .app{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,410px);height:calc(100vh - 55px);min-height:560px}
+  .stage{position:relative;min-width:0;min-height:320px;overflow:hidden;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);touch-action:none}
+  .stage .gl{position:absolute;inset:0;display:block;z-index:1}
+  .stage .labels{position:absolute!important;top:0;left:0;z-index:2}
+  .stage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+  .nogl{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;text-align:center;color:var(--silk-dim);font-size:12.5px;z-index:4;background:rgba(6,23,20,.85)}
+  .hud{position:absolute;z-index:3;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hud button,.hud a{pointer-events:auto}
+  .hud-top{top:14px;left:16px;right:16px}
+  .hud-bottom{bottom:14px;left:16px;right:16px;justify-content:space-between;align-items:flex-end}
+  .hud .phases,.hud .ticks,.hud .legend,.hud .views{background:rgba(6,23,20,.78);border:1px solid var(--line);border-radius:6px;backdrop-filter:blur(6px)}
+  .phases{list-style:none;margin:0;padding:4px;display:flex;gap:2px}
+  .phases li{font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:4px;color:var(--silk-dim);transition:background .25s,color .25s}
+  .phases li.on{background:var(--c,var(--copper));color:#1a1205}
+  .ticks{font:400 11px var(--font-mono);color:var(--silk-dim);padding:9px 10px;font-variant-numeric:tabular-nums}
+  .ticks b{color:var(--silk);font-weight:600}
+  .hud .legend{padding:8px 12px}
+  .views{display:flex;gap:2px;padding:4px}
+  .views button{border:0;background:transparent;font:400 11px var(--font-mono);padding:6px 10px;border-radius:4px;color:var(--silk-dim);cursor:pointer}
+  .views button:hover{color:var(--silk)}
+  .views button.on{background:var(--panel-2);color:var(--silk)}
+  .credit{flex-basis:100%;margin:2px 0 0 2px;font:600 14px var(--font-mono);letter-spacing:.08em;color:var(--neon);text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.75),0 0 26px rgba(57,255,20,.45)}
+  .tag,.stage3d .label3d{pointer-events:none;display:flex;flex-direction:column;align-items:center;font-family:var(--font-mono);line-height:1.1;text-align:center;color:var(--silk);text-shadow:0 1px 2px rgba(0,0,0,.8)}
+  .tag .nm{font-size:calc(var(--lab) * .85);letter-spacing:.1em;color:var(--silk-dim)}
+  .tag .vl{font-size:calc(var(--lab) * 1.3);font-weight:600;font-variant-numeric:tabular-nums}
+  .tag .sb{font-size:calc(var(--lab) * .72);color:var(--silk-dim);letter-spacing:.04em}
+  .tag .sb:empty{display:none}
+  .tag.on .nm{color:var(--silk)}
+  .tag.on .vl{color:#fff4d6}
+  .cell .nm{font-size:calc(var(--lab) * .75)}
+  .cell .vl{font-size:calc(var(--lab) * 1.15)}
+  .zone{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * .82);letter-spacing:.14em;text-transform:uppercase;color:var(--c,var(--silk-dim));opacity:.85;white-space:nowrap;text-align:center;line-height:1.3}
+  .lcd{pointer-events:none;font-family:var(--font-mono);font-weight:600;color:var(--out);font-size:calc(var(--lab) * 2);text-shadow:0 0 10px rgba(143,227,136,.8);font-variant-numeric:tabular-nums}
+  .pkt{pointer-events:none;font-family:var(--font-mono);font-size:calc(var(--lab) * 1.1);font-weight:700;color:#06120f;background:var(--c);padding:2px 6px;border-radius:3px;box-shadow:0 0 14px var(--c);white-space:nowrap}
+  .panel{min-width:0;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:20px 18px 28px;display:flex;flex-direction:column;gap:22px;
+    background-image:radial-gradient(rgba(232,239,228,.035) 1px,transparent 1px);background-size:14px 14px}
+  .panel h1{font-size:24px;margin:4px 0 6px}
+  /* the older make3D stage (page mode) */
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:280px;border-radius:6px;overflow:hidden;touch-action:none;background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%);border:1px solid var(--line)}
+  @media(max-width:640px){.stage3d{aspect-ratio:4/3}}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:12px;color:var(--silk-dim);background:rgba(6,23,20,.85);text-align:center}
+  .stage3d .label3d{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:11px;font-weight:600}
+  .stage3d .label3d.pkt{color:#06120f;text-shadow:none;background:var(--c,currentColor);padding:2px 6px;border-radius:3px}
+  footer.foot{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:16px;color:var(--silk-dim);font-size:12.5px;border-top:1px solid var(--line)}
+  footer.foot .byline,.byline{margin-top:4px;font:600 13px var(--font-mono)!important;letter-spacing:.08em;color:var(--neon)!important;text-shadow:0 0 4px var(--neon),0 0 12px rgba(57,255,20,.6)}
+  .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media(max-width:860px){
+    .app{grid-template-columns:1fr;height:auto}
+    .app .stage{height:62vh;min-height:360px}
+    .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  }
+  @media(max-width:520px){
+    .hud .legend{font-size:9.5px;gap:3px 10px}
+    .phases li{padding:5px 7px;font-size:10px}
+    .controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* ===== end of theme ===== */
+  /* ===== page CSS: Bay-4 bench, Week 3 and 4 shared parts ===== */
+  .small{font-size:13px} .mt{margin-top:16px} .row{display:flex;flex-wrap:wrap;align-items:center} .gap{gap:8px}
+  h3.sec{margin:18px 0 8px}
+  h3.sec .muted{font:500 12px var(--sans);letter-spacing:0}
+  p.help{margin:0 0 10px;color:var(--silk-2);font-size:14px}
+  .card3d{margin-bottom:16px}
+  .stage3d .label3d.big{font-size:13px;padding:3px 8px;border-color:rgba(234,242,232,.3)}
+  .stage3d .hint3d{position:absolute;left:10px;top:8px;z-index:2;font:500 11px var(--mono);color:var(--silk-2);background:rgba(6,23,20,.82);border:1px solid var(--edge);padding:3px 8px;border-radius:6px;pointer-events:none}
+  .stage3d .fallback{z-index:2}
+  .stagebar{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:12px}
+  .legend .dash i{background:repeating-linear-gradient(90deg,#2A5C51 0 4px,transparent 4px 7px);box-shadow:none}
+  label.chk{display:inline-flex;gap:6px;align-items:center;cursor:pointer;font-size:13px;color:var(--silk-2)}
+  label.chk input{width:16px;height:16px}
+  .stepper .count{font:600 11px var(--mono);color:var(--dim);margin-left:auto;letter-spacing:.06em}
+  .speed{display:inline-flex;gap:8px;align-items:center;font:500 12px var(--mono);color:var(--silk-2)}
+  .speed input{width:100px}
+  .caption b{color:var(--silk)}
+  .caption [data-n="caption"]{font-size:15px}
+  .predict{margin-top:12px;padding:12px;border-radius:6px;border:1px dashed var(--ctrl);background:rgba(255,122,154,.07)}
+  .predict .q{font-weight:600}
+  .predict .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .predict .btn.right,.opt.right{border-color:var(--ok);background:rgba(143,227,136,.12);color:var(--silk);opacity:1}
+  .predict .btn.wrong,.opt.wrong{border-color:var(--bad);background:rgba(255,122,122,.12);color:var(--silk);opacity:1}
+  .live{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-top:12px}
+  .live .reg{padding:6px 8px}
+  .live .reg .n{gap:4px 8px;flex-wrap:wrap}
+  .live .reg .n b{font-size:16px}
+  .reg .sub{font:500 10px var(--mono);color:var(--silk-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ledbits i.unk{color:#3D5F50}
+  .rail>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:520px){.rail{gap:4px}.rail>div{font-size:10px;padding:6px 1px}.rail>div small{font-size:9px}}
+  .sw{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--edge-2);border-radius:6px;padding:8px 12px;background:rgba(6,23,20,.6);color:var(--silk);cursor:pointer;font:600 14px var(--mono);transition:border-color .15s,box-shadow .15s}
+  .sw:hover{border-color:var(--copper)}
+  .sw .bit{min-width:30px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;background:#13312b;border:1px solid #1e4a41;color:#5E8072;font:600 13px var(--mono)}
+  .sw[aria-pressed="true"]{border-color:rgba(143,227,136,.6)}
+  .sw[aria-pressed="true"] .bit{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 12px rgba(143,227,136,.6)}
+  .val{font:600 13px var(--mono);border-radius:6px;padding:2px 8px;background:#13312b;border:1px solid #1e4a41;color:var(--dim)}
+  .val.on{background:var(--led);border-color:var(--led);color:#06220f;box-shadow:0 0 10px rgba(143,227,136,.5)}
+  .active-step{box-shadow:0 0 0 2px var(--addr),0 0 22px rgba(242,179,61,.28)!important;border-color:var(--addr)!important}
+  svg .lit{filter:drop-shadow(0 0 3px rgba(143,227,136,.85))}
+  .q{border-top:1px solid var(--edge);padding:14px 0}
+  .q>p{margin:0 0 8px;font-weight:600}
+  .opts{display:grid;gap:6px}
+  .opt{justify-content:flex-start;text-align:left;font:500 14px var(--sans);letter-spacing:0;padding:10px 12px}
+  .opt[disabled]{opacity:.6;cursor:default}
+  .progress{height:10px;border-radius:99px;background:#13312b;border:1px solid var(--edge);overflow:hidden;margin-top:12px}
+  .progress>div{height:100%;width:0;background:linear-gradient(90deg,var(--addr),var(--oper) 60%,var(--led));box-shadow:0 0 14px rgba(143,227,136,.45);transition:width .5s}
+  table.data select{font-size:13px;padding:5px 8px}
+  table.data td.ok{background:rgba(143,227,136,.10)} table.data td.bad{background:rgba(255,122,122,.10)}
+  /* app mode and Lab3D stages */
+  .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .phases{flex-wrap:wrap}
+  .phases li.done{color:var(--c,var(--copper))}
+  .ticks b{color:var(--silk)}
+  .panel>section>h2,.panel>div>h2{margin-bottom:10px}
+  .narr p{font-size:15px}
+  .narr p b{color:var(--silk)}
+  @media(min-width:521px){.app .controls{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .speed output{width:3.5em}
+  .chk{display:inline-flex;gap:8px;align-items:flex-start;cursor:pointer;font-size:13.5px;color:var(--silk-dim)}
+  .chk input{margin-top:2px}
+  .regs.live{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+  .reg.one{border-color:var(--led)}
+  .reg.one .rv{color:var(--led)}
+  .reg.bad{border-color:var(--bad);background:rgba(255,122,122,.07)}
+  .reg.bad .rv{color:var(--bad)}
+  .labstage{position:relative;width:100%;aspect-ratio:16/10;min-height:320px;border-radius:6px;overflow:hidden;touch-action:none;border:1px solid var(--line);background:radial-gradient(ellipse at 40% 38%,#12423a 0%,var(--board-deep) 72%)}
+  @media(max-width:640px){.labstage{aspect-ratio:auto;height:62vh;min-height:340px}}
+  .labstage .gl{position:absolute;inset:0;display:block;z-index:1}
+  .labstage .labels{position:absolute!important;top:0;left:0;z-index:2}
+  .labstage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+  .labstage .hud{z-index:3}
+  @media(max-width:700px){.stage .tag .sb,.labstage .tag .sb{display:none}.stage .zone,.labstage .zone{opacity:.6}}
+  .notice li{margin-bottom:2px}
+  .panel>*{flex-shrink:0}
+  .stage:has(#nogl:not([hidden])) .hud-bottom,.labstage:has(.nogl:not([hidden])) .hud-bottom{bottom:52px}
+  @media(max-width:520px){.hud .views{flex-wrap:wrap}.views button{padding:6px 7px}.hud .phases li{padding:5px 6px}}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+  .tab{border:1px solid var(--line);background:var(--panel-2);border-radius:5px;padding:8px 12px;font:500 12px var(--font-mono);color:var(--silk-dim);cursor:pointer}
+  .tab:hover{border-color:var(--copper)}
+  .tab[aria-selected="true"]{border-color:var(--data);color:var(--data);background:rgba(79,209,232,.08);box-shadow:inset 0 -2px 0 var(--data)}
+  .lbl{font:500 10.5px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--silk-dim)}
+  .scorebar{margin-top:0}
+  .sb-top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+  .scorebar .big{font:600 30px/1 var(--font-mono);font-stretch:112%;color:var(--silk);font-variant-numeric:tabular-nums}
+  .parts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .parts .pill.done{border-color:var(--led);color:var(--led)}
+  .dsvg{width:100%;height:auto;display:block;max-width:460px;border:1px solid var(--line);border-radius:6px;background:rgba(6,23,20,.6)}
   .coins{display:flex;flex-wrap:wrap;gap:8px}
-  .coin{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;background:#E5E7EB;border:3px solid #9CA3AF}
-  .coin.h{width:52px;height:52px;background:#FEF3C7;border-color:#D97706}
+  .coin{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:600 14px var(--font-mono);color:#1b2420;background:radial-gradient(circle at 35% 30%,#eef2f0,#9aa4a0 70%);border:2px solid #c9ced1;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+  .coin.h{width:52px;height:52px;color:#2a1c05;background:radial-gradient(circle at 35% 30%,#ffe6a6,#c9952f 70%);border-color:var(--addr)}
   .qgrid{display:grid;gap:10px}
   .qgrid label{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-weight:600}
-  select{font-size:14px;padding:6px 8px}
-  td.ok{background:var(--ok-soft)} td.bad{background:var(--bad-soft)}
-  tr.pick td{background:var(--au-red-soft)}
-  tr.isbad td{background:var(--bad-soft)}
-  .lamp{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:4px;border:1px solid rgba(0,0,0,.2)}
-  .lamp.G{background:#22C55E} .lamp.Y{background:#F59E0B} .lamp.R{background:#EF4444}
-  .walk{font-size:12px;font-weight:700;border-radius:4px;padding:1px 6px;background:#E5E7EB}
-  .walk.on{background:#F8FAFC;border:1px solid #94A3B8}
+  tr.pick td{background:rgba(242,179,61,.10)}
+  tr.isbad td{background:rgba(255,122,122,.12)}
+  tr.isbad td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+  .lamp{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:5px;border:1px solid rgba(0,0,0,.4)}
+  .lamp.G{background:#8FE388;box-shadow:0 0 8px rgba(143,227,136,.7)} .lamp.Y{background:#F2B33D;box-shadow:0 0 8px rgba(242,179,61,.7)} .lamp.R{background:#FF7A7A;box-shadow:0 0 8px rgba(255,122,122,.6)}
+  .walk{font:600 11px var(--font-mono);border-radius:3px;padding:2px 6px;background:#3a1414;color:#ffb3b3;border:1px solid #6b2a2a}
+  .walk.on{background:#e8efe4;color:#06120f;border-color:#e8efe4;box-shadow:0 0 10px rgba(232,239,228,.5)}
   #p3rows td,#p3rows th,#p3states td,#p3states th{white-space:nowrap}
   .p3r label{display:flex;gap:6px;align-items:center;cursor:pointer}
-  .btn.sm{padding:5px 10px;font-size:13px}
-  .grid>*{min-width:0}
-  .stage3d{position:relative}
-  .stage3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
-  .stage3d .label3d.big{font-size:14px;padding:3px 8px}
-  .stage3d .hint3d{position:absolute;left:10px;bottom:8px;font-size:12px;color:#CBD5E1;background:rgba(15,23,34,.6);padding:2px 8px;border-radius:6px;pointer-events:none}
-  .stepper .btn{padding:7px 12px}
-  .stepper .count{font-size:13px;color:var(--muted);margin-left:auto}
-  .caption b{color:var(--au-red-dark)}
-  .card3d{margin-bottom:16px}
-  .active-step{outline:3px solid var(--au-red);outline-offset:2px}
-  @media(max-width:520px){.stage3d{aspect-ratio:4/3}}
-  [hidden]{display:none!important}
-  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .btn.sm{padding:5px 10px;font-size:11px}
+  #manual .btn{border-color:var(--data)}
+
+  .reg.bad{border-color:var(--bad);background:rgba(255,122,122,.08)}
+  .reg.bad .n b{color:var(--bad)}
+  #finalBig{display:inline-block}
+  #finalMsg{color:var(--silk-dim)}
+  @media(min-width:521px){.card3d .controls{grid-template-columns:repeat(4,minmax(0,1fr));max-width:620px}}
+  .info{font-size:13.5px;color:var(--silk-dim);border:1px solid var(--line);border-radius:5px;padding:10px 12px}
+  .info b{color:var(--silk)}
+  .labstage{aspect-ratio:16/9}
+  .regs.live{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
 </style>
 </head>
 <body>
@@ -123,16 +338,25 @@
 </header>
 
 <main class="wrap">
-  <section class="hero">
-    <span class="eyebrow">Week 4 · Challenge</span>
-    <h1>State machine challenge</h1>
-    <p class="lede">Complete state diagrams, predict where a machine ends up, and run traffic light controllers on a 3D Calle Ocho intersection to find the unsafe one.</p>
+  <section class="hero split">
+    <div class="reveal" style="--i:0">
+      <span class="eyebrow">Week 4 · Challenge</span>
+      <h1>State machine <span class="num">challenge</span></h1>
+      <p class="lede">Complete state diagrams, predict where a machine ends up, and run traffic light controllers on a 3D Calle Ocho intersection to find the unsafe one.</p>
+    </div>
+    <div class="spec reveal" style="--i:1" aria-label="Scoring at a glance">
+      <div><b>20 pts</b><span>Part 1: the turnstile state table</span></div>
+      <div><b>40 pts</b><span>Part 2: five vending machine predictions</span></div>
+      <div><b>40 pts</b><span>Part 3: four controller drafts to check</span></div>
+      <div><b>100 pts</b><span>in total, with new rounds on every try</span></div>
+    </div>
   </section>
 
-  <details class="howto card">
+  <details class="howto reveal" style="--i:2">
     <summary>How to use this interactive</summary>
     <ol>
-      <li>The 3D view at the top has a tab for each machine. Press Play on any tab for a narrated demo: every step shows the current state, the input, and the next state.</li>
+      <li>The 3D view at the top has a tab for each machine. Press Run on any tab for a narrated demo: every step shows the current state, the input, and the next state. The state rail lights the state the machine is in now.</li>
+      <li>Use Step and Step back to go one input at a time, the speed slider to slow Run down, and the buttons under the caption to send your own inputs.</li>
       <li>Part 1 (20 points): complete the turnstile's state table. Each correct transition is worth 5 points.</li>
       <li>Part 2 (40 points): five vending machine rounds. Predict the credit left and the sodas dispensed after a sequence of coins, then replay it in 3D.</li>
       <li>Part 3 (40 points): four drafts of the Calle Ocho traffic light controller. Preview any row in the 3D intersection and pick the transition that first makes the intersection unsafe. A correct first pick earns 10 points, a correct second pick earns 5.</li>
@@ -140,41 +364,74 @@
     </ol>
   </details>
 
-  <section class="card card3d" aria-labelledby="flow-h">
+  <section class="card card3d reveal" style="--i:3" data-ref="U1 · MACHINES" aria-labelledby="flow-h">
     <h2 id="flow-h">State machines in 3D</h2>
     <div class="tabs" role="tablist" aria-label="Machines">
-      <button class="tab" role="tab" aria-selected="true" data-tab="turn">Turnstile</button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="vend">Vending machine</button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="light">Calle Ocho intersection</button>
+      <button class="tab" type="button" role="tab" aria-selected="true" data-tab="turn">Turnstile</button>
+      <button class="tab" type="button" role="tab" aria-selected="false" data-tab="vend">Vending machine</button>
+      <button class="tab" type="button" role="tab" aria-selected="false" data-tab="light">Calle Ocho intersection</button>
     </div>
-    <p class="small muted" id="stageHelp"></p>
-    <div class="stage3d" id="stage"><span class="hint3d" id="stateBadge"></span></div>
-    <div class="stepper" role="group" aria-label="Step-by-step explanation">
-      <button class="btn" data-n="restart" aria-label="Restart">&#9198; Restart</button>
-      <button class="btn" data-n="prev" aria-label="Step back">&#9664; Back</button>
-      <button class="btn primary" data-n="play">&#9654; Play</button>
-      <button class="btn primary" data-n="pause" hidden>&#10074;&#10074; Pause</button>
-      <button class="btn" data-n="next" aria-label="Step forward">Next &#9654;</button>
-      <span class="count" data-n="counter"></span>
+    <p class="help" id="stageHelp"></p>
+    <div class="stage labstage" id="stage" aria-label="3D board with the three state machines: drag to orbit, scroll or pinch to zoom, click a chip to learn what it does">
+      <div class="hud hud-top">
+        <ol class="phases" id="rail" aria-label="States"></ol>
+        <div class="ticks" id="stateBadge"></div>
+        <p class="credit">By Professor De Leon</p>
+      </div>
+      <div class="hud hud-bottom">
+        <div class="legend" aria-label="Colors">
+          <span style="--c:var(--data)"><i></i>input</span>
+          <span style="--c:var(--led)"><i></i>go, open, or safe</span>
+          <span style="--c:var(--addr)"><i></i>yellow, or credit held</span>
+          <span style="--c:var(--bad)"><i></i>stop, locked, or danger</span>
+        </div>
+        <div class="views" role="group" aria-label="Camera views">
+          <button type="button" data-view="overview">Overview</button>
+          <button type="button" data-view="turn" class="on">Turnstile</button>
+          <button type="button" data-view="vend">Vending</button>
+          <button type="button" data-view="light">Intersection</button>
+        </div>
+      </div>
+      <div class="nogl" id="nogl" hidden>The 3D board needs WebGL and the 3D libraries, which are not available here. The flat board shows the same machines and steps.</div>
     </div>
-    <div class="caption" data-n="caption" aria-live="polite"></div>
-    <div class="row gap mt" id="manual"></div>
+    <section class="narr mt" data-n="box" aria-live="polite">
+      <div class="narr-head"><span class="ptag" data-n="title">Ready</span><span data-n="counter"></span></div>
+      <p data-n="caption"></p>
+    </section>
+    <div class="controls mt" role="group" aria-label="Step-by-step explanation">
+      <button class="btn primary" type="button" data-n="play">Run</button>
+      <button class="btn primary" type="button" data-n="pause" hidden>Pause</button>
+      <button class="btn" type="button" data-n="next">Step</button>
+      <button class="btn" type="button" data-n="prev">Step back</button>
+      <button class="btn" type="button" data-n="restart" title="Back to the first step">Reset</button>
+    </div>
+    <div class="speed" style="margin-top:12px"><label for="spd">Speed</label><input type="range" id="spd" data-n="speed" min="0.25" max="4" step="0.25" value="1"><output data-n="speedv" for="spd">1×</output></div>
+    <p class="hint" style="margin-top:8px">Keyboard: Space steps, B steps back, R runs or pauses. Click a chip on the board to read what it does.</p>
+    <h3 class="sec">Send an input</h3>
+    <div class="row gap" id="manual"></div>
+    <h3 class="sec">Live state</h3>
+    <div class="regs live" id="live"></div>
+    <div class="info mt" id="info">Click any chip on the board to learn what it does.</div>
   </section>
 
-  <div class="scorebar card"><span>Score so far</span><span class="big" id="runScore">0 / 100</span><span class="small muted" id="runLeft"></span></div>
+  <div class="scorebar card reveal" style="--i:4" data-ref="U2 · SCORE">
+    <div class="sb-top"><span class="lbl">Score so far</span><span class="big" id="runScore">0 / 100</span><span class="small muted" id="runLeft"></span></div>
+    <div class="progress" aria-hidden="true"><div id="progBar"></div></div>
+    <div class="parts" id="partPts"></div>
+  </div>
 
-  <section class="card mt" aria-labelledby="p1-h">
+  <section class="card mt reveal" style="--i:5;margin-top:16px" data-ref="U3 · PART 1" aria-labelledby="p1-h">
     <h2 id="p1-h">Part 1: complete the turnstile (20 points)</h2>
     <p>A subway turnstile at the Brickell station has two states, <b>Locked</b> and <b>Open</b>, and two inputs: <b>coin</b> (a fare is paid) and <b>push</b> (someone pushes the arm). It starts Locked. Choose the next state for each row.</p>
     <div class="grid two">
       <div class="scroll-x"><table class="data" id="p1table"></table></div>
       <svg id="p1svg" class="dsvg" viewBox="0 0 420 220" role="img" aria-label="Turnstile state diagram"></svg>
     </div>
-    <button class="btn primary mt" id="p1check">Check part 1</button>
+    <button class="btn primary mt" type="button" id="p1check">Check part 1</button>
     <div class="feedback mt" id="p1fb" hidden></div>
   </section>
 
-  <section class="card mt" aria-labelledby="p2-h">
+  <section class="card mt reveal" style="--i:6;margin-top:16px" data-ref="U4 · PART 2" aria-labelledby="p2-h">
     <h2 id="p2-h">Part 2: predict the vending machine (40 points)</h2>
     <p>A soda at a Little Havana bodega machine costs 50 cents. The machine accepts quarters (<b>Q</b>, 25 cents) and half dollars (<b>H</b>, 50 cents). Its only states are the credit it holds: <b>0¢</b> or <b>25¢</b>. Whenever the credit reaches 50 cents it dispenses a soda, and any extra 25 cents stays as credit. It starts at 0¢.</p>
     <div class="grid two">
@@ -186,7 +443,7 @@
           <label>Credit left at the end <select id="p2credit"><option value="">choose</option><option value="0">0¢</option><option value="25">25¢</option></select></label>
           <label>Sodas dispensed <select id="p2sodas"><option value="">choose</option><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
         </div>
-        <div class="row gap mt"><button class="btn primary" id="p2check">Check</button><button class="btn" id="p2replay" hidden>Replay in 3D</button><button class="btn" id="p2next" hidden>Next round</button></div>
+        <div class="row gap mt"><button class="btn primary" type="button" id="p2check">Check</button><button class="btn" type="button" id="p2replay" hidden>Replay in 3D</button><button class="btn" type="button" id="p2next" hidden>Next round</button></div>
       </div>
       <div>
         <svg id="p2svg" class="dsvg" viewBox="0 0 420 220" role="img" aria-label="Vending machine state diagram"></svg>
@@ -195,28 +452,28 @@
     <div class="feedback mt" id="p2fb" hidden></div>
   </section>
 
-  <section class="card mt" aria-labelledby="p3-h">
+  <section class="card mt reveal" style="--i:7;margin-top:16px" data-ref="U5 · PART 3" aria-labelledby="p3-h">
     <h2 id="p3-h">Part 3: find the unsafe transition (40 points)</h2>
     <p>The controller at Calle Ocho (east and west) and SW 17th Avenue (north and south) changes state when its timer runs out (<b>T</b>) or when a pedestrian presses the crossing button (<b>P</b>). Exactly one row in each draft first puts people in danger: two directions moving at once, WALK while cars still have a green or yellow, or a green that turns red with no yellow. Tap Preview to watch a row in 3D.</p>
     <div class="pill" id="p3round"></div>
     <p class="mt" id="p3intro"></p>
     <div class="scroll-x"><table class="data" id="p3states"></table></div>
     <div class="scroll-x mt"><table class="data" id="p3rows"></table></div>
-    <div class="row gap mt"><button class="btn primary" id="p3check">Check my pick</button><button class="btn" id="p3next" hidden>Next draft</button></div>
+    <div class="row gap mt"><button class="btn primary" type="button" id="p3check">Check my pick</button><button class="btn" type="button" id="p3next" hidden>Next draft</button></div>
     <div class="feedback mt" id="p3fb" hidden></div>
   </section>
 
-  <section class="card mt" id="final" hidden aria-labelledby="final-h">
+  <section class="card mt" id="final" hidden data-ref="U6 · RESULTS" aria-labelledby="final-h" style="margin-top:16px">
     <h2 id="final-h">Your results</h2>
-    <div class="score"><span>Final score:</span><span class="big" id="finalBig"></span></div>
+    <div class="score"><span>Final score</span><span class="big" id="finalBig"></span></div>
     <div class="scroll-x mt"><table class="data" id="finalTable"></table></div>
-    <p class="small muted mt" id="finalMsg"></p>
-    <button class="btn primary mt" id="againBtn">Try again with new rounds</button>
+    <p class="mt" id="finalMsg"></p>
+    <button class="btn primary mt" type="button" id="againBtn">Try again with new rounds</button>
   </section>
 
 </main>
 
-<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline">By Professor De Leon</div></footer>
 
 <script>
 // All logic inline. Guard GSAP so the page still works if the CDN fails:
@@ -253,6 +510,306 @@ function make3D(el, opts = {}) {
   return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
 }
 
+
+// LAB3D START: EGN 325 3D kit (modeled on the professor's "Tiny Machine Lab" reference). Paste as one block.
+// Needs Three.js r147 (three.min.js), examples/js/controls/OrbitControls.js, examples/js/renderers/CSS2DRenderer.js and GSAP 3.12.5.
+// Returns null when any of them (or WebGL) is missing: then draw the 2D fallback.
+//
+// const lab = Lab3D(stageEl, {
+//   board: {w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: 'BAY-4  REV 1.0  ...', seed: 11},
+//   views: {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}, cpu: {...}},
+//   colors: {copper: '#d4a24c'}
+// });
+// lab.chip(key, {x, z, w, d, h, nm, body, metal, cell})  -> rec {g, mat, el, val, sub, h, key}
+// lab.silkRect(x0, x1, z0, z1)   lab.zone(text, x, z, color)   lab.label(html, cls, x, y, z, parent)
+// lab.busMat(color, {base, rest})  lab.trace([{x,z}...], lines, mat)  lab.glowBus(mat)
+// lab.fly([{x,z}...], text, color, {y, dur}) -> GSAP timeline (packet sphere + halo + pill label)
+// lab.hi(rec, color)  lab.clear()  lab.pop(rec)  lab.setView(name)  lab.zoom(factor)  lab.intro()  lab.onPick(fn)  lab.clearPackets()
+// Zoom buttons (+, -, FIT) and the + - 0 keys are added to the stage automatically (opts.zoomUI: false turns them off; opts.fitView picks the FIT view).
+function Lab3D(stage, opts) {
+  opts = opts || {};
+  const hasG = typeof window.gsap !== 'undefined';
+  if (!window.THREE || !THREE.OrbitControls || !THREE.CSS2DRenderer || !hasG) return null;
+  try { const t = document.createElement('canvas'); if (!(t.getContext('webgl') || t.getContext('experimental-webgl'))) return null; } catch (e) { return null; }
+  const T = THREE;
+  const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const B = Object.assign({w: 22.4, d: 13.6, cx: 0, cz: 0.2, silk: '', seed: 11}, opts.board || {});
+  const COPPER = (opts.colors && opts.colors.copper) || '#d4a24c';
+
+  const renderer = new T.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = T.sRGBEncoding;
+  renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.setClearColor(0x061714, 0);
+  renderer.domElement.className = 'gl';
+  stage.prepend(renderer.domElement);
+  const labelR = new T.CSS2DRenderer();
+  labelR.domElement.className = 'labels';
+  renderer.domElement.after(labelR.domElement);
+
+  const scene = new T.Scene();
+  scene.fog = new T.Fog(0x061714, 34, 70);
+  const camera = new T.PerspectiveCamera(40, 1, 0.1, 200);
+  const controls = new T.OrbitControls(camera, labelR.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.maxPolarAngle = Math.PI * 0.46; controls.minDistance = 5; controls.maxDistance = 42;
+  controls.zoomSpeed = 1.1;
+  // keep the mouse wheel inside the 3D view: zoom the board, do not scroll the page
+  stage.addEventListener('wheel', e => e.preventDefault(), {passive: false});
+
+  scene.add(new T.HemisphereLight(0xd6efe6, 0x0b2a26, 0.6));
+  const sun = new T.DirectionalLight(0xfff1dc, 1.0); sun.position.set(-7, 16, 9); sun.castShadow = true;
+  sun.shadow.mapSize.set(1536, 1536);
+  Object.assign(sun.shadow.camera, {left: -B.w / 2 - 2, right: B.w / 2 + 2, top: B.d / 2 + 2, bottom: -B.d / 2 - 2, near: 1, far: 44});
+  sun.shadow.bias = -0.0005; scene.add(sun);
+  const rim = new T.DirectionalLight(0x4fd1e8, 0.35); rim.position.set(12, 6, -10); scene.add(rim);
+
+  // board: a canvas texture with a dot grid, random copper traces, vias, mounting holes and silkscreen
+  function rng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const cv = document.createElement('canvas'); cv.width = 2048; cv.height = Math.round(2048 * B.d / B.w);
+  function drawBoard() {
+    const g = cv.getContext('2d'), W = cv.width, H = cv.height, rnd = rng(B.seed);
+    const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#10372f'); grd.addColorStop(1, '#0a2823');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(232,239,228,0.035)';
+    for (let x = 0; x < W; x += 28) for (let y = 0; y < H; y += 28) g.fillRect(x, y, 2, 2);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let i = 0; i < 85; i++) {
+      let x = rnd() * W, y = rnd() * H, dir = Math.floor(rnd() * 8);
+      g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 4; k++) { dir = (dir + (rnd() < .5 ? 1 : 7)) % 8; const len = 30 + rnd() * 170, a = dir * Math.PI / 4; x += Math.cos(a) * len; y += Math.sin(a) * len; g.lineTo(x, y); }
+      g.strokeStyle = 'rgba(212,162,76,' + (0.06 + rnd() * 0.09) + ')'; g.lineWidth = 2 + rnd() * 3; g.stroke();
+      g.beginPath(); g.arc(x, y, 5.5, 0, Math.PI * 2); g.fillStyle = 'rgba(212,162,76,0.22)'; g.fill();
+      g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fillStyle = '#071c19'; g.fill();
+    }
+    [[60, 60], [W - 60, 60], [60, H - 60], [W - 60, H - 60]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 26, 0, Math.PI * 2); g.fillStyle = 'rgba(212,162,76,0.35)'; g.fill(); g.beginPath(); g.arc(x, y, 15, 0, Math.PI * 2); g.fillStyle = '#04100e'; g.fill(); });
+    g.font = '500 24px "Martian Mono", ui-monospace, monospace';
+    g.fillStyle = 'rgba(232,239,228,0.32)';
+    if (B.silk) g.fillText(B.silk, 120, H - 48);
+    g.fillText('U1', 120, 92);
+  }
+  drawBoard();
+  const tex = new T.CanvasTexture(cv); tex.encoding = T.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawBoard(); tex.needsUpdate = true; });
+  const edge = new T.MeshStandardMaterial({color: 0x0a241f, roughness: .8});
+  const topM = new T.MeshStandardMaterial({map: tex, roughness: .62, metalness: .05});
+  const board = new T.Mesh(new T.BoxGeometry(B.w, 0.36, B.d), [edge, edge, topM, edge, edge, edge]);
+  board.position.set(B.cx, -0.18, B.cz); board.receiveShadow = true; scene.add(board);
+
+  const unit = new T.BoxGeometry(1, 1, 1);
+  const silk = new T.MeshBasicMaterial({color: 0xe8efe4, transparent: true, opacity: .5});
+  function silkRect(x0, x1, z0, z1) {
+    const t = 0.05;
+    [[x0, x1, z0, z0], [x0, x1, z1, z1], [x0, x0, z0, z1], [x1, x1, z0, z1]].forEach(([a, b, c, d]) => {
+      const m = new T.Mesh(unit, silk); m.scale.set(Math.abs(b - a) + t, 0.01, Math.abs(d - c) + t);
+      m.position.set((a + b) / 2, 0.006, (c + d) / 2); scene.add(m);
+    });
+  }
+  function busMat(color, o) {
+    o = o || {};
+    const m = new T.MeshStandardMaterial({color: new T.Color(o.base || color).multiplyScalar(o.base ? 1 : 0.55), emissive: new T.Color(color), emissiveIntensity: o.rest != null ? o.rest : 0.22, roughness: .35, metalness: .65});
+    m.userData.rest = m.emissiveIntensity; return m;
+  }
+  const nrm = (a, b) => { const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return {x: -dz / L, z: dx / L}; };
+  function offsetLine(p, o) {
+    return p.map((q, i) => {
+      const nIn = i > 0 ? nrm(p[i - 1], q) : null, nOut = i < p.length - 1 ? nrm(q, p[i + 1]) : null;
+      let n = nIn || nOut;
+      if (nIn && nOut) { const k = 1 / (1 + nIn.x * nOut.x + nIn.z * nOut.z); n = {x: (nIn.x + nOut.x) * k, z: (nIn.z + nOut.z) * k}; }
+      return {x: q.x + n.x * o, z: q.z + n.z * o};
+    });
+  }
+  function trace(points, lines, mat) {
+    const gap = 0.075, w = 0.04;
+    for (let li = 0; li < lines; li++) {
+      const pts = offsetLine(points, (li - (lines - 1) / 2) * gap);
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
+        const m = new T.Mesh(unit, mat); m.scale.set(L + w, 0.03, w); m.position.set((a.x + b.x) / 2, 0.016, (a.z + b.z) / 2); m.rotation.y = -Math.atan2(dz, dx);
+        m.receiveShadow = true; scene.add(m);
+      }
+      [pts[0], pts[pts.length - 1]].forEach(p => { const pad = new T.Mesh(unit, mat); pad.scale.set(0.07, 0.032, 0.07); pad.position.set(p.x, 0.016, p.z); scene.add(pad); });
+    }
+  }
+  function glowBus(m) {
+    if (!m) return;
+    gsap.killTweensOf(m);
+    gsap.timeline().to(m, {emissiveIntensity: 1.8, duration: 0.2}).to(m, {emissiveIntensity: m.userData.rest, duration: 1.4});
+  }
+  function label(html, cls, x, y, z, parent) {
+    const el = document.createElement('div'); el.className = cls; el.innerHTML = html;
+    const o = new T.CSS2DObject(el); o.position.set(x, y, z); (parent || scene).add(o); el._obj = o; return el;
+  }
+  function zone(text, x, z, color) { const el = label(text, 'zone', x, 0.05, z); if (color) el.style.setProperty('--c', color); return el; }
+
+  const pinSpots = [], recs = {}, pickables = [];
+  const dotMat = new T.MeshBasicMaterial({color: 0x6c7a78});
+  function chip(key, o) {
+    const w = o.w || 1.4, d = o.d || 1.2, h = o.h || (o.cell ? 0.28 : 0.34);
+    const g = new T.Group(); g.position.set(o.x, 0, o.z);
+    const mat = new T.MeshStandardMaterial({color: o.body || (o.cell ? '#1b2124' : '#15191b'), roughness: .42, metalness: o.metal || .22, emissive: new T.Color(0xffffff), emissiveIntensity: 0});
+    const body = new T.Mesh(unit, mat); body.scale.set(w, h, d); body.position.y = h / 2 + 0.03; body.castShadow = true; body.receiveShadow = true; g.add(body);
+    body.userData.key = key; pickables.push(body);
+    if (!o.metal) { const dot = new T.Mesh(new T.CircleGeometry(0.05, 16), dotMat); dot.rotation.x = -Math.PI / 2; dot.position.set(-w / 2 + 0.14, h + 0.035, -d / 2 + 0.14); g.add(dot); }
+    if (!o.noPins) {
+      const n = Math.max(2, Math.floor((w - 0.2) / 0.22));
+      for (let i = 0; i < n; i++) { const px = -w / 2 + 0.14 + i * ((w - 0.28) / (n - 1)); pinSpots.push([o.x + px, o.z - d / 2 - 0.07], [o.x + px, o.z + d / 2 + 0.07]); }
+    }
+    scene.add(g);
+    const el = label('<span class="nm">' + (o.nm || key) + '</span><span class="vl"></span><span class="sb"></span>', 'tag' + (o.cell ? ' cell' : ''), 0, h + 0.08, 0, g);
+    const rec = {key: key, cell: !!o.cell, g: g, mat: mat, el: el, val: el.querySelector('.vl'), sub: el.querySelector('.sb'), h: h, x: o.x, z: o.z};
+    recs[key] = rec; return rec;
+  }
+  function finishPins() {
+    const pinGeo = new T.BoxGeometry(0.07, 0.05, 0.16), pinMat = new T.MeshStandardMaterial({color: 0xc9ced1, metalness: .9, roughness: .3});
+    const pins = new T.InstancedMesh(pinGeo, pinMat, Math.max(1, pinSpots.length)), mtx = new T.Matrix4();
+    pinSpots.forEach(([x, z], i) => { mtx.makeTranslation(x, 0.045, z); pins.setMatrixAt(i, mtx); });
+    scene.add(pins);
+  }
+
+  // packets: a small sphere with an additive halo and a pill label
+  const haloCv = document.createElement('canvas'); haloCv.width = haloCv.height = 64;
+  const hg = haloCv.getContext('2d'), rg = hg.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(.35, 'rgba(255,255,255,.35)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  hg.fillStyle = rg; hg.fillRect(0, 0, 64, 64);
+  const haloTex = new T.CanvasTexture(haloCv);
+  const pktGeo = new T.SphereGeometry(0.13, 20, 14);
+  const live = new Set();
+  function removePacket(p) {
+    scene.remove(p.mesh); if (p.el.parentNode) p.el.parentNode.removeChild(p.el);
+    p.mesh.material.dispose(); p.halo.material.dispose(); live.delete(p);
+  }
+  function fly(path, text, color, o) {
+    o = o || {};
+    const y = o.y != null ? o.y : 0.8;
+    const v = path.map(p => new T.Vector3(p.x, y, p.z));
+    const mesh = new T.Mesh(pktGeo, new T.MeshBasicMaterial({color: new T.Color(color)}));
+    const halo = new T.Sprite(new T.SpriteMaterial({map: haloTex, color: new T.Color(color), blending: T.AdditiveBlending, depthWrite: false, transparent: true}));
+    halo.scale.set(1.1, 1.1, 1.1); mesh.add(halo);
+    const el = document.createElement('div'); el.className = 'pkt'; el.style.setProperty('--c', color); el.textContent = text;
+    const lab = new T.CSS2DObject(el); lab.position.set(0, 0.42, 0); mesh.add(lab);
+    mesh.position.copy(v[0]); mesh.scale.setScalar(0.01); mesh.visible = false; scene.add(mesh);
+    const p = {mesh: mesh, halo: halo, el: el}; live.add(p);
+    let L = 0; for (let i = 1; i < v.length; i++) L += v[i].distanceTo(v[i - 1]);
+    const total = o.dur || Math.max(0.5, Math.min(2.2, L / 7));
+    const tl = gsap.timeline({onComplete: () => removePacket(p)});
+    tl.call(() => { mesh.visible = true; });
+    tl.to(mesh.scale, {x: 1, y: 1, z: 1, duration: 0.18, ease: 'back.out(2)'});
+    for (let i = 1; i < v.length; i++) { const seg = v[i].distanceTo(v[i - 1]); tl.to(mesh.position, {x: v[i].x, y: v[i].y, z: v[i].z, duration: L ? total * seg / L : 0.1, ease: 'none'}); }
+    tl.to(mesh.scale, {x: 0.01, y: 0.01, z: 0.01, duration: 0.18, ease: 'power2.in'});
+    return tl;
+  }
+  function clearPackets() { Array.from(live).forEach(removePacket); }
+
+  const active = new Set();
+  function hi(rec, color) {
+    if (!rec) return;
+    rec.mat.emissive.set(color); gsap.to(rec.mat, {emissiveIntensity: rec.cell ? 0.6 : 0.5, duration: 0.3, overwrite: 'auto'});
+    rec.el.classList.add('on'); active.add(rec);
+  }
+  function clear() {
+    active.forEach(r => { gsap.to(r.mat, {emissiveIntensity: 0, duration: 0.5, overwrite: 'auto'}); r.el.classList.remove('on'); });
+    active.clear();
+  }
+  function pop(rec, big) {
+    if (!rec || RM) return;
+    gsap.fromTo(rec.g.scale, {x: 1.12, y: big ? 1.8 : 1.5, z: 1.12}, {x: 1, y: 1, z: 1, duration: 0.65, ease: 'elastic.out(1,0.5)'});
+  }
+
+  // camera views keep the whole subject in frame on narrow screens
+  const views = opts.views || {overview: {pos: [0, 17, 14.5], tgt: [0, 0, 0.4], want: 1.55}};
+  function viewFor(name) {
+    const b = views[name] || views.overview;
+    const tgt = new T.Vector3(...b.tgt), pos = new T.Vector3(...b.pos);
+    const want = b.want || 1.25, f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    pos.sub(tgt).multiplyScalar(f).add(tgt);
+    return {pos: pos, tgt: tgt};
+  }
+  function setView(name, instant) {
+    const v = viewFor(name), d = (RM || instant) ? 0 : 1.2;
+    const k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: v.pos.x, y: v.pos.y, z: v.pos.z, duration: d, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+    gsap.to(controls.target, {x: v.tgt.x, y: v.tgt.y, z: v.tgt.z, duration: d, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+  }
+  function focusOn(x, z, dist) {
+    const d = (dist || 7) * (camera.aspect < 1.2 ? Math.min(2.2, 1.25 / camera.aspect) : 1);
+    const k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: x * 0.8, y: d * 1.15, z: z + d, duration: RM ? 0 : 1.0, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+    gsap.to(controls.target, {x: x, y: 0, z: z, duration: RM ? 0 : 1.0, ease: 'power2.inOut', overwrite: 'auto'}).timeScale(k);
+  }
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); renderer.domElement.style.width = w + 'px'; renderer.domElement.style.height = h + 'px';
+    labelR.setSize(w, h);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    stage.style.setProperty('--lab', Math.max(7, Math.min(12, w / 92)) + 'px');
+  }
+  // zoom buttons (+, -, Fit) and keys (+, -, 0): the mouse wheel and pinch still work, but buttons always do
+  function zoom(f) {
+    const t = controls.target, off = camera.position.clone().sub(t);
+    off.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, off.length() * f)));
+    const p = t.clone().add(off), k = 1 / (gsap.globalTimeline.timeScale() || 1);
+    gsap.to(camera.position, {x: p.x, y: p.y, z: p.z, duration: RM ? 0 : 0.45, ease: 'power2.out', overwrite: 'auto'}).timeScale(k);
+  }
+  if (opts.zoomUI !== false) {
+    if (!document.getElementById('lab3d-zoom-css')) {
+      const st = document.createElement('style'); st.id = 'lab3d-zoom-css';
+      st.textContent = '.zoomctl{position:absolute;z-index:4;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:4px;background:rgba(6,23,20,.82);border:1px solid #1e4a41;border-radius:6px;backdrop-filter:blur(6px)}' +
+        '.zoomctl button{width:38px;height:34px;border:0;border-radius:4px;background:transparent;color:#e8efe4;font:600 18px/1 "Martian Mono",ui-monospace,monospace;cursor:pointer;padding:0}' +
+        '.zoomctl button.fit{font-size:10px;letter-spacing:.06em;height:28px}.zoomctl button:hover{background:#0f2c27;color:#f2b33d}' +
+        '.zoomctl button:focus-visible{outline:2px solid #f2b33d;outline-offset:1px}@media(max-width:520px){.zoomctl{right:10px}.zoomctl button{width:34px;height:32px}}';
+      document.head.appendChild(st);
+    }
+    const box = document.createElement('div'); box.className = 'zoomctl'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Zoom');
+    box.innerHTML = '<button type="button" data-z="in" aria-label="Zoom in" title="Zoom in (+)">+</button>' +
+      '<button type="button" data-z="out" aria-label="Zoom out" title="Zoom out (-)">&minus;</button>' +
+      '<button type="button" class="fit" data-z="fit" aria-label="Show the whole board" title="Show the whole board (0)">FIT</button>';
+    stage.appendChild(box);
+    ['pointerdown', 'pointerup', 'wheel', 'click'].forEach(ev => box.addEventListener(ev, e => e.stopPropagation()));
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.z === 'in') zoom(0.75); else if (b.dataset.z === 'out') zoom(1.33); else setView(opts.fitView || 'overview');
+    });
+    document.addEventListener('keydown', e => {
+      const t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if (e.key === '+' || e.key === '=') zoom(0.75);
+      else if (e.key === '-' || e.key === '_') zoom(1.33);
+      else if (e.key === '0') setView(opts.fitView || 'overview');
+    });
+  }
+  new ResizeObserver(resize).observe(stage); resize();
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); labelR.render(scene, camera); })();
+
+  // picking: click (not drag) on a chip body
+  const ray = new T.Raycaster(), mouse = new T.Vector2(); let down = null, pickCb = null;
+  labelR.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  labelR.domElement.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || !pickCb) return;
+    const r = labelR.domElement.getBoundingClientRect();
+    mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (hit) pickCb(hit.object.userData.key);
+  });
+
+  function intro() {
+    const v = viewFor('overview'); camera.position.copy(v.pos); controls.target.copy(v.tgt);
+    if (RM) return;
+    gsap.from(camera.position, {x: v.pos.x - 4, y: v.pos.y + 12, z: v.pos.z + 10, duration: 1.8, ease: 'power3.out'});
+    gsap.from(Object.values(recs).map(r => r.g.position), {y: 2.2, duration: 0.7, ease: 'back.out(1.6)', stagger: 0.03, delay: 0.2});
+  }
+
+  const labApi = {T: T, scene: scene, camera: camera, controls: controls, renderer: renderer, recs: recs,
+    chip: chip, finishPins: finishPins, silkRect: silkRect, zone: zone, label: label, busMat: busMat, trace: trace, glowBus: glowBus,
+    fly: fly, clearPackets: clearPackets, hi: hi, clear: clear, pop: pop, setView: setView, focusOn: focusOn, intro: intro, zoom: zoom,
+    onPick: cb => { pickCb = cb; }, unit: unit};
+  (window.__labs = window.__labs || []).push(labApi);   // lets tests reach the camera
+  return labApi;
+}
+// LAB3D END
 
 /* ---- page code ---- */
 // Shared logic engine for the Week 3 pages (gate circuits) and Week 4 pages (timing, state machines).
@@ -373,7 +930,7 @@ function rowProblem(row){
 function lightWord(l){ return {G:'green', Y:'yellow', R:'red'}[l]; }
 
 // ---------- Helpers on top of the skeleton's make3D (Three.js r147) ----------
-const COL = {on:0xFF3B44, off:0x475569, idle:0x2B3546, ink:0x0F1722, white:0xF8FAFC, ok:0x22C55E, bad:0xEF4444, amber:0xF59E0B, blue:0x60A5FA};
+const COL = {on:0x58C462, off:0x35574A, idle:0x121614, copper:0xB87333, dark:0x3A2A1C, ink:0x0C2419, white:0xEAF2E8, ok:0x3FD96A, bad:0xFF6B6B, amber:0xFFB020, blue:0x38D6FF};
 // Fit the camera to a box, looking along `view` (a direction from the target to the camera). Refits on resize.
 function fitter(st, el, view){
   const T = THREE; let box = null; const dir = new T.Vector3(...(view || [0.2, 0.35, 1])).normalize();
@@ -412,9 +969,9 @@ function labelLayer(st, el){
   };
 }
 function disposeGroup(g){ while (g.children.length){ const c = g.children.pop(); c.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); }); } }
-function glowMat(color, on){ return new THREE.MeshStandardMaterial({color, emissive: on ? color : 0x000000, emissiveIntensity: on ? 0.75 : 0, roughness: 0.45, metalness: 0.1}); }
+function glowMat(color, on){ return new THREE.MeshStandardMaterial({color, emissive: on ? color : 0x000000, emissiveIntensity: on ? 0.45 : 0, roughness: 0.5, metalness: 0.15}); }
 function setGlow(mat, color, on, animate){
-  const target = new THREE.Color(color), em = on ? new THREE.Color(color) : new THREE.Color(0x000000), ei = on ? 0.8 : 0;
+  const target = new THREE.Color(color), em = on ? new THREE.Color(color) : new THREE.Color(0x000000), ei = on ? 0.45 : 0;
   if (animate && hasGSAP){ gsap.to(mat.color, {r:target.r, g:target.g, b:target.b, duration:0.35}); gsap.to(mat.emissive, {r:em.r, g:em.g, b:em.b, duration:0.35}); gsap.to(mat, {emissiveIntensity:ei, duration:0.35}); }
   else { mat.color.copy(target); mat.emissive.copy(em); mat.emissiveIntensity = ei; }
 }
@@ -431,150 +988,266 @@ function picker(st, objectsFn, onPick){
 }
 // ---------- Step-by-step narrator driven by a GSAP timeline (manual fallback without GSAP) ----------
 function Narrator(ui){
-  // ui: {caption, counter, play, pause, prev, next, restart}; steps: [{text, show(animate), dur}]
-  let steps = [], i = -1, tl = null, timer = null;
-  function go(k, animate){ if (!steps.length) return; i = Math.max(0, Math.min(steps.length - 1, k)); ui.caption.innerHTML = steps[i].text; steps[i].show(animate); ui.counter.textContent = 'Step ' + (i + 1) + ' of ' + steps.length; ui.prev.disabled = i <= 0; ui.next.disabled = i >= steps.length - 1; }
-  function stop(){ if (tl){ tl.kill(); tl = null; } if (timer){ clearTimeout(timer); timer = null; } ui.play.hidden = false; ui.pause.hidden = true; }
+  // Full stepper: Reset, Step back, Play/Pause, Step, speed, a titled caption, and an optional "predict before you see it" question.
+  // steps: [{text, title, c (caption color), show(animate), dur, ph (rail key), ask:{q, choices, answer, why}}]
+  let steps = [], i = -1, tl = null, timer = null, speed = 1, pending = null, asked = {};
+  const api = {onGo:null, onLoad:null, score:{ok:0, n:0}};
+  const dur = k => (steps[k] && steps[k].dur) || 2.2;
+  function go(k, animate){
+    if (!steps.length) return;
+    i = Math.max(0, Math.min(steps.length - 1, k)); const s = steps[i];
+    ui.caption.innerHTML = s.text;
+    if (ui.title) ui.title.textContent = s.title || ('Step ' + (i + 1));
+    if (ui.box) ui.box.style.setProperty('--cap', s.c || 'var(--addr)');
+    if (ui.title) ui.title.style.setProperty('--pc', s.c || 'var(--addr)');
+    s.show(animate);
+    ui.counter.textContent = 'Step ' + (i + 1) + ' of ' + steps.length; ui.prev.disabled = i <= 0; ui.next.disabled = i >= steps.length - 1;
+    if (ui.pq && !pending && ui.pq.dataset.k !== String(i)) ui.pq.hidden = true;
+    if (api.onGo) api.onGo(i, s, steps);
+  }
+  const wantsAsk = k => !!(steps[k] && steps[k].ask && ui.predict && ui.predict.checked && !asked[k]);
+  function ask(k, resume){
+    const a = steps[k].ask; pending = {k, resume};
+    ui.pq.dataset.k = String(k); ui.pq.hidden = false; ui.pqT.innerHTML = a.q; ui.pqFb.innerHTML = '';
+    ui.pqOpts.innerHTML = a.choices.map((c, j) => `<button class="btn" type="button" data-pa="${j}">${c}</button>`).join('');
+    try { ui.pqOpts.querySelector('button').focus({preventScroll:true}); } catch (e) {}
+  }
+  function answer(j){
+    if (!pending) return;
+    const {k, resume} = pending, a = steps[k].ask, ok = String(a.choices[j]) === String(a.answer);
+    pending = null; asked[k] = true; api.score.n++; if (ok) api.score.ok++;
+    ui.pqOpts.querySelectorAll('button').forEach((b, x) => { b.disabled = true; if (String(a.choices[x]) === String(a.answer)) b.classList.add('right'); else if (x === j) b.classList.add('wrong'); });
+    ui.pqFb.innerHTML = `<div class="feedback ${ok ? 'ok' : 'bad'}">${ok ? 'Correct. ' : 'Not this time: the answer is ' + a.answer + '. '}${a.why || ''}</div>`;
+    if (ui.pqScore) ui.pqScore.textContent = api.score.ok + ' of ' + api.score.n + ' predictions correct';
+    go(k, true);
+    if (resume) resume();
+  }
+  function stop(){
+    if (tl){ tl.kill(); tl = null; } if (timer){ clearTimeout(timer); timer = null; }
+    ui.play.hidden = false; ui.pause.hidden = true;
+    if (pending){ pending = null; ui.pq.hidden = true; }
+  }
   function play(){
     stop(); if (i >= steps.length - 1) go(0, true);
     ui.play.hidden = true; ui.pause.hidden = false;
+    const schedule = () => { timer = setTimeout(tick, dur(i) * 1000 / speed); };
+    const resume = () => { if (tl) tl.play(); else if (!hasGSAP) schedule(); };
+    const enter = k => { if (wantsAsk(k)){ if (tl) tl.pause(); ask(k, resume); return false; } go(k, true); return true; };
+    function tick(){ timer = null; if (i >= steps.length - 1){ stop(); return; } if (enter(i + 1)) schedule(); }
     if (hasGSAP){
       tl = gsap.timeline({onComplete: stop});
-      tl.to({}, {duration: steps[i].dur || 2.2});
-      for (let k = i + 1; k < steps.length; k++){ tl.add('step' + k); tl.call(() => go(k, true)); tl.to({}, {duration: steps[k].dur || 2.2}); }
-    } else {
-      const tick = () => { if (i >= steps.length - 1){ stop(); return; } go(i + 1, true); timer = setTimeout(tick, (steps[i].dur || 2.2) * 1000); };
-      timer = setTimeout(tick, (steps[i].dur || 2.2) * 1000);
-    }
+      tl.to({}, {duration: dur(i)});
+      for (let k = i + 1; k < steps.length; k++){ tl.call(() => enter(k)); tl.to({}, {duration: dur(k)}); }
+      tl.timeScale(speed);
+    } else schedule();
   }
   ui.play.addEventListener('click', play);
   ui.pause.addEventListener('click', stop);
   ui.prev.addEventListener('click', () => { stop(); go(i - 1, false); });
-  ui.next.addEventListener('click', () => { stop(); go(i + 1, true); });
+  ui.next.addEventListener('click', () => { stop(); if (wantsAsk(i + 1)) ask(i + 1, null); else go(i + 1, true); });
   ui.restart.addEventListener('click', () => { stop(); go(0, true); });
-  return { load(s, atEnd){ stop(); steps = s; go(atEnd ? s.length - 1 : 0, false); }, go, stop, play, get index(){ return i; } };
+  if (ui.speed) ui.speed.addEventListener('input', () => { speed = parseFloat(ui.speed.value) || 1; if (ui.speedv) ui.speedv.textContent = speed + '×'; if (tl) tl.timeScale(speed); });
+  if (ui.pqOpts) ui.pqOpts.addEventListener('click', e => { const b = e.target.closest('[data-pa]'); if (b) answer(+b.dataset.pa); });
+  if (ui.predict) ui.predict.addEventListener('change', () => { if (!ui.predict.checked && pending){ const r = pending; pending = null; ui.pq.hidden = true; go(r.k, true); if (r.resume) r.resume(); } });
+  api.load = (s, atEnd) => { stop(); steps = s; asked = {}; if (ui.pq){ ui.pq.hidden = true; ui.pq.dataset.k = ''; } if (api.onLoad) api.onLoad(s); go(atEnd ? s.length - 1 : 0, false); };
+  api.go = go; api.stop = stop; api.play = play;
+  api.say = (title, html, c) => { if (ui.title){ ui.title.textContent = title; ui.title.style.setProperty('--pc', c || 'var(--data)'); } if (ui.box) ui.box.style.setProperty('--cap', c || 'var(--data)'); ui.caption.innerHTML = html; };
+  api.toggle = () => { if (ui.play.hidden) stop(); else play(); };
+  Object.defineProperty(api, 'index', {get: () => i});
+  return api;
 }
-function narratorUI(root){ const q = n => root.querySelector('[data-n="' + n + '"]'); return {caption:q('caption'), counter:q('counter'), play:q('play'), pause:q('pause'), prev:q('prev'), next:q('next'), restart:q('restart')}; }
-
-// ---------- 4B views: Three.js models of the three machines, with a 2D SVG board as the fallback ----------
-function Scene3D(st, el){
-  const T = THREE, fit = fitter(st, el, [0.3, 0.45, 1]), labels = labelLayer(st, el);
-  const gTu = new T.Group(), gVe = new T.Group(), gIn = new T.Group(); st.scene.add(gTu, gVe, gIn);
-  gVe.position.x = 14; gIn.position.x = 32;
-  const std = c => new T.MeshStandardMaterial({color:c, roughness:0.6});
-  const marker = (g, x, y, z) => { const o = new T.Object3D(); o.position.set(x, y, z); g.add(o); return o; };
-  // turnstile
-  const cab = new T.Mesh(new T.BoxGeometry(3, 1.6, 1.2), std(0x334155)); cab.position.y = 0.8; gTu.add(cab);
-  const floorT = new T.Mesh(new T.BoxGeometry(6, 0.1, 4), std(0x1E293B)); floorT.position.y = -0.05; gTu.add(floorT);
-  const arms = new T.Group(); arms.position.set(0, 1.35, 0.75); gTu.add(arms);
-  const hub = new T.Mesh(new T.CylinderGeometry(0.28, 0.28, 0.4, 24), std(0xCBD5E1)); hub.rotation.x = Math.PI / 2; arms.add(hub);
-  [90, 210, 330].forEach(a => { const r = a * Math.PI / 180, arm = new T.Mesh(new T.CylinderGeometry(0.08, 0.08, 1.5, 12), std(0xE2E8F0)); arm.position.set(Math.cos(r) * 0.85, Math.sin(r) * 0.85, 0.1); arm.rotation.z = r - Math.PI / 2; arms.add(arm); });
-  const tLampM = glowMat(COL.bad, true), tLamp = new T.Mesh(new T.SphereGeometry(0.22, 20, 14), tLampM); tLamp.position.set(1.15, 1.72, 0.45); gTu.add(tLamp);
-  const slot = new T.Mesh(new T.BoxGeometry(0.5, 0.06, 0.25), std(0x0F172A)); slot.position.set(-1.0, 1.63, 0.25); gTu.add(slot);
-  const coinT = new T.Mesh(new T.CylinderGeometry(0.2, 0.2, 0.05, 24), new T.MeshStandardMaterial({color:0xD4A017, metalness:0.6, roughness:0.3})); coinT.visible = false; gTu.add(coinT);
-  const tLabel = labels.add(marker(gTu, 0, 2.7, 0), 'Locked', 'big');
-  // vending machine
-  const body = new T.Mesh(new T.BoxGeometry(2.4, 3.6, 1.4), std(0xB91C1C)); body.position.y = 1.8; gVe.add(body);
-  const floorV = new T.Mesh(new T.BoxGeometry(6, 0.1, 4), std(0x1E293B)); floorV.position.y = -0.05; gVe.add(floorV);
-  const win = new T.Mesh(new T.BoxGeometry(1.4, 2, 0.06), std(0x0F172A)); win.position.set(-0.3, 2.3, 0.72); gVe.add(win);
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++){ const can = new T.Mesh(new T.CylinderGeometry(0.11, 0.11, 0.42, 14), std([0xEF4444, 0x22C55E, 0x60A5FA][r])); can.position.set(-0.8 + c * 0.33, 1.65 + r * 0.6, 0.86); gVe.add(can); }
-  const tray = new T.Mesh(new T.BoxGeometry(1.4, 0.4, 0.3), std(0x111827)); tray.position.set(-0.3, 0.55, 0.75); gVe.add(tray);
-  const vslot = new T.Mesh(new T.BoxGeometry(0.12, 0.4, 0.06), std(0x0F172A)); vslot.position.set(0.82, 2.2, 0.72); gVe.add(vslot);
-  const cells = [0, 1].map(i => { const m = glowMat(COL.off, false), b = new T.Mesh(new T.BoxGeometry(0.42, 0.32, 0.12), m); b.position.set(0.82, 1.2 + i * 0.38, 0.74); gVe.add(b); return m; });
-  const vLabel = labels.add(marker(gVe, 0, 4.1, 0), 'Credit 0¢', 'big');
-  labels.add(marker(gVe, 1.55, 1.38, 0.74), '25¢ cells');
-  const coinV = new T.Mesh(new T.CylinderGeometry(0.2, 0.2, 0.05, 24), new T.MeshStandardMaterial({color:0xC0C7D1, metalness:0.7, roughness:0.3})); coinV.rotation.x = Math.PI / 2; coinV.visible = false; gVe.add(coinV);
-  const drop = new T.Mesh(new T.CylinderGeometry(0.13, 0.13, 0.46, 14), std(0xEF4444)); drop.visible = false; gVe.add(drop);
-  // intersection
-  const ground = new T.Mesh(new T.BoxGeometry(16, 0.1, 16), std(0x14321F)); ground.position.y = -0.06; gIn.add(ground);
-  const ew = new T.Mesh(new T.BoxGeometry(16, 0.04, 3.2), std(0x374151)); ew.position.y = 0.01; gIn.add(ew);
-  const ns = new T.Mesh(new T.BoxGeometry(3.2, 0.05, 16), std(0x374151)); ns.position.y = 0.012; gIn.add(ns);
-  for (let x = -7.5; x <= 7.5; x += 1.2) if (Math.abs(x) > 2) { const d = new T.Mesh(new T.BoxGeometry(0.6, 0.02, 0.08), std(0xFACC15)); d.position.set(x, 0.05, 0); gIn.add(d); }
-  for (let z = -7.5; z <= 7.5; z += 1.2) if (Math.abs(z) > 2) { const d = new T.Mesh(new T.BoxGeometry(0.08, 0.02, 0.6), std(0xFACC15)); d.position.set(0, 0.05, z); gIn.add(d); }
-  for (let z = -1.4; z <= 1.4; z += 0.4){ const s = new T.Mesh(new T.BoxGeometry(0.7, 0.02, 0.2), std(0xF8FAFC)); s.position.set(2.15, 0.05, z); gIn.add(s); }
-  function signal(x, z, title){
-    const pole = new T.Mesh(new T.CylinderGeometry(0.07, 0.07, 2.4, 10), std(0x9CA3AF)); pole.position.set(x, 1.2, z); gIn.add(pole);
-    const box = new T.Mesh(new T.BoxGeometry(0.5, 1.3, 0.4), std(0x111827)); box.position.set(x, 2.7, z); gIn.add(box);
-    const lamps = {}; [['R', 3.1, COL.bad], ['Y', 2.7, COL.amber], ['G', 2.3, COL.ok]].forEach(([k, y, c]) => { const m = glowMat(0x3F3F46, false), s = new T.Mesh(new T.SphereGeometry(0.15, 16, 12), m); s.position.set(x, y, z + 0.21); gIn.add(s); lamps[k] = {m, c}; });
-    labels.add(marker(gIn, x, 3.6, z), title); return lamps;
-  }
-  const sigEW = signal(-2.4, 2.4, 'Calle Ocho signal'), sigNS = signal(2.4, 2.6, '17th Ave signal');
-  const walkM = glowMat(0x7F1D1D, false), walkB = new T.Mesh(new T.BoxGeometry(0.45, 0.45, 0.2), walkM); walkB.position.set(2.9, 1.4, -2.4); gIn.add(walkB);
-  const wPole = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 1.2, 8), std(0x9CA3AF)); wPole.position.set(2.9, 0.6, -2.4); gIn.add(wPole);
-  const walkLabel = labels.add(marker(gIn, 2.9, 2.0, -2.4), "DON'T WALK");
-  labels.add(marker(gIn, -7.4, 0.4, -1.3), 'Calle Ocho (east-west)'); labels.add(marker(gIn, -1.0, 0.4, -6.5), 'SW 17th Ave (north-south)');
-  function car(color){ const g = new T.Group(); const b = new T.Mesh(new T.BoxGeometry(1.4, 0.45, 0.8), std(color)); b.position.y = 0.35; g.add(b); const c = new T.Mesh(new T.BoxGeometry(0.7, 0.35, 0.7), std(0xE2E8F0)); c.position.set(-0.1, 0.75, 0); g.add(c); gIn.add(g); return g; }
-  const carEW = car(0x2563EB), carNS = car(0xF97316); carNS.rotation.y = Math.PI / 2;
-  const ped = new T.Group(); const pb = new T.Mesh(new T.CylinderGeometry(0.14, 0.14, 0.6, 10), std(0xFDE68A)); pb.position.y = 0.4; ped.add(pb); const ph = new T.Mesh(new T.SphereGeometry(0.15, 12, 10), std(0xFDE68A)); ph.position.y = 0.85; ped.add(ph); gIn.add(ped);
-  const ring = new T.Mesh(new T.TorusGeometry(1.2, 0.12, 10, 40), new T.MeshBasicMaterial({color:0xEF4444, transparent:true, opacity:0})); ring.rotation.x = Math.PI / 2; ring.position.y = 0.4; gIn.add(ring);
-  const HOME = {ew:-5.2, ns:5.2, ped:2.0};
-  let tweens = [];
-  function killAll(){ tweens.forEach(t => t.kill()); tweens = []; }
-  function park(){ carEW.position.set(HOME.ew, 0, 0.8); carNS.position.set(-0.8, 0, HOME.ns); ped.position.set(2.15, 0, HOME.ped); ring.material.opacity = 0; }
-  park();
-  function lamps(sig, l){ ['R', 'Y', 'G'].forEach(k => setGlow(sig[k].m, k === l ? sig[k].c : 0x3F3F46, k === l, true)); }
-  function warn(x, z){ ring.position.set(x, 0.4, z); if (hasGSAP) tweens.push(gsap.fromTo(ring.material, {opacity:1}, {opacity:0.2, duration:0.4, yoyo:true, repeat:7})); else ring.material.opacity = 1; }
-  function drive(obj, axis, to, dur, loop){
-    if (!hasGSAP){ obj.position[axis] = loop ? (obj.position[axis] + to) / 2 : to; return; }
-    tweens.push(gsap.to(obj.position, {[axis]:to, duration:dur, ease:loop ? 'none' : 'power2.out', repeat:loop ? -1 : 0, repeatDelay:0.3}));
-  }
-  const groups = {turn:gTu, vend:gVe, light:gIn};
+function narratorUI(root){ const q = n => root.querySelector('[data-n="' + n + '"]'); return {caption:q('caption'), title:q('title'), box:q('box'), counter:q('counter'), play:q('play'), pause:q('pause'), prev:q('prev'), next:q('next'), restart:q('restart'), speed:q('speed'), speedv:q('speedv'), predict:q('predict'), pq:q('pq'), pqT:q('pqT'), pqOpts:q('pqOpts'), pqFb:q('pqFb'), pqScore:q('pqScore')}; }
+function Rail(el){
+  // Phase rail: one cell per named stage; the current stage glows, earlier stages keep their color.
   return {
-    tab(t, animate){ Object.keys(groups).forEach(k => groups[k].visible = k === t); const g = groups[t]; g.updateMatrixWorld(true); const box = new T.Box3().setFromObject(g); if (t === 'light'){ box.min.x += 3.5; box.max.x -= 3.5; box.min.z += 3.5; box.max.z -= 3.5; } fit.set(box, animate, t === 'light' ? [0.35, 0.9, 1] : [0.3, 0.35, 1]); },
-    turnSet(s, animate){ setGlow(tLampM, s === 'Locked' ? COL.bad : COL.ok, true, animate); tLabel.textContent = s; },
-    turnCoin(){ if (!hasGSAP) return; coinT.visible = true; coinT.position.set(-1.0, 2.4, 0.25); gsap.to(coinT.position, {y:1.6, duration:0.5, ease:'power1.in', onComplete:() => { coinT.visible = false; }}); },
-    turnPush(turns){ if (!hasGSAP) return; if (turns) gsap.to(arms.rotation, {z:arms.rotation.z - Math.PI * 2 / 3, duration:0.8, ease:'power2.inOut'}); else gsap.fromTo(arms.rotation, {z:arms.rotation.z}, {z:arms.rotation.z - 0.12, duration:0.1, yoyo:true, repeat:3}); },
-    vendSet(c, animate){ const n = c / 25; cells.forEach((m, i) => setGlow(m, i < n ? COL.amber : COL.off, i < n, animate)); vLabel.textContent = 'Credit ' + c + '¢'; },
-    vendInsert(coin){ if (!hasGSAP) return; coinV.visible = true; coinV.scale.setScalar(coin === 'H' ? 1.3 : 1); coinV.position.set(0.82, 2.2, 2.4); gsap.to(coinV.position, {z:0.75, duration:0.45, ease:'power1.in', onComplete:() => { coinV.visible = false; }}); },
-    vendDispense(){ if (!hasGSAP) return; drop.visible = true; drop.position.set(-0.3, 1.5, 0.7); gsap.to(drop.position, {y:0.7, duration:0.5, delay:0.35, ease:'bounce.out', onComplete:() => gsap.delayedCall(0.6, () => { drop.visible = false; })}); },
-    lightSet(id, prev){
-      const L = LIGHTS[id]; killAll(); park(); lamps(sigEW, L.EW); lamps(sigNS, L.NS);
-      setGlow(walkM, L.walk ? 0xF8FAFC : 0x7F1D1D, L.walk, true); walkLabel.textContent = L.walk ? 'WALK' : "DON'T WALK";
-      const P = prev ? LIGHTS[prev] : null;
-      const ewGo = L.EW === 'G', nsGo = L.NS === 'G', ewYel = L.EW === 'Y', nsYel = L.NS === 'Y';
-      if ((ewGo || ewYel) && (nsGo || nsYel)){ drive(carEW, 'x', -0.6, 1.2, false); drive(carNS, 'z', 0.6, 1.2, false); warn(0, 0); return; }
-      if (L.walk && L.EW !== 'R'){ drive(carEW, 'x', 1.6, 1.3, false); drive(ped, 'z', 0.2, 1.3, false); warn(2.15, 0.6); return; }
-      if (P && P.EW === 'G' && L.EW === 'R'){ carEW.position.x = -3.6; drive(carEW, 'x', -0.4, 0.9, false); warn(-0.6, 0.8); }
-      if (P && P.NS === 'G' && L.NS === 'R'){ carNS.position.z = 3.6; drive(carNS, 'z', 0.4, 0.9, false); warn(-0.8, 0.6); }
-      if (ewGo) drive(carEW, 'x', 8, 3.2, true);
-      if (nsGo) drive(carNS, 'z', -8, 3.2, true);
-      if (L.walk) drive(ped, 'z', -2.0, 3, true);
-    }
+    set(list){ const tag = el.tagName === 'OL' || el.tagName === 'UL' ? 'li' : 'div'; el.innerHTML = list.map(c => `<${tag} data-p="${c.k}" style="--c:${c.c || 'var(--addr)'}"${c.s ? ` title="${c.s}"` : ''}>${c.l}${c.s && tag === 'div' ? `<small>${c.s}</small>` : ''}</${tag}>`).join(''); el.hidden = !list.length; },
+    mark(on, done){ const ON = [].concat(on || []), D = [].concat(done || []); el.querySelectorAll('[data-p]').forEach(d => { const k = d.dataset.p; d.classList.toggle('on', ON.indexOf(k) >= 0); d.classList.toggle('done', ON.indexOf(k) < 0 && D.indexOf(k) >= 0); }); }
   };
 }
-function Board2D(el){
-  const NS = 'http://www.w3.org/2000/svg', fb = el.querySelector('.fallback'); if (fb) fb.remove();
-  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 400 250'); svg.setAttribute('role', 'img'); svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%'; el.insertBefore(svg, el.firstChild);
-  const S = {tab:'turn', turn:'Locked', credit:0, light:'S0', prev:null};
-  const lampC = {G:'#22C55E', Y:'#F59E0B', R:'#EF4444'};
-  function head(x, y, l, title){ return `<rect x="${x - 14}" y="${y}" width="28" height="70" rx="5" fill="#111827"/>` + ['R', 'Y', 'G'].map((k, i) => `<circle cx="${x}" cy="${y + 12 + i * 23}" r="8" fill="${k === l ? lampC[k] : '#3F3F46'}"/>`).join('') + `<text x="${x}" y="${y + 86}" fill="#E2E8F0" font-size="11" text-anchor="middle">${title}</text>`; }
-  function draw(){
-    let h = '';
-    if (S.tab === 'turn'){
-      const ok = S.turn === 'Open';
-      h = `<rect x="120" y="90" width="160" height="90" rx="8" fill="#334155"/><circle cx="200" cy="120" r="14" fill="#CBD5E1"/>` + [90, 210, 330].map(a => { const r = a * Math.PI / 180; return `<line x1="200" y1="120" x2="${200 + Math.cos(r) * 50}" y2="${120 - Math.sin(r) * 50}" stroke="#E2E8F0" stroke-width="7" stroke-linecap="round"/>`; }).join('') + `<circle cx="262" cy="104" r="10" fill="${ok ? '#22C55E' : '#EF4444'}"/><text x="200" y="40" fill="#F8FAFC" font-size="20" font-weight="700" text-anchor="middle">${S.turn}</text>`;
-    } else if (S.tab === 'vend'){
-      h = `<rect x="140" y="30" width="120" height="190" rx="8" fill="#B91C1C"/><rect x="152" y="45" width="66" height="110" fill="#0F172A"/>` + [0, 1].map(i => `<rect x="228" y="${150 - i * 26}" width="24" height="20" rx="3" fill="${i < S.credit / 25 ? '#F59E0B' : '#475569'}"/>`).join('') + `<rect x="152" y="175" width="66" height="22" fill="#111827"/><text x="200" y="22" fill="#F8FAFC" font-size="18" font-weight="700" text-anchor="middle">Credit ${S.credit}¢</text>`;
-    } else {
-      const L = LIGHTS[S.light], P = S.prev ? LIGHTS[S.prev] : null, danger = stateProblem(S.light) || (P && ((P.EW === 'G' && L.EW === 'R') || (P.NS === 'G' && L.NS === 'R')));
-      h = `<rect x="0" y="100" width="400" height="50" fill="#374151"/><rect x="175" y="0" width="50" height="250" fill="#374151"/><text x="8" y="94" fill="#E2E8F0" font-size="11">Calle Ocho</text><text x="232" y="244" fill="#E2E8F0" font-size="11">SW 17th Ave</text>`;
-      h += head(120, 10, L.EW, 'Calle Ocho') + head(280, 160, L.NS, '17th Ave');
-      h += `<rect x="300" y="20" width="84" height="26" rx="4" fill="${L.walk ? '#F8FAFC' : '#7F1D1D'}"/><text x="342" y="38" font-size="11" font-weight="700" text-anchor="middle" fill="${L.walk ? '#111827' : '#FECACA'}">${L.walk ? 'WALK' : "DON'T WALK"}</text>`;
-      if (danger) h += `<circle cx="200" cy="125" r="34" fill="none" stroke="#EF4444" stroke-width="6"/>`;
-    }
-    svg.innerHTML = h;
+
+// ---------- 4B views: Three.js models of the three machines, with a 2D SVG board as the fallback ----------
+// ---------- Week 4B board: three state machines on one circuit board (turnstile, vending machine, Calle Ocho controller) ----------
+const CSSV = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const MB = {
+  chips: {
+    tcoin: {x: -10.2, z: -3.4, w: 1.5, d: 0.9, nm: 'COIN'}, tpush: {x: -10.2, z: -1.4, w: 1.5, d: 0.9, nm: 'PUSH'},
+    tstate: {x: -7.0, z: -2.4, w: 2.2, d: 1.4, nm: 'STATE'}, tlamp: {x: -8.6, z: 1.0, w: 1.3, d: 1.0, nm: 'LAMP'}, tarm: {x: -6.0, z: 1.6, w: 1.8, d: 1.4, nm: 'ARM'},
+    vslot: {x: -1.4, z: -4.0, w: 1.7, d: 0.9, nm: 'COIN SLOT'}, vadd: {x: -1.4, z: -1.9, w: 1.5, d: 1.0, nm: 'ADD'},
+    vcredit: {x: -1.4, z: 0.6, w: 2.2, d: 1.4, nm: 'CREDIT'}, vq1: {x: -2.3, z: 2.9, w: 1.1, d: 1.0, nm: '25¢', cell: true}, vq2: {x: -0.5, z: 2.9, w: 1.1, d: 1.0, nm: '25¢', cell: true},
+    vsoda: {x: 1.9, z: 0.6, w: 1.4, d: 1.4, nm: 'SODA'},
+    ltimer: {x: 5.6, z: -4.2, w: 1.6, d: 0.9, nm: 'TIMER T'}, lbtn: {x: 9.8, z: -4.2, w: 1.7, d: 0.9, nm: 'BUTTON P'},
+    lstate: {x: 7.7, z: -2.0, w: 2.4, d: 1.4, nm: 'STATE'},
+    lew: {x: 5.4, z: 1.2, w: 2.0, d: 1.3, nm: 'CALLE OCHO'}, lns: {x: 10.0, z: 1.2, w: 2.0, d: 1.3, nm: '17TH AVE'}, lwalk: {x: 7.7, z: 3.6, w: 2.0, d: 1.1, nm: 'WALK SIGN'}
+  },
+  traces: [
+    {pts: [{x: -9.45, z: -3.4}, {x: -8.6, z: -3.4}, {x: -8.6, z: -2.7}, {x: -8.1, z: -2.7}], bus: 'in'}, {pts: [{x: -9.45, z: -1.4}, {x: -8.6, z: -1.4}, {x: -8.6, z: -2.1}, {x: -8.1, z: -2.1}], bus: 'in'},
+    {pts: [{x: -7.6, z: -1.7}, {x: -7.6, z: 0.0}, {x: -8.6, z: 0.0}, {x: -8.6, z: 0.5}], bus: 'st'}, {pts: [{x: -6.4, z: -1.7}, {x: -6.4, z: 0.9}], bus: 'st'},
+    {pts: [{x: -1.4, z: -3.55}, {x: -1.4, z: -2.4}], bus: 'in'}, {pts: [{x: -1.4, z: -1.4}, {x: -1.4, z: -0.1}], bus: 'st', lines: 2},
+    {pts: [{x: -1.4, z: 1.3}, {x: -1.4, z: 2.0}, {x: -2.3, z: 2.0}, {x: -2.3, z: 2.4}], bus: 'st'}, {pts: [{x: -1.4, z: 2.0}, {x: -0.5, z: 2.0}, {x: -0.5, z: 2.4}], bus: 'st'},
+    {pts: [{x: -0.3, z: 0.6}, {x: 1.2, z: 0.6}], bus: 'out'}, {pts: [{x: -2.5, z: 0.6}, {x: -3.0, z: 0.6}, {x: -3.0, z: -1.9}, {x: -2.15, z: -1.9}], bus: 'st', lines: 2},
+    {pts: [{x: 5.6, z: -3.75}, {x: 5.6, z: -2.0}, {x: 6.5, z: -2.0}], bus: 'in'}, {pts: [{x: 9.8, z: -3.75}, {x: 9.8, z: -2.0}, {x: 8.9, z: -2.0}], bus: 'in'},
+    {pts: [{x: 7.2, z: -1.3}, {x: 7.2, z: -0.4}, {x: 5.4, z: -0.4}, {x: 5.4, z: 0.55}], bus: 'st', lines: 2}, {pts: [{x: 8.2, z: -1.3}, {x: 8.2, z: -0.4}, {x: 10.0, z: -0.4}, {x: 10.0, z: 0.55}], bus: 'st', lines: 2},
+    {pts: [{x: 7.7, z: -1.3}, {x: 7.7, z: 3.05}], bus: 'st'}
+  ],
+  paths: {
+    coin: [{x: -9.45, z: -3.4}, {x: -8.6, z: -3.4}, {x: -8.6, z: -2.7}, {x: -8.1, z: -2.7}], push: [{x: -9.45, z: -1.4}, {x: -8.6, z: -1.4}, {x: -8.6, z: -2.1}, {x: -8.1, z: -2.1}],
+    arm: [{x: -6.4, z: -1.7}, {x: -6.4, z: 0.9}],
+    vin: [{x: -1.4, z: -3.55}, {x: -1.4, z: -2.4}, {x: -1.4, z: -1.4}, {x: -1.4, z: -0.1}], soda: [{x: -0.3, z: 0.6}, {x: 1.2, z: 0.6}],
+    ew: [{x: 7.2, z: -1.3}, {x: 7.2, z: -0.4}, {x: 5.4, z: -0.4}, {x: 5.4, z: 0.55}], ns: [{x: 8.2, z: -1.3}, {x: 8.2, z: -0.4}, {x: 10.0, z: -0.4}, {x: 10.0, z: 0.55}], walk: [{x: 7.7, z: -1.3}, {x: 7.7, z: 3.05}]
+  },
+  areas: {turn: [-11.4, -4.2, -5.0, 3.2], vend: [-3.6, 3.2, -5.0, 3.9], light: [3.9, 11.4, -5.0, 4.6]},
+  info: {
+    tcoin: '<b>Coin input.</b> A paid fare. In the Locked state it moves the turnstile to Open; in the Open state it changes nothing.',
+    tpush: '<b>Push input.</b> Someone pushes the arm. From Open it lets one rider through and returns to Locked; from Locked nothing moves.',
+    tstate: '<b>State register.</b> One flip-flop is enough to remember the two states, Locked and Open. Each input moves it to its next state.',
+    tlamp: '<b>Lamp.</b> An output of the state: red while Locked, green while Open.', tarm: '<b>Arm.</b> It turns only when a push arrives in the Open state.',
+    vslot: '<b>Coin slot.</b> Quarters (Q, 25 cents) and half dollars (H, 50 cents) enter here.', vadd: '<b>Adder.</b> It adds the coin to the credit. Reaching 50 cents dispenses a soda.',
+    vcredit: '<b>Credit register.</b> The machine has only two states: 0 cents or 25 cents of credit.', vq1: '<b>Credit cell.</b> Lit amber while 25 cents of credit is held.', vq2: '<b>Credit cell.</b> Lit amber while 25 cents of credit is held.',
+    vsoda: '<b>Soda output.</b> It fires every time the credit reaches 50 cents. Any extra 25 cents stays as credit.',
+    ltimer: '<b>Timer input (T).</b> When the timer runs out, the controller moves to its next state.', lbtn: '<b>Crossing button (P).</b> A pedestrian request. A safe controller still goes through yellow and all red first.',
+    lstate: '<b>State register.</b> Holds S0 to S5 (and the unsafe draft states). Every light is an output of this state.',
+    lew: '<b>Calle Ocho signal.</b> The east-west traffic light.', lns: '<b>SW 17th Avenue signal.</b> The north-south traffic light.',
+    lwalk: '<b>Walk sign.</b> WALK lets pedestrians cross Calle Ocho, so it is safe only while Calle Ocho has a red light.'
   }
-  return {tab(t){ S.tab = t; draw(); }, turnSet(s){ S.turn = s; draw(); }, turnCoin(){}, turnPush(){}, vendSet(c){ S.credit = c; draw(); }, vendInsert(){}, vendDispense(){}, lightSet(id, prev){ S.light = id; S.prev = prev || null; draw(); }};
+};
+function Scene3D(stage, onInfo){
+  const lab = Lab3D(stage, {
+    board: {w: 24.4, d: 11.6, cx: 0, cz: -0.4, silk: 'STATE MACHINES  REV 1.0  EGN 325 WEEK 4', seed: 47},
+    views: {overview: {pos: [0, 18, 12.5], tgt: [0, 0, -0.4], want: 1.6}, turn: {pos: [-7.6, 9.5, 7.5], tgt: [-7.6, 0, -0.9], want: 1.15},
+      vend: {pos: [-0.4, 9.5, 7.5], tgt: [-0.4, 0, -0.6], want: 1.15}, light: {pos: [7.7, 9.5, 7.8], tgt: [7.7, 0, -0.3], want: 1.15}}
+  });
+  if (!lab) return null;
+  window.__lab = lab; // test hook: the camera and controls
+  const HI = c => new lab.T.Color(c).multiplyScalar(0.35); // highlight glow kept dark so chips do not wash out to white
+  const T = lab.T, scene = lab.scene;
+  const C = {on: CSSV('--led'), addr: CSSV('--addr'), data: CSSV('--data'), bad: CSSV('--bad'), ctrl: CSSV('--ctrl'), copper: CSSV('--copper')};
+  Object.values(MB.areas).forEach(([a, b, c, d]) => lab.silkRect(a, b, c, d));
+  lab.zone('turnstile · Brickell station', -7.8, 3.75); lab.zone('vending machine · Little Havana', -0.2, 4.45); lab.zone('Calle Ocho and SW 17th Ave', 7.65, 5.15);
+  lab.zone('Calle Ocho (east-west)', 5.4, 2.35, C.silk); lab.zone('17th Ave (north-south)', 10.0, 2.35);
+  const mats = {in: lab.busMat(C.data), st: lab.busMat(C.copper, {base: C.copper, rest: 0.08}), out: lab.busMat(C.on)};
+  MB.traces.forEach(t => lab.trace(t.pts, t.lines || 1, mats[t.bus]));
+  const R = {};
+  Object.keys(MB.chips).forEach(k => { R[k] = lab.chip(k, MB.chips[k]); });
+  lab.finishPins();
+  const ledMat = (c, on) => on ? new T.MeshStandardMaterial({color: new T.Color(c).multiplyScalar(0.6), emissive: new T.Color(c), emissiveIntensity: 0.55, roughness: .4}) : new T.MeshStandardMaterial({color: '#1b2622', roughness: .6});
+  const OFF = ledMat(null, false), LIT = {G: ledMat(C.on, true), Y: ledMat(C.addr, true), R: ledMat(C.bad, true), W: ledMat('#e8efe4', true), A: ledMat(C.addr, true)};
+  function led(rec, x, z, r){ const m = new T.Mesh(new T.SphereGeometry(r || 0.16, 18, 12), OFF); m.position.set(x, rec.h + 0.12, z); rec.g.add(m); return m; }
+  const lamps = {tlamp: led(R.tlamp, 0.42, 0.28, 0.17)};
+  const heads = {lew: {}, lns: {}};
+  ['lew', 'lns'].forEach(k => ['R', 'Y', 'G'].forEach((l, i) => { heads[k][l] = led(R[k], -0.6 + i * 0.6, 0.42, 0.15); }));
+  const walkLed = led(R.lwalk, 0.72, 0.3, 0.16), cellLeds = [led(R.vq1, 0.33, 0.3, 0.14), led(R.vq2, 0.33, 0.3, 0.14)];
+  // a three-armed rotor on the ARM chip turns when a rider passes
+  const rotor = new T.Group(); rotor.position.set(0, R.tarm.h + 0.18, 0); R.tarm.g.add(rotor);
+  const steel = new T.MeshStandardMaterial({color: 0xc9ced1, metalness: .9, roughness: .3});
+  [0, 120, 240].forEach(a => { const m = new T.Mesh(lab.unit, steel); m.scale.set(0.62, 0.06, 0.07); const r = a * Math.PI / 180; m.position.set(Math.cos(r) * 0.32, 0, Math.sin(r) * 0.32); m.rotation.y = -r; rotor.add(m); });
+  const unsafe = lab.label('UNSAFE', 'zone', 7.7, 0.1, -3.05); unsafe.style.setProperty('--c', C.bad); unsafe.style.fontWeight = 700; unsafe._obj.visible = false;
+  lab.onPick(k => { if (onInfo) onInfo(MB.info[k] || ''); });
+  let introDone = false, sodaT = null;
+  const api = {
+    kind: '3d',
+    tab(t, animate){ if (!introDone){ introDone = true; lab.intro(); setTimeout(() => lab.setView(MS.tab), 1900); return; } lab.setView(t, !animate); },
+    turnSet(s, animate){ R.tstate.val.textContent = s; R.tstate.sub.textContent = s === 'Open' ? 'fare paid' : 'pay a fare'; lamps.tlamp.material = s === 'Open' ? LIT.G : LIT.R; R.tlamp.val.textContent = s === 'Open' ? 'green' : 'red'; R.tarm.val.textContent = s === 'Open' ? 'free' : 'held'; if (animate) lab.pop(R.tstate); },
+    turnCoin(){ lab.clear(); lab.hi(R.tcoin, HI(C.data)); lab.fly(MB.paths.coin, 'coin', C.addr, {y: 0.55, dur: 0.6}); },
+    turnPush(turns){ lab.clear(); lab.hi(R.tpush, HI(C.data)); lab.fly(MB.paths.push, 'push', C.data, {y: 0.55, dur: 0.6});
+      if (turns){ gsap.to(rotor.rotation, {y: rotor.rotation.y - Math.PI * 2 / 3, duration: 0.8, delay: 0.4, ease: 'power2.inOut'}); lab.pop(R.tarm); }
+      else gsap.fromTo(rotor.rotation, {y: rotor.rotation.y}, {y: rotor.rotation.y - 0.12, duration: 0.1, yoyo: true, repeat: 3, delay: 0.4}); },
+    vendSet(c, animate){ const n = c / 25; R.vcredit.val.textContent = c + '¢'; R.vcredit.sub.textContent = (50 - c) + '¢ more for a soda'; cellLeds.forEach((m, i) => { m.material = i < n ? LIT.A : OFF; }); [R.vq1, R.vq2].forEach((r, i) => { r.val.textContent = i < n ? 'held' : ''; }); if (animate) lab.pop(R.vcredit); },
+    vendInsert(coin){ lab.clear(); lab.hi(R.vslot, HI(C.data)); R.vslot.val.textContent = coin; R.vadd.val.textContent = coin === 'Q' ? '+25' : '+50'; lab.fly(MB.paths.vin, coin === 'Q' ? '25¢' : '50¢', C.addr, {y: 0.55, dur: 0.8}); },
+    vendDispense(){ lab.hi(R.vsoda, HI(C.on)); R.vsoda.val.textContent = 'soda'; lab.fly(MB.paths.soda, 'soda', C.on, {y: 0.55, dur: 0.5}); lab.pop(R.vsoda); clearTimeout(sodaT); sodaT = setTimeout(() => { R.vsoda.val.textContent = ''; }, 1600); },
+    lightSet(id, prev){
+      const L = LIGHTS[id], P = prev ? LIGHTS[prev] : null;
+      R.lstate.val.textContent = id; R.lstate.sub.textContent = L.name;
+      [['lew', 'EW'], ['lns', 'NS']].forEach(([k, d]) => { ['R', 'Y', 'G'].forEach(l => { heads[k][l].material = L[d] === l ? LIT[l] : OFF; }); R[k].val.textContent = lightWord(L[d]); });
+      walkLed.material = L.walk ? LIT.W : LIT.R; R.lwalk.val.textContent = L.walk ? 'WALK' : "DON'T WALK";
+      const danger = stateProblem(id) || (P && !stateProblem(prev) && rowProblem([prev, '', id]));
+      lab.clear(); unsafe._obj.visible = !!danger;
+      if (danger){ lab.hi(R.lstate, HI(C.bad)); if (stateProblem(id) || (P && P.EW === 'G' && L.EW === 'R')) lab.hi(R.lew, HI(C.bad)); if (stateProblem(id) || (P && P.NS === 'G' && L.NS === 'R')) lab.hi(R.lns, HI(C.bad)); if (L.walk) lab.hi(R.lwalk, HI(C.bad)); }
+      if (prev && hasGSAP){ lab.pop(R.lstate); lab.fly(MB.paths.ew, lightWord(L.EW), L.EW === 'G' ? C.on : L.EW === 'Y' ? C.addr : C.bad, {y: 0.55, dur: 0.7}); lab.fly(MB.paths.ns, lightWord(L.NS), L.NS === 'G' ? C.on : L.NS === 'Y' ? C.addr : C.bad, {y: 0.55, dur: 0.7}); }
+    }
+  };
+  return api;
+}
+function Board2D(stage, onInfo){
+  const NS = 'http://www.w3.org/2000/svg', S0 = 36, X = x => (x + 12.2) * S0, Y = z => (z + 6.2) * S0;
+  const C = {on: CSSV('--led'), addr: CSSV('--addr'), data: CSSV('--data'), bad: CSSV('--bad'), copper: CSSV('--copper')};
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'flat'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Flat diagram of the state machine board');
+  stage.appendChild(svg);
+  const mk = (tag, at, parent) => { const e = document.createElementNS(NS, tag); Object.keys(at).forEach(k => e.setAttribute(k, at[k])); (parent || svg).appendChild(e); return e; };
+  mk('rect', {x: 4, y: 4, width: 24.4 * S0 - 8, height: 11.6 * S0 - 8, rx: 12, fill: '#0d302a', stroke: '#2a5c51'});
+  Object.values(MB.areas).forEach(([a, b, c, d]) => mk('rect', {x: X(a), y: Y(c), width: (b - a) * S0, height: (d - c) * S0, fill: 'none', stroke: 'rgba(232,239,228,.3)'}));
+  [['TURNSTILE · BRICKELL STATION', -7.8, 3.75], ['VENDING MACHINE · LITTLE HAVANA', -0.2, 4.45], ['CALLE OCHO AND SW 17TH AVE', 7.65, 5.15]].forEach(([t, x, z]) => { mk('text', {x: X(x), y: Y(z), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 10, 'letter-spacing': 1.2}).textContent = t; });
+  const busCol = {in: C.data, st: C.copper, out: C.on};
+  MB.traces.forEach(t => mk('polyline', {points: t.pts.map(p => X(p.x) + ',' + Y(p.z)).join(' '), fill: 'none', stroke: busCol[t.bus], 'stroke-opacity': .55, 'stroke-width': (t.lines || 1) * 2 + 1, 'stroke-linejoin': 'round'}));
+  const R = {};
+  Object.keys(MB.chips).forEach(k => {
+    const c = MB.chips[k], g = mk('g', {style: 'cursor:pointer'});
+    const r = mk('rect', {x: X(c.x - c.w / 2), y: Y(c.z - c.d / 2), width: c.w * S0, height: c.d * S0, rx: 4, fill: '#15191b', stroke: '#3c5a52', 'stroke-width': 1.5}, g);
+    mk('text', {x: X(c.x), y: Y(c.z - c.d / 2) + 11, 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 8.5, 'letter-spacing': 1}, g).textContent = c.nm;
+    const v = mk('text', {x: X(c.x), y: Y(c.z) + 9, 'text-anchor': 'middle', fill: '#e8efe4', 'font-size': 12, 'font-weight': 600}, g);
+    g.addEventListener('click', () => onInfo && onInfo(MB.info[k] || ''));
+    R[k] = {r, v};
+  });
+  const dot = (k, dx, dz, rr) => mk('circle', {cx: X(MB.chips[k].x + dx), cy: Y(MB.chips[k].z + dz), r: rr || 6, fill: '#1b2622'});
+  const heads = {lew: {}, lns: {}}; ['lew', 'lns'].forEach(k => ['R', 'Y', 'G'].forEach((l, i) => { heads[k][l] = dot(k, -0.6 + i * 0.6, 0.45, 5); }));
+  const lamp = dot('tlamp', 0.45, 0.3, 6), walk = dot('lwalk', 0.78, 0.32, 6), cells = [dot('vq1', 0.36, 0.32, 5), dot('vq2', 0.36, 0.32, 5)];
+  const ring = mk('rect', {x: X(4.2), y: Y(-4.9), width: 7 * S0, height: 9.3 * S0, rx: 10, fill: 'none', stroke: C.bad, 'stroke-width': 4, opacity: 0});
+  const LC = {G: C.on, Y: C.addr, R: C.bad};
+  const set = (k, t, hot) => { R[k].v.textContent = t; R[k].r.setAttribute('stroke', hot || '#3c5a52'); R[k].r.setAttribute('stroke-width', hot ? 2.5 : 1.5); };
+  const VB = {turn: [-11.6, -5.3, 7.6, 9.5], vend: [-3.8, -5.3, 7.2, 10.2], light: [3.7, -5.3, 7.9, 10.9]};
+  return {
+    kind: '2d',
+    tab(t){ const v = VB[t]; svg.setAttribute('viewBox', [X(v[0]), Y(v[1]), v[2] * S0, v[3] * S0].join(' ')); },
+    turnSet(s){ set('tstate', s); lamp.setAttribute('fill', s === 'Open' ? C.on : C.bad); set('tlamp', s === 'Open' ? 'green' : 'red'); set('tarm', s === 'Open' ? 'free' : 'held'); },
+    turnCoin(){}, turnPush(){},
+    vendSet(c){ set('vcredit', c + '¢'); cells.forEach((m, i) => m.setAttribute('fill', i < c / 25 ? C.addr : '#1b2622')); },
+    vendInsert(coin){ set('vslot', coin); set('vadd', coin === 'Q' ? '+25' : '+50'); }, vendDispense(){ set('vsoda', 'soda', C.on); },
+    lightSet(id, prev){
+      const L = LIGHTS[id], P = prev ? LIGHTS[prev] : null;
+      set('lstate', id);
+      [['lew', 'EW'], ['lns', 'NS']].forEach(([k, d]) => { ['R', 'Y', 'G'].forEach(l => heads[k][l].setAttribute('fill', L[d] === l ? LC[l] : '#1b2622')); set(k, lightWord(L[d])); });
+      walk.setAttribute('fill', L.walk ? '#e8efe4' : C.bad); set('lwalk', L.walk ? 'WALK' : "DON'T WALK");
+      const danger = stateProblem(id) || (P && !stateProblem(prev) && rowProblem([prev, '', id]));
+      ring.setAttribute('opacity', danger ? 1 : 0); if (danger) set('lstate', id, C.bad);
+    }
+  };
 }
 
 const $ = id => document.getElementById(id);
 function shuffle(a){ a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-const stageEl = $('stage'), st = make3D(stageEl, {camera:[0, 4, 12]});
-const V = st ? Scene3D(st, stageEl) : Board2D(stageEl);
-const ui = narratorUI(document.querySelector('.card3d')), narr = Narrator(ui);
+const stageEl = $('stage'), showInfo = html => { if (html) $('info').innerHTML = html; };
+let V = null;
+try { V = Scene3D(stageEl, showInfo); } catch (e) { console.error(e); V = null; }
+if (!V){ $('nogl').hidden = false; document.querySelectorAll('.views').forEach(v => { v.hidden = true; }); V = Board2D(stageEl, showInfo); }
+const ui = narratorUI(document.querySelector('.card3d')), narr = Narrator(ui), rail = Rail($('rail'));
 const MS = {tab:'turn', turn:'Locked', vend:'0', light:'S0'};
 const lamp = l => `<span class="lamp ${l}"></span>${lightWord(l)}`;
-function badge(){ $('stateBadge').textContent = MS.tab === 'turn' ? 'State: ' + MS.turn : MS.tab === 'vend' ? 'State: ' + MS.vend + '¢ credit' : 'State ' + MS.light + ': ' + LIGHTS[MS.light].name; }
+function lightColor(s){ const L = LIGHTS[s]; return stateProblem(s) ? 'var(--bad)' : (L.EW === 'G' || L.NS === 'G') ? 'var(--led)' : (L.EW === 'Y' || L.NS === 'Y') ? 'var(--addr)' : 'var(--bad)'; }
+function leds(bits){ return '<div class="bits" style="--nb:' + bits.length + '">' + bits.map(b => `<div class="bit${b ? ' one' : ''}"><i></i>${b ? '25¢' : ''}</div>`).join('') + '</div>'; }
+function renderLive(){
+  let cells, cur, items;
+  if (MS.tab === 'turn'){
+    cells = [{k:'Locked', l:'Locked', c:'var(--bad)'}, {k:'Open', l:'Open', c:'var(--led)'}]; cur = MS.turn;
+    items = [['State', MS.turn, '', 'starts Locked'], ['Lamp', MS.turn === 'Open' ? 'green' : 'red', '', MS.turn === 'Open' ? 'fare paid' : 'pay a fare first'], ['On coin', TURN[MS.turn].coin.next, '', 'next state'], ['On push', TURN[MS.turn].push.next, '', 'next state']];
+  } else if (MS.tab === 'vend'){
+    cells = [{k:'0', l:'0¢', c:'var(--silk-dim)'}, {k:'25', l:'25¢', c:'var(--addr)'}]; cur = MS.vend;
+    const nx = x => VEND[MS.vend][x].next + '¢' + (VEND[MS.vend][x].out ? ' + soda' : '');
+    items = [['Credit', MS.vend + '¢', leds(MS.vend === '25' ? [1, 0] : [0, 0]), 'quarters held'], ['Needs', (50 - +MS.vend) + '¢', '', 'more for a soda'], ['On Q', nx('Q'), '', 'quarter, 25¢'], ['On H', nx('H'), '', 'half dollar, 50¢']];
+  } else {
+    const base = ['S0', 'S1', 'S2', 'S3', 'S4', 'S5'], L = LIGHTS[MS.light], sp = stateProblem(MS.light), tp = MS.lprev ? rowProblem([MS.lprev, '', MS.light]) : '', bad = !!(sp || tp);
+    cells = base.concat(base.indexOf(MS.light) < 0 ? [MS.light] : []).map(s => ({k:s, l:s, s:LIGHTS[s].name, c:lightColor(s)})); cur = MS.light;
+    items = [['State', MS.light, '', L.name], ['Calle Ocho', lightWord(L.EW), '', 'east-west signal'], ['17th Ave', lightWord(L.NS), '', 'north-south signal'], ['Pedestrians', L.walk ? 'WALK' : 'wait', '', L.walk ? 'crossing Calle Ocho' : "DON'T WALK"], ['Safety', bad ? 'unsafe' : 'safe', '', sp ? 'conflicting movements' : (tp ? 'no yellow before red' : 'no conflict'), bad]];
+  }
+  rail.set(cells); rail.mark(cur, []);
+  $('live').innerHTML = items.map(([n, v, bits, sub, bad]) => `<div class="reg kv${bad ? ' bad' : ''}"><span class="rn">${n}</span><span class="rv">${v}</span><span class="rf">${sub}</span><span class="rs"></span>${bits}</div>`).join('');
+}
+function titled(t, steps){
+  steps.forEach((s, k) => { if (s.title) return;
+    if (t === 'light') { s.title = steps.length === 2 ? (k ? 'After the input' : 'Before the input') : 'State S' + k; s.c = 'var(--led)'; }
+    else if (t === 'turn') { s.title = k ? 'Input ' + k : 'Start: Locked'; s.c = 'var(--data)'; }
+    else { s.title = k === 0 ? 'Start: 0¢' : (k === steps.length - 1 ? 'Result' : 'Coin ' + k); s.c = 'var(--addr)'; } });
+  return steps;
+}
+function badge(){ renderLive(); $('stateBadge').textContent = MS.tab === 'turn' ? 'State: ' + MS.turn : MS.tab === 'vend' ? 'State: ' + MS.vend + '¢ credit' : 'State ' + MS.light + ': ' + LIGHTS[MS.light].name; }
 
 // ---------- machine actions (used by demos, manual buttons, replays, and previews) ----------
 function turnInput(x, animate){
@@ -589,7 +1262,7 @@ function vendInput(x, animate){
   const total = +from + (x === 'Q' ? 25 : 50);
   return `<b>${from}¢ + ${x === 'Q' ? 'quarter' : 'half dollar'}</b> makes ${total}¢. ` + (tr.out ? `That reaches 50¢, so it dispenses a soda and keeps ${MS.vend}¢.` : `Not enough yet, so the credit is ${MS.vend}¢.`);
 }
-function lightGo(id, prev){ MS.light = id; V.lightSet(id, prev); badge(); }
+function lightGo(id, prev){ MS.light = id; MS.lprev = prev || null; V.lightSet(id, prev); badge(); }
 function lightText(id){ const L = LIGHTS[id]; return `Calle Ocho ${lamp(L.EW)}, 17th Ave ${lamp(L.NS)}, ${L.walk ? 'WALK' : "DON'T WALK"}`; }
 
 // ---------- narrated demos ----------
@@ -613,18 +1286,19 @@ function lightSteps(){
     S4:'Yellow for 17th Avenue. WALK ends before cars on 17th get red.', S5:'All red again, then the cycle returns to S0.'};
   return cyc.map((s, k) => ({text:`<b>${s}: ${LIGHTS[s].name}.</b> ${lightText(s)}. ${why[s]}`, show:a => lightGo(s, k ? cyc[k - 1] : null), dur:3.2}));
 }
-const HELP = {turn:'Drag to orbit. Use the buttons below the caption to send inputs, or press Play for the demo.', vend:'Insert coins with the buttons below the caption and watch the credit cells and the soda tray.', light:'Watch the lights, the cars, and the walk signal. A flashing red ring marks danger.'};
+const HELP = {turn:'Drag to orbit. Use the input buttons below the narration, or press Run for the demo.', vend:'Insert coins with the input buttons and watch the credit cells and the soda output.', light:'Watch both signals and the walk sign. Chips that turn red, and the UNSAFE label, mark danger.'};
 function setTab(t, animate, steps){
   MS.tab = t; document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'));
   V.tab(t, animate); $('stageHelp').textContent = HELP[t];
-  narr.load(steps || (t === 'turn' ? turnSteps() : t === 'vend' ? vendSteps(['Q', 'Q', 'H', 'Q', 'H']) : lightSteps()), false);
-  $('manual').innerHTML = t === 'turn' ? '<button class="btn" data-m="coin">Insert coin</button><button class="btn" data-m="push">Push the arm</button>'
-    : t === 'vend' ? '<button class="btn" data-m="Q">Insert Q (25¢)</button><button class="btn" data-m="H">Insert H (50¢)</button><button class="btn" data-m="v0">Reset to 0¢</button>'
-    : '<button class="btn" data-m="T">Timer runs out (T)</button><button class="btn" data-m="P">Press the crossing button (P)</button>';
+  document.querySelectorAll('.views button[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === t));
+  narr.load(titled(t, steps || (t === 'turn' ? turnSteps() : t === 'vend' ? vendSteps(['Q', 'Q', 'H', 'Q', 'H']) : lightSteps())), false);
+  $('manual').innerHTML = t === 'turn' ? '<button class="btn" type="button" data-m="coin">Insert coin</button><button class="btn" type="button" data-m="push">Push the arm</button>'
+    : t === 'vend' ? '<button class="btn" type="button" data-m="Q">Insert Q (25¢)</button><button class="btn" type="button" data-m="H">Insert H (50¢)</button><button class="btn" type="button" data-m="v0">Reset to 0¢</button>'
+    : '<button class="btn" type="button" data-m="T">Timer runs out (T)</button><button class="btn" type="button" data-m="P">Press the crossing button (P)</button>';
 }
 document.addEventListener('click', e => {
   const tb = e.target.closest('[data-tab]'); if (tb){ setTab(tb.dataset.tab, true); return; }
-  const m = e.target.closest('[data-m]'); if (!m) return; narr.stop(); const k = m.dataset.m;
+  const m = e.target.closest('[data-m]'); if (!m) return; narr.stop(); const k = m.dataset.m; narr.say('Your input: ' + m.textContent, '', 'var(--data)');
   if (k === 'coin' || k === 'push') ui.caption.innerHTML = turnInput(k, true);
   else if (k === 'Q' || k === 'H') ui.caption.innerHTML = vendInput(k, true);
   else if (k === 'v0'){ MS.vend = '0'; V.vendSet(0, true); badge(); ui.caption.innerHTML = 'Credit reset to 0¢.'; }
@@ -643,20 +1317,23 @@ function updateScore(){
   $('runScore').textContent = earned() + ' / 100';
   const left = (G.p1 ? 0 : 1) + (5 - G.p2.pts.length) + (4 - G.p3.pts.length);
   $('runLeft').textContent = left ? left + (left === 1 ? ' item left' : ' items left') : 'all parts done';
+  $('progBar').style.width = ((10 - left) * 10) + '%';
+  const p2 = G.p2.pts.reduce((a, b) => a + b, 0), p3 = G.p3.pts.reduce((a, b) => a + b, 0);
+  $('partPts').innerHTML = `<span class="pill${G.p1 ? ' done' : ''}">Part 1 · ${G.p1 ? G.p1.pts : 0} / 20</span><span class="pill${G.p2.pts.length === 5 ? ' done' : ''}">Part 2 · ${p2} / 40 · ${G.p2.pts.length} of 5 rounds</span><span class="pill${G.p3.pts.length === 4 ? ' done' : ''}">Part 3 · ${p3} / 40 · ${G.p3.pts.length} of 4 drafts</span>`;
   if (!left) showFinal();
 }
 // Part 1
 function diagram(svgId, states, edges){
   const pos = {}, cnt = {}; states.forEach((s, i) => pos[s] = [110 + i * 200, 115]);
-  let h = '<defs><marker id="ah' + svgId + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker></defs>';
+  let h = '<defs><marker id="ah' + svgId + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C4D4CB"/></marker></defs>';
   edges.forEach(([a, x, b, known]) => {
-    const [x1, y1] = pos[a], col = known ? '#475569' : '#CBD5E1', dash = known ? '' : ' stroke-dasharray="5 5"';
-    if (!known || !b){ cnt[a] = (cnt[a] || 0) + 1; h += `<text x="${x1}" y="${y1 + 62 + cnt[a] * 17}" font-size="13" text-anchor="middle" fill="#6B7280">${x}: ?</text>`; return; }
-    if (a === b){ const up = states.indexOf(a) === 0 ? -1 : 1; h += `<path d="M${x1 - 18},${y1 + up * 44} C${x1 - 50},${y1 + up * 100} ${x1 + 50},${y1 + up * 100} ${x1 + 18},${y1 + up * 44}" fill="none" stroke="${col}" stroke-width="2"${dash} marker-end="url(#ah${svgId})"/><text x="${x1}" y="${y1 + up * 90 + (up > 0 ? 8 : 0)}" font-size="13" text-anchor="middle" fill="#1F2937">${x}</text>`; return; }
+    const [x1, y1] = pos[a], col = known ? '#C4D4CB' : '#2A5C51', dash = known ? '' : ' stroke-dasharray="5 5"';
+    if (!known || !b){ cnt[a] = (cnt[a] || 0) + 1; h += `<text x="${x1}" y="${y1 + 62 + cnt[a] * 17}" font-size="13" text-anchor="middle" fill="#9DB6AC">${x}: ?</text>`; return; }
+    if (a === b){ const up = states.indexOf(a) === 0 ? -1 : 1; h += `<path d="M${x1 - 18},${y1 + up * 44} C${x1 - 50},${y1 + up * 100} ${x1 + 50},${y1 + up * 100} ${x1 + 18},${y1 + up * 44}" fill="none" stroke="${col}" stroke-width="2"${dash} marker-end="url(#ah${svgId})"/><text x="${x1}" y="${y1 + up * 90 + (up > 0 ? 8 : 0)}" font-size="13" text-anchor="middle" fill="#E8EFE4">${x}</text>`; return; }
     const [x2] = pos[b], dir = x2 > x1 ? 1 : -1, off = dir > 0 ? -22 : 22;
-    h += `<path d="M${x1 + dir * 48},${y1 + off} Q${(x1 + x2) / 2},${y1 + off * 2.6} ${x2 - dir * 48},${y1 + off}" fill="none" stroke="${col}" stroke-width="2"${dash} marker-end="url(#ah${svgId})"/><text x="${(x1 + x2) / 2}" y="${y1 + off * 2.2 + (dir > 0 ? -2 : 12)}" font-size="13" text-anchor="middle" fill="#1F2937">${x}</text>`;
+    h += `<path d="M${x1 + dir * 48},${y1 + off} Q${(x1 + x2) / 2},${y1 + off * 2.6} ${x2 - dir * 48},${y1 + off}" fill="none" stroke="${col}" stroke-width="2"${dash} marker-end="url(#ah${svgId})"/><text x="${(x1 + x2) / 2}" y="${y1 + off * 2.2 + (dir > 0 ? -2 : 12)}" font-size="13" text-anchor="middle" fill="#E8EFE4">${x}</text>`;
   });
-  states.forEach(s => { const [x, y] = pos[s]; h += `<circle cx="${x}" cy="${y}" r="46" fill="#F8FAFC" stroke="#E1141E" stroke-width="2.5"/><text x="${x}" y="${y + 5}" font-size="14" font-weight="700" text-anchor="middle" fill="#1F2937">${s}</text>`; });
+  states.forEach(s => { const [x, y] = pos[s]; h += `<circle cx="${x}" cy="${y}" r="46" fill="#0A211D" stroke="#4FD1E8" stroke-width="2.5"/><text x="${x}" y="${y + 5}" font-size="14" font-weight="700" text-anchor="middle" fill="#E8EFE4">${s}</text>`; });
   $(svgId).innerHTML = h;
 }
 function renderP1(){
@@ -710,7 +1387,7 @@ function renderP3rows(reveal){
   const P = G.p3;
   $('p3rows').innerHTML = '<tr><th>Unsafe?</th><th>From</th><th>Input</th><th>To</th><th></th></tr>' + P.rows.map((r, i) => {
     const bad = reveal && rowProblem(r);
-    return `<tr class="p3r${bad ? ' isbad' : ''}" id="p3r${i}"><td><label><input type="radio" name="p3pick" value="${i}"${P.done ? ' disabled' : ''}> <span class="small">pick</span></label></td><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><button class="btn sm" data-prev="${i}">Preview</button></td></tr>`;
+    return `<tr class="p3r${bad ? ' isbad' : ''}" id="p3r${i}"><td><label><input type="radio" name="p3pick" value="${i}"${P.done ? ' disabled' : ''}> <span class="small">pick</span></label></td><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><button class="btn sm" type="button" data-prev="${i}">Preview</button></td></tr>`;
   }).join('');
 }
 $('p3rows').addEventListener('click', e => {
@@ -745,9 +1422,18 @@ function showFinal(){
   $('finalTable').innerHTML = `<tr><th>Part</th><th>Points</th></tr><tr><td>1. Turnstile transitions</td><td>${p1} / 20</td></tr><tr><td>2. Vending machine predictions</td><td>${p2} / 40</td></tr><tr><td>3. Unsafe transitions</td><td>${p3} / 40</td></tr>`;
   $('finalMsg').textContent = t >= 90 ? 'Excellent. You are ready to design the traffic light state machine in Assignment 4.2.' : t >= 70 ? 'Good work. Replay the vending rounds or the 3D intersection for the parts where you lost points before Assignment 4.2.' : 'Try again with new rounds. Use the narrated demos at the top to trace each machine one input at a time.';
   $('final').hidden = false;
+  if (hasGSAP) gsap.fromTo('#finalBig', {scale:0.6, opacity:0}, {scale:1, opacity:1, duration:0.6, ease:'back.out(2)'});
 }
 $('againBtn').addEventListener('click', () => { newGame(); $('p1-h').scrollIntoView({behavior:'smooth'}); });
 V.turnSet('Locked', false); V.vendSet(0, false); V.lightSet('S0', null);
+document.querySelectorAll('.views button[data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.views button[data-view]').forEach(x => x.classList.toggle('on', x === b)); if (V.kind === '3d') { const t = b.dataset.view; if (t === 'overview' || t === MS.tab) V.tab(t, true); else setTab(t, true); } }));
+document.addEventListener('keydown', e => {
+  const tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SUMMARY') return;
+  if (e.key === ' '){ e.preventDefault(); if (!ui.next.disabled) ui.next.click(); }
+  else if (e.key === 'b' || e.key === 'B'){ if (!ui.prev.disabled) ui.prev.click(); }
+  else if (e.key === 'r' || e.key === 'R') narr.toggle();
+});
 setTab('turn', false); badge(); newGame();
 
 </script>
