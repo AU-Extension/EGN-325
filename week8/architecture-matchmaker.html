@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture matchmaker challenge</title>
+<meta name="description" content="EGN 325 Week 8 interactive: Match real workloads to the right kind of processor, then spot the hazards that slow a pipeline down.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/*W78CSS*/
+  .round-head{display:flex;justify-content:space-between;gap:8px;font-weight:600;color:var(--muted);font-size:14px}
+  .progress{height:6px;border-radius:999px;background:#EEF1F5;margin:8px 0 12px;overflow:hidden}
+  .progress div{height:100%;width:0;background:var(--au-red);transition:width .3s}
+  .ask{font-weight:600;margin:14px 0 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chipbtn{display:inline-flex;align-items:center;gap:8px}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:3px}
+  .opts{display:flex;flex-direction:column;gap:8px}
+  .opts button{text-align:left;font-weight:500}
+  .btn.right{border-color:var(--ok);background:var(--ok-soft)}
+  .btn.wrong{border-color:var(--bad);background:var(--bad-soft)}
+  .btn.partial{border-color:#D97706;background:#FEF3C7}
+  .chips .btn:disabled,.opts .btn:disabled{cursor:default;opacity:1;color:var(--ink)}
+  .feedback{margin-top:10px}
+  .muted{color:var(--muted);font-size:14px;margin:0 0 8px}
+  .stepcount{font-size:13px;color:var(--muted);margin-left:4px}
+  .stepper .btn{min-width:84px}
+  .stepper .btn:disabled{opacity:.45;cursor:not-allowed}
+  .caption code,.opts code,#scenario code{font-family:var(--mono);font-size:13px;background:rgba(15,23,34,.06);padding:0 4px;border-radius:4px}
+  .caption .occ{display:inline-block;margin-top:4px;font-size:13px;color:var(--ink-2)}
+  .miss{color:var(--bad);font-weight:700}
+  .fw{color:#B45309;font-weight:700}
+  .big{font-size:28px;color:var(--au-red-dark)}
+  #pipeWrap{margin-top:12px}
+  table.pipe td,table.pipe th{text-align:center;padding:6px;font-size:13px;white-space:nowrap}
+  table.pipe td.ins{text-align:left}
+  .s-IF{background:#DBEAFE;color:#1E3A8A}
+  .s-ID{background:#EDE9FE;color:#5B21B6}
+  .s-EX{background:#DCFCE7;color:#14532D}
+  .s-MEM{background:#FEF3C7;color:#92400E}
+  .s-WB{background:#FCE7F3;color:#9D174D}
+  .s-stall{background:#FEE2E2;color:#991B1B;font-weight:700}
+  #fallback2d{margin-top:8px}
+  #fallback2d svg{width:100%;height:auto;display:block}
+  @media (max-width:560px){ #stage .label3d{font-size:10px;padding:1px 4px} }
+
+/*W78CSS-END*/
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 8 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 8 · Challenge</span>
+    <h1>Architecture matchmaker challenge</h1>
+    <p class="lede">Match real workloads to the right kind of processor, then spot the hazards that slow a pipeline down.</p>
+  </section>
+
+<!--BODY-->
+  <details class="howto card">
+    <summary>How to use this challenge</summary>
+    <ol>
+      <li>Wynwood Wheels, a fictional delivery startup in Miami, needs the right processor for each job. Part 1 has 6 workloads. Pick the processor (6 points), then pick the reason (4 points). A processor that works but is not the best choice earns part of the points.</li>
+      <li>You can pick a processor with the buttons or by clicking a chip in the 3D view. Drag to turn the board and compare the core grids.</li>
+      <li>After each answer, press <b>Play</b> or <b>Step</b> to watch the tasks flow into the cores and see why one design wins.</li>
+      <li>Part 2 has 4 short RISC-V sequences. Spot the data hazard (10 points each), then step through the pipeline to check your answer.</li>
+      <li>Your final score is out of 100. Try again shuffles the reasons and answers.</li>
+    </ol>
+  </details>
+
+  <section class="card" id="roundCard" style="margin-bottom:16px">
+    <div class="round-head"><span id="roundNum">Part 1 · Workload 1 of 6</span><span id="scoreNow">Score 0</span></div>
+    <div class="progress"><div id="progFill"></div></div>
+    <h2 id="roundTitle"></h2>
+    <p id="scenario"></p>
+    <pre class="cli" id="codeBox" hidden></pre>
+    <div id="chipPick">
+      <p class="ask">1. Which processor fits best?</p>
+      <div class="chips" id="chipBtns" role="group" aria-label="Processor choices"></div>
+      <div id="chipFb" class="feedback" hidden aria-live="polite"></div>
+    </div>
+    <div id="reasonPick" hidden>
+      <p class="ask" id="reasonAsk">2. Why?</p>
+      <div class="opts" id="reasonOpts" role="group" aria-label="Reason choices"></div>
+      <div id="reasonFb" class="feedback" hidden aria-live="polite"></div>
+    </div>
+    <div class="btnrow"><button class="btn primary" id="nextBtn" hidden>Next</button></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2 id="stageTitle">The processor board</h2>
+    <p class="muted" id="stageNote">Five kinds of processor, drawn with their cores. Click one to learn about it.</p>
+    <div class="stage3d" id="stage"></div>
+    <div id="fallback2d" hidden></div>
+    <div class="stepper">
+      <button class="btn" id="backBtn" aria-label="Step back">&#9664; Back</button>
+      <button class="btn primary" id="playBtn">&#9654; Play</button>
+      <button class="btn" id="pauseBtn">&#10074;&#10074; Pause</button>
+      <button class="btn" id="stepBtn" aria-label="Step forward">Step &#9654;</button>
+      <span class="stepcount" id="stepCount"></span>
+    </div>
+    <div class="caption" id="caption" aria-live="polite"></div>
+    <div class="scroll-x" id="pipeWrap" hidden><table class="data pipe" id="pipeTable" aria-label="Pipeline diagram"></table></div>
+  </section>
+
+  <section class="card" id="finalCard" hidden>
+    <h2>Your result</h2>
+    <div class="score" id="finalScore"></div>
+    <div class="scroll-x"><table class="data" id="summary" aria-label="Round summary"></table></div>
+    <div class="btnrow"><button class="btn primary" id="againBtn">Try again</button></div>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script id="app">
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---------- Week 7 and 8 extras on top of the skeleton's make3D ---------- */
+function box3(w, h, d, color, extra){
+  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.08 }, extra || {})));
+}
+function tweenTo(target, vars){
+  // GSAP when available; otherwise jump to the end state so every learning path still works
+  if (hasGSAP) return gsap.to(target, vars);
+  const v = Object.assign({}, vars); ['duration', 'ease', 'delay', 'onComplete', 'repeat', 'yoyo', 'stagger', 'overwrite'].forEach(k => delete v[k]);
+  Object.assign(target, v); if (vars.onComplete) vars.onComplete();
+  return null;
+}
+function colorTo(mesh, hex, dur){
+  const c = new THREE.Color(hex);
+  if (hasGSAP) return gsap.to(mesh.material.color, { r: c.r, g: c.g, b: c.b, duration: dur == null ? 0.4 : dur, overwrite: true });
+  mesh.material.color.copy(c); return null;
+}
+function picker(st, objects, onPick){
+  // click or tap an object in the 3D scene
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement;
+  el.addEventListener('pointerup', e => {
+    const r = el.getBoundingClientRect();
+    m.x = ((e.clientX - r.left) / r.width) * 2 - 1; m.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(m, st.camera);
+    const hit = ray.intersectObjects(objects(), true)[0];
+    if (hit) onPick(hit.object);
+  });
+}
+/* ---------- end extras ---------- */
+
+/* LOGIC START */
+const STAGES = ['IF', 'ID', 'EX', 'MEM', 'WB'];
+function parseInstr(s){
+  const sp = s.indexOf(' '), op = s.slice(0, sp), args = s.slice(sp + 1).replace('(', ',').replace(')', '').split(',').map(a => a.trim());
+  if (op === 'lw') return { text: s, op, dest: args[0], srcs: [args[2]], load: true };
+  if (op === 'sw') return { text: s, op, dest: null, srcs: [args[0], args[2]], load: false };
+  if (['addi', 'slli', 'andi', 'ori'].includes(op)) return { text: s, op, dest: args[0], srcs: [args[1]], load: false };
+  if (['beq', 'bne'].includes(op)) return { text: s, op, dest: null, srcs: [args[0], args[1]], load: false };
+  return { text: s, op, dest: args[0], srcs: [args[1], args[2]], load: false };
+}
+function schedule(instrs, forwarding){
+  const ifs = [], ids = [], deps = [];
+  instrs.forEach((ins, i) => {
+    let IF, ID; const d = [];
+    if (i === 0){ IF = 1; ID = 2; }
+    else {
+      IF = ids[i - 1]; ID = ids[i - 1] + 1;
+      ins.srcs.forEach(src => {
+        for (let j = i - 1; j >= 0; j--){
+          if (instrs[j].dest === src && src !== 'x0' && src !== 'zero'){
+            d.push({ reg: src, from: j });
+            if (!forwarding) ID = Math.max(ID, ids[j] + 3);
+            else if (instrs[j].load) ID = Math.max(ID, ids[j] + 2);
+            break;
+          }
+        }
+      });
+    }
+    ifs.push(IF); ids.push(ID); deps.push(d);
+  });
+  const total = ids[ids.length - 1] + 3;
+  return { ifs, ids, deps, total, stalls: total - (instrs.length + 4) };
+}
+function stageAt(sch, i, c){
+  const IF = sch.ifs[i], ID = sch.ids[i];
+  if (c < IF) return 'wait';
+  if (c === IF) return 'IF';
+  if (c < ID) return 'stall';
+  const k = c - ID;
+  return k <= 3 ? STAGES[1 + k] : 'done';
+}
+function hasHazard(lines){ return schedule(lines.map(parseInstr), false).deps.some(d => d.length > 0); }
+function stallsOf(lines, fwd){ return schedule(lines.map(parseInstr), fwd).stalls; }
+/* LOGIC END */
+
+const CHIPS = [
+  { id: 'cpu', name: 'Laptop CPU', cores: [2, 2], core: 0.85, color: 0x2563EB, pkg: 3.0, about: 'A handful of big, fast cores, each very good at running one stream of instructions with lots of decisions (branches). Great for everyday programs that need quick response.' },
+  { id: 'server', name: 'Server CPU', cores: [4, 6], core: 0.34, color: 0x0EA5E9, pkg: 3.0, about: 'Dozens of big cores and lots of cache. Built to run many independent programs or requests at the same time, all day.' },
+  { id: 'gpu', name: 'GPU', cores: [12, 12], core: 0.15, color: 0x16A34A, pkg: 3.0, about: 'Thousands of small, simple cores that all run the same instruction on different data. Ideal when the same math repeats on millions of values, like pixels or the numbers inside an AI model.' },
+  { id: 'npu', name: 'AI accelerator', cores: [6, 6], core: 0.28, color: 0x7C3AED, pkg: 3.0, about: 'A grid of multiply and add units that pass numbers to their neighbors (a systolic array). It does the matrix math of neural networks with very little energy. Phones include a small one, often called an NPU or neural engine.' },
+  { id: 'mcu', name: 'Microcontroller', cores: [1, 1], core: 0.5, color: 0xEA580C, pkg: 1.7, about: 'One small, slow core with its own little memory on the same chip. It costs very little and can run for months on a battery. You find it in sensors, appliances, and toys.' }
+];
+const chipById = id => CHIPS.find(c => c.id === id);
+
+const WORKLOADS = [
+  { title: 'Rendering the promo video', text: 'Wynwood Wheels needs to export a 4K promo video. Every frame has more than 8 million pixels, and the same color math runs on each pixel.',
+    best: ['gpu'], partial: ['server'], tasks: 144, contrast: 'cpu',
+    chipWhy: { gpu: 'The same small calculation on millions of pixels is exactly what thousands of GPU cores do in parallel.', server: 'Dozens of big cores help, and it would work, but a GPU has far more cores for this kind of repeated math.', cpu: 'A few big cores would take turns on the pixels, so the export would take much longer.', npu: 'An AI accelerator is built for neural network math, not for general pixel and video work.', mcu: 'One tiny core would need days for a single 4K video.' },
+    reasons: [
+      { t: 'Thousands of small cores run the same math on many pixels at once', ok: true },
+      { t: 'Video export needs one very fast core and lots of branches', why: 'Video export is the opposite: simple math repeated on millions of pixels, which parallel cores share.' },
+      { t: 'A GPU uses the least power of any processor', why: 'A big GPU draws a lot of power. It wins on speed for parallel work, not on energy.' },
+      { t: 'Only GPUs can store video files', why: 'Files live in storage, not in the processor. The GPU wins because of how many cores it has.' }
+    ] },
+  { title: 'Training a delay prediction model', text: 'The data team wants to train an AI model on five years of delivery records to predict late arrivals. Training repeats huge matrix multiplications billions of times.',
+    best: ['gpu', 'npu'], partial: ['server'], tasks: 144, contrast: 'cpu',
+    chipWhy: { gpu: 'GPUs are the most common way to train AI models: thousands of cores share the matrix math.', npu: 'Large AI accelerators (such as the chips in cloud data centers) are built for exactly this matrix math.', server: 'It would work, slowly. Dozens of cores are far fewer than a GPU or accelerator offers for matrix math.', cpu: 'Training on a laptop CPU would take a very long time for this much data.', mcu: 'A microcontroller does not have the memory or speed for model training.' },
+    reasons: [
+      { t: 'Training is mostly matrix math that thousands of parallel units can share', ok: true },
+      { t: 'Training needs a single core with the highest clock rate', why: 'Training splits into millions of independent multiplications. Many cores beat one fast core.' },
+      { t: 'AI models only run on chips with “AI” in the name', why: 'Any processor can run the math. Some are just much faster at it.' },
+      { t: 'The data is too small to need a big processor', why: 'Five years of records and billions of operations is a large job.' }
+    ] },
+  { title: 'Face sign-in on a phone', text: 'Each driver signs in to a company phone by looking at it. The face check runs a small neural network in a fraction of a second, many times a day, on battery.',
+    best: ['npu'], partial: ['gpu', 'cpu'], tasks: 36, contrast: 'gpu',
+    chipWhy: { npu: 'The phone\'s small AI accelerator runs the face network fast and with very little battery.', gpu: 'The phone\'s GPU could run it, but it would use more energy than the accelerator built for this.', cpu: 'The main CPU cores could run it, more slowly and with more battery drain.', server: 'A server CPU does not fit in a phone, and sending your face to a server is slower and less private.', mcu: 'A microcontroller is too slow for a neural network that must answer in a fraction of a second.' },
+    reasons: [
+      { t: 'A small built-in AI accelerator runs neural network math using very little energy', ok: true },
+      { t: 'Face sign-in needs thousands of cores like a desktop GPU', why: 'A phone has no room or battery for that. A small accelerator is enough for one face check.' },
+      { t: 'The phone sends the picture to a server CPU', why: 'Face sign-in runs on the phone itself, which is faster and keeps the face data private.' },
+      { t: 'Face sign-in is simple enough for a microcontroller', why: 'A neural network needs millions of operations in a fraction of a second, far beyond a microcontroller.' }
+    ] },
+  { title: 'Editing the invoice spreadsheet', text: 'The office manager updates a spreadsheet of the week\'s invoices: typing values, sorting columns, and recalculating a few totals.',
+    best: ['cpu'], partial: ['server'], tasks: 4, contrast: 'gpu',
+    chipWhy: { cpu: 'A few big, fast cores give instant response for everyday programs like a spreadsheet.', server: 'A server CPU would work, but it is expensive and built for many users at once.', gpu: 'A spreadsheet has little repeated math and lots of decisions. GPU cores would mostly sit idle.', npu: 'There is no neural network here, so an AI accelerator has nothing to do.', mcu: 'A microcontroller cannot run a desktop operating system and spreadsheet program.' },
+    reasons: [
+      { t: 'Everyday programs run a few tasks with many decisions, so a few fast cores respond best', ok: true },
+      { t: 'Spreadsheets do the same math on millions of cells, so a GPU is best', why: 'A weekly invoice sheet is small, and the work is mostly typing and decisions, not massive repeated math.' },
+      { t: 'More cores always make every program faster', why: 'Only work that splits into parallel pieces speeds up with more cores (remember Amdahl\'s law).' },
+      { t: 'A spreadsheet needs an AI accelerator to calculate totals', why: 'Totals are simple arithmetic that any CPU core does instantly.' }
+    ] },
+  { title: 'Running the tracking website', text: 'Customers check where their package is on the company website. At lunch time, thousands of tracking requests arrive at once, each one independent of the others.',
+    best: ['server'], partial: ['cpu'], tasks: 48, contrast: 'cpu',
+    chipWhy: { server: 'Each request can run on its own core or thread, so dozens of cores answer thousands of customers quickly.', cpu: 'A laptop CPU could serve a few users, but thousands of requests would queue on its few cores.', gpu: 'Each request is different work with many decisions (database lookups, pages), which GPU cores handle poorly.', npu: 'Web requests are not neural network math.', mcu: 'One tiny core could answer only a handful of requests.' },
+    reasons: [
+      { t: 'Many independent requests can each run on their own core or thread at the same time', ok: true },
+      { t: 'Web pages are images, so a GPU should build them', why: 'Building a web page means database lookups and decisions per request, which suits CPU cores.' },
+      { t: 'One very fast core is better than many cores for many users', why: 'With thousands of independent requests, many cores working at once win.' },
+      { t: 'The website should run on a microcontroller to save power', why: 'It would save power but could never keep up with thousands of customers.' }
+    ] },
+  { title: 'The truck temperature sensor', text: 'Each refrigerated truck has a battery-powered sensor that reads the temperature once a minute and sends an alert if it gets too warm.',
+    best: ['mcu'], partial: [], tasks: 1, contrast: 'cpu',
+    chipWhy: { mcu: 'A tiny, cheap core with its own memory, using so little power that a battery lasts for months.', cpu: 'A laptop CPU would work but would drain the battery quickly and cost far more.', server: 'Far too big, hot, and expensive for one reading per minute.', gpu: 'Thousands of cores for one number per minute would waste almost all of them.', npu: 'There is no neural network to run, just a simple comparison.' },
+    reasons: [
+      { t: 'The job is simple and slow, so a small, cheap, low-power core is enough', ok: true },
+      { t: 'Sensors need many cores to read one value', why: 'One reading per minute is a tiny amount of work for a single core.' },
+      { t: 'A microcontroller is faster than a laptop CPU', why: 'It is much slower. It wins on cost and power, not speed.' },
+      { t: 'Temperature readings need AI to compare with a limit', why: 'Checking "is it above the limit?" is one comparison, no AI needed.' }
+    ] }
+];
+
+const HAZ = [
+  { title: 'Load, then use', code: ['lw t0, 0(s0)', 'add t1, t0, t2'], fwd: true,
+    q: 'Forwarding is on. What happens to <code>add</code>?',
+    opts: [
+      { t: 'add waits ' + stallsOf(['lw t0, 0(s0)', 'add t1, t0, t2'], true) + ' cycle for t0: a load-use hazard', ok: true, why: 'The loaded value only exists after MEM, but add needs it at the start of EX in the very next cycle. Forwarding saves the rest, but one stall remains.' },
+      { t: 'No stall: forwarding removes every hazard', why: 'Forwarding cannot send a value back in time. A load result arrives one cycle too late for the next instruction.' },
+      { t: 'add waits ' + stallsOf(['lw t0, 0(s0)', 'add t1, t0, t2'], false) + ' cycles', why: 'That is the wait without forwarding. With forwarding only one stall is left.' },
+      { t: 'lw waits for add', why: 'Instructions go in order. The later instruction (add) is the one that waits for the earlier one.' }
+    ] },
+  { title: 'A dependency two lines apart', code: ['add t0, t1, t2', 'sub t3, t4, t5', 'and t6, t0, s1'], fwd: false,
+    q: 'Forwarding is off. How many stall cycles does this sequence need?',
+    opts: [0, 1, 2, 3].map(k => ({ t: k + (k === 1 ? ' stall' : ' stalls'), ok: k === stallsOf(['add t0, t1, t2', 'sub t3, t4, t5', 'and t6, t0, s1'], false),
+      why: k === 0 ? 'and reads t0, which add writes. The sub in between gives only one cycle of distance, not enough without forwarding.' : k === 2 ? 'Two stalls would be needed if and came right after add. The sub in between already covers one of them.' : k === 3 ? 'Three stalls is more than needed: and may read t0 in ID in the same cycle that add writes it in WB.' : 'and needs to read t0 in ID while add writes it in WB, three cycles after add\'s ID. The sub fills one, so one stall is left.' })) },
+  { title: 'Add, then store', code: ['addi t0, t0, 1', 'sw t0, 0(s1)'], fwd: true,
+    q: 'Forwarding is on. Which register creates the dependency, and how many stalls are left?',
+    opts: [
+      { t: 't0, with ' + stallsOf(['addi t0, t0, 1', 'sw t0, 0(s1)'], true) + ' stalls: the new t0 is forwarded', ok: true, why: 'sw stores the t0 that addi just computed. The ALU result is forwarded from the EX/MEM register straight into the next EX, so nothing waits.' },
+      { t: 's1, with 1 stall', why: 'No instruction here writes s1, so s1 creates no dependency.' },
+      { t: 't0, with ' + stallsOf(['addi t0, t0, 1', 'sw t0, 0(s1)'], false) + ' stalls', why: 'That would be the wait without forwarding.' },
+      { t: 'There is no dependency', why: 'addi writes t0 and sw reads t0, so there is a dependency. Forwarding just hides it.' }
+    ] },
+  { title: 'Find the safe pair', code: null, fwd: false,
+    q: 'Which pair of instructions has <b>no</b> data hazard?',
+    opts: [
+      { lines: ['sub t4, t5, t6', 'and t0, t1, t2'], why: 'and reads t1 and t2, and sub writes only t4, so and never waits for sub.' },
+      { lines: ['lw t1, 0(s0)', 'add t2, t1, t3'], why: 'add reads t1, which the load is still fetching.' },
+      { lines: ['add t0, t1, t2', 'sw t0, 4(s0)'], why: 'sw stores t0, which add is still computing.' },
+      { lines: ['addi s1, s1, 4', 'lw t0, 0(s1)'], why: 'lw uses s1 to form its address, and addi is still updating s1.' }
+    ].map(o => ({ t: o.lines.join(' ; '), lines: o.lines, ok: !hasHazard(o.lines), why: hasHazard(o.lines) ? 'This pair has a hazard: ' + o.why : 'Correct pair: ' + o.why })) }
+];
+HAZ[3].code = HAZ[3].opts.find(o => o.ok).lines;
+
+/* ---------- state ---------- */
+const $ = id => document.getElementById(id);
+const TOTAL = WORKLOADS.length + HAZ.length;
+let G, steps = [], si = 0, playing = false, timer = null;
+function shuffle(a){ a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function newGame(){
+  G = { r: 0, score: 0, results: [], reasons: WORKLOADS.map(w => shuffle(w.reasons)), haz: HAZ.map(h => shuffle(h.opts)) };
+  $('finalCard').hidden = true; $('roundCard').hidden = false; showRound();
+}
+function isHaz(){ return G.r >= WORKLOADS.length; }
+function showRound(){
+  stopPlay();
+  G.stage = 'chip'; G.pts = 0; G.answered = false; G.chip = null;
+  $('scoreNow').textContent = 'Score ' + G.score;
+  $('progFill').style.width = (100 * G.r / TOTAL) + '%';
+  $('chipFb').hidden = true; $('reasonFb').hidden = true; $('nextBtn').hidden = true;
+  if (!isHaz()){
+    const w = WORKLOADS[G.r];
+    $('roundNum').textContent = 'Part 1 · Workload ' + (G.r + 1) + ' of ' + WORKLOADS.length;
+    $('roundTitle').textContent = w.title; $('scenario').textContent = w.text;
+    $('codeBox').hidden = true; $('chipPick').hidden = false; $('reasonPick').hidden = true;
+    $('reasonAsk').textContent = '2. Why is that the best choice?';
+    const box = $('chipBtns'); box.innerHTML = '';
+    CHIPS.forEach(c => { const b = document.createElement('button'); b.className = 'btn chipbtn'; b.type = 'button'; b.dataset.chip = c.id; b.innerHTML = '<span class="dot" style="background:#' + c.color.toString(16).padStart(6, '0') + '"></span>' + c.name; b.addEventListener('click', () => pickChip(c.id)); box.appendChild(b); });
+    $('stageTitle').textContent = 'The processor board'; $('pipeWrap').hidden = true;
+    steps = workloadSteps(w); showBoard();
+  } else {
+    const h = HAZ[G.r - WORKLOADS.length];
+    $('roundNum').textContent = 'Part 2 · Hazard ' + (G.r - WORKLOADS.length + 1) + ' of ' + HAZ.length;
+    $('roundTitle').textContent = h.title; $('scenario').innerHTML = h.q;
+    $('codeBox').hidden = !h.code || G.r - WORKLOADS.length === 3; $('codeBox').textContent = h.code ? h.code.join('\n') : '';
+    $('chipPick').hidden = true; $('reasonPick').hidden = false; $('reasonAsk').textContent = 'Pick one answer.';
+    fillOpts(G.haz[G.r - WORKLOADS.length], (o, b) => answerHaz(o, b));
+    $('stageTitle').textContent = 'Check it in the pipeline'; $('pipeWrap').hidden = true;
+    steps = hazardSteps(h); showPipe(h);
+  }
+  si = 0; show(0);
+}
+function fillOpts(list, fn){
+  const box = $('reasonOpts'); box.innerHTML = '';
+  list.forEach(o => { const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.innerHTML = o.lines ? '<code>' + o.lines.join('</code> then <code>') + '</code>' : o.t; b.dataset.t = o.t; b.addEventListener('click', () => fn(o, b)); box.appendChild(b); });
+}
+function pickChip(id){
+  if (isHaz() || G.stage !== 'chip') return;
+  const w = WORKLOADS[G.r], best = w.best.includes(id), part = w.partial.includes(id);
+  G.stage = 'reason'; G.chip = id; G.pts = best ? 6 : part ? 3 : 0;
+  [...$('chipBtns').children].forEach(b => { b.disabled = true; if (w.best.includes(b.dataset.chip)) b.classList.add('right'); if (b.dataset.chip === id && !best) b.classList.add(part ? 'partial' : 'wrong'); });
+  const fb = $('chipFb'); fb.hidden = false; fb.className = 'feedback ' + (best ? 'ok' : part ? 'info' : 'bad');
+  const bestNames = w.best.map(b => chipById(b).name).join(' or ');
+  fb.innerHTML = (best ? '<b>Best choice, +6.</b> ' : part ? '<b>It would work, +3.</b> ' : '<b>Not a good fit, +0.</b> ') + w.chipWhy[id] + (best ? '' : ' <b>Best: ' + bestNames + '.</b> ' + w.chipWhy[w.best[0]]);
+  $('reasonPick').hidden = false;
+  fillOpts(G.reasons[G.r], (o, b) => answerReason(o, b));
+  highlightChip(id, best ? 0x16A34A : part ? 0xF59E0B : 0xDC2626);
+  $('scoreNow').textContent = 'Score ' + (G.score + G.pts);
+}
+function answerReason(o, btn){
+  if (G.stage !== 'reason') return; G.stage = 'done';
+  const w = WORKLOADS[G.r], right = w.reasons.find(x => x.ok);
+  if (o.ok) G.pts += 4;
+  [...$('reasonOpts').children].forEach(b => { b.disabled = true; if (b.dataset.t === right.t) b.classList.add('right'); });
+  if (!o.ok) btn.classList.add('wrong');
+  const fb = $('reasonFb'); fb.hidden = false; fb.className = 'feedback ' + (o.ok ? 'ok' : 'bad');
+  fb.innerHTML = o.ok ? '<b>Right reason, +4.</b> ' + chipById(w.best[0]).about : '<b>Not this reason.</b> ' + o.why + ' <b>The key reason:</b> ' + right.t + '.';
+  finishRound(w.title, chipById(G.chip).name + ' / ' + (o.ok ? 'right reason' : 'other reason'), w.best.map(b => chipById(b).name).join(' or '));
+}
+function answerHaz(o, btn){
+  if (G.answered) return;
+  const h = HAZ[G.r - WORKLOADS.length], right = h.opts.find(x => x.ok);
+  G.pts = o.ok ? 10 : 0;
+  [...$('reasonOpts').children].forEach(b => { b.disabled = true; if (b.dataset.t === right.t) b.classList.add('right'); });
+  if (!o.ok) btn.classList.add('wrong');
+  const fb = $('reasonFb'); fb.hidden = false; fb.className = 'feedback ' + (o.ok ? 'ok' : 'bad');
+  fb.innerHTML = (o.ok ? '<b>Correct, +10.</b> ' : '<b>Not quite.</b> ' + o.why + ' <b>Answer:</b> ') + right.why;
+  $('pipeWrap').hidden = false; drawPipeTable(h);
+  finishRound(h.title, o.t, right.t);
+}
+function finishRound(title, picked, right){
+  G.answered = true; G.score += G.pts;
+  G.results.push({ title, picked, right, pts: G.pts });
+  $('scoreNow').textContent = 'Score ' + G.score;
+  $('nextBtn').hidden = false; $('nextBtn').textContent = G.r === TOTAL - 1 ? 'See my score' : 'Next';
+  $('stageNote').textContent = 'Press Play to watch the explanation, or Step through it.';
+  show(0);
+}
+function next(){
+  if (G.r < TOTAL - 1){ G.r++; showRound(); $('roundCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  $('progFill').style.width = '100%'; $('roundCard').hidden = true; $('finalCard').hidden = false;
+  const s = G.score;
+  $('finalScore').innerHTML = 'Final score: <span class="big">' + s + ' / 100</span><br><span class="muted">' + (s >= 90 ? 'You match workloads to processors like an architect.' : s >= 70 ? 'Good work. Replay the explanations for the rounds you missed.' : 'Review the chips on the board and the pipeline steps, then try again.') + '</span>';
+  let h = '<tr><th>Round</th><th>Your answer</th><th>Best answer</th><th>Points</th></tr>';
+  G.results.forEach((x, i) => { h += '<tr><td>' + (i + 1) + '. ' + x.title + '</td><td>' + x.picked + '</td><td>' + x.right + '</td><td>' + x.pts + ' / 10</td></tr>'; });
+  $('summary').innerHTML = h; $('finalCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---------- explanation steps ---------- */
+function workloadSteps(w){
+  const best = chipById(w.best[0]), con = chipById(w.contrast);
+  const cores = c => c.cores[0] * c.cores[1];
+  const waves = c => Math.ceil(w.tasks / cores(c));
+  return [
+    { cap: 'The workload as tasks: ' + (w.tasks === 1 ? 'one small job, once a minute.' : w.tasks + ' pieces of work shown as glowing dots (the real job has many more).'), before: ' Pick a processor above or click a chip, then press Play.', after: ' Press Play to send the tasks to the processors.', view: 'all', flow: null },
+    { cap: best.name + ': ' + best.about + (w.tasks > 1 ? ' Here the ' + w.tasks + ' tasks fit in ' + waves(best) + ' wave' + (waves(best) > 1 ? 's' : '') + ' across ' + cores(best) + ' cores (in this model).' : ''), view: best.id, flow: best.id },
+    { cap: 'Compare: ' + con.name + '. ' + w.chipWhy[con.id] + (w.tasks > 1 ? ' In this model it needs ' + waves(con) + ' waves on ' + cores(con) + ' cores.' : ''), view: con.id, flow: con.id },
+    { cap: 'The match: ' + w.reasons.find(x => x.ok).t + '. Choosing a processor means matching its design to the shape of the work.', view: 'all', flow: null }
+  ];
+}
+function hazardSteps(h){
+  const instrs = h.code.map(parseInstr), sch = schedule(instrs, h.fwd), out = [];
+  for (let c = 0; c <= sch.total; c++){
+    let cap;
+    if (c === 0) cap = 'Forwarding is ' + (h.fwd ? 'on' : 'off') + '. Answer first, then step through the clock cycles to check.';
+    else {
+      const occ = STAGES.map(sg => { const i = instrs.findIndex((_, j) => stageAt(sch, j, c) === sg || (sg === 'ID' && stageAt(sch, j, c) === 'stall')); return i >= 0 ? sg + ' ' + instrs[i].op : null; }).filter(Boolean).join(' · ');
+      const stl = instrs.map((ins, i) => stageAt(sch, i, c) === 'stall' ? '<span class="miss">Stall:</span> <code>' + ins.op + '</code> waits in ID for ' + sch.deps[i].map(d => d.reg).join(' and ') + '. ' : '').join('');
+      const fw = h.fwd ? instrs.map((ins, i) => stageAt(sch, i, c) === 'EX' ? sch.deps[i].filter(d => [1, 2].includes(sch.ids[i] - sch.ids[d.from])).map(d => '<span class="fw">Forwarding:</span> ' + d.reg + ' goes straight to <code>' + ins.op + '</code> in EX. ').join('') : '').join('') : '';
+      cap = 'Cycle ' + c + '. ' + stl + fw + '<span class="occ">' + occ + '</span>';
+      if (c === sch.total) cap += '<br><b>Done:</b> ' + instrs.length + ' instructions in ' + sch.total + ' cycles, ' + sch.stalls + ' stall' + (sch.stalls === 1 ? '' : 's') + '.';
+    }
+    out.push({ cap, cycle: c, sch, instrs });
+  }
+  return out;
+}
+function drawPipeTable(h){
+  const instrs = h.code.map(parseInstr), sch = schedule(instrs, h.fwd);
+  let t = '<tr><th>Instruction</th>' + Array.from({ length: sch.total }, (_, k) => '<th>' + (k + 1) + '</th>').join('') + '</tr>';
+  instrs.forEach((ins, i) => { t += '<tr><td class="mono ins">' + ins.text + '</td>'; for (let c = 1; c <= sch.total; c++){ const sg = stageAt(sch, i, c), on = sg !== 'wait' && sg !== 'done'; t += '<td class="' + (on ? 's-' + sg : '') + '">' + (on ? sg : '') + '</td>'; } t += '</tr>'; });
+  $('pipeTable').innerHTML = t;
+}
+
+/* ---------- 3D board ---------- */
+const st = make3D($('stage'), { camera: [0, 9, 13], target: [0, 0, 0] });
+const B = { chips: {}, coreMeshes: {}, dots: [], pipe: null, pipeBlocks: [] };
+const CX = { cpu: -8, server: -4, gpu: 0, npu: 4, mcu: 8 };
+if (st){
+  const T = st.THREE;
+  B.board = new T.Group(); st.scene.add(B.board);
+  const pcb = box3(21, 0.2, 5.6, 0x064E3B); pcb.position.y = -0.1; B.board.add(pcb);
+  CHIPS.forEach(c => {
+    const g = new T.Group(); g.position.set(CX[c.id], 0, 0); g.userData.chip = c.id; B.board.add(g); B.chips[c.id] = g;
+    const pkg = box3(c.pkg, 0.25, c.pkg, 0x111827); pkg.position.y = 0.125; g.add(pkg); g.userData.pkg = pkg;
+    const die = box3(c.pkg * 0.82, 0.06, c.pkg * 0.82, 0x334155); die.position.y = 0.28; g.add(die);
+    const [r, k] = c.cores, span = c.pkg * 0.72, step = span / Math.max(r, k), list = [];
+    for (let i = 0; i < r; i++) for (let j = 0; j < k; j++){
+      const m = box3(c.core, c.core * 0.6, c.core, c.color);
+      m.position.set((j - (k - 1) / 2) * step, 0.31 + c.core * 0.3, (i - (r - 1) / 2) * step);
+      g.add(m); list.push(m);
+    }
+    if (c.id === 'mcu'){ const mem = box3(0.5, 0.2, 0.25, 0x64748B); mem.position.set(0, 0.36, 0.5); g.add(mem); }
+    if (c.id === 'cpu' || c.id === 'server'){ const cache = box3(span, 0.12, 0.22, 0x94A3B8); cache.position.set(0, 0.34, span / 2 + 0.05); g.add(cache); }
+    B.coreMeshes[c.id] = list;
+    const a = new T.Object3D(); a.position.set(0, 0, c.pkg / 2 + 0.55); g.add(a); st.label(a, c.name);
+  });
+  picker(st, () => Object.values(B.chips), obj => {
+    let o = obj; while (o && !o.userData.chip) o = o.parent;
+    if (!o) return;
+    const c = chipById(o.userData.chip);
+    if (!isHaz() && G.stage === 'chip') pickChip(c.id);
+    else if (!isHaz()) $('caption').textContent = c.name + ': ' + c.about;
+  });
+  // the pipeline strip for Part 2
+  B.pipe = new T.Group(); B.pipe.visible = false; st.scene.add(B.pipe);
+  STAGES.forEach((sg, k) => { const pad = box3(2.4, 0.2, 2.0, 0x334155); pad.position.set(-6 + 3 * k, 0.1, 0); B.pipe.add(pad); const a = new T.Object3D(); a.position.set(-6 + 3 * k, 0.1, 1.4); B.pipe.add(a); B.pipe.userData['lab' + k] = st.label(a, sg); });
+} else { $('stage').hidden = true; $('fallback2d').hidden = false; }
+function cam(view){
+  if (!st) return;
+  const P = view === 'all' ? [[0, 9.5, 13.5], [0, 0, 0]] : view === 'pipe' ? [[0, 7, 11], [0, 0.6, 0]] : [[CX[view] + 0.6, 4.2, 5.2], [CX[view], 0.2, 0]];
+  if (narrow() && view === 'all') P[0] = [0, 16, 20];
+  if (narrow() && view === 'pipe') P[0] = [0, 10, 15];
+  if (!hasGSAP){ st.camera.position.set(...P[0]); st.controls.target.set(...P[1]); st.controls.update(); return; }
+  gsap.to(st.camera.position, { x: P[0][0], y: P[0][1], z: P[0][2], duration: 1, ease: 'power2.inOut' });
+  gsap.to(st.controls.target, { x: P[1][0], y: P[1][1], z: P[1][2], duration: 1, ease: 'power2.inOut', onUpdate: () => st.controls.update() });
+}
+function narrow(){ return $('stage').clientWidth < 560; }
+function highlightChip(id, hex){
+  if (!st) return draw2D();
+  CHIPS.forEach(c => colorTo(B.chips[c.id].userData.pkg, c.id === id ? hex : 0x111827, 0.4));
+}
+function showBoard(){
+  if (!st) return;
+  B.board.visible = true; B.pipe.visible = false; B.pipeBlocks.forEach(b => { b.visible = false; b.userData.lab.style.visibility = 'hidden'; });
+  document.querySelectorAll('#stage .label3d').forEach(d => d.style.visibility = '');
+  STAGES.forEach((_, k) => B.pipe.userData['lab' + k].style.visibility = 'hidden');
+  CHIPS.forEach(c => { B.chips[c.id].userData.pkg.material.color.set(0x111827); B.coreMeshes[c.id].forEach(m => m.material.color.set(c.color)); });
+  makeDots(WORKLOADS[G.r].tasks);
+}
+function makeDots(n){
+  B.dots.forEach(d => st.scene.remove(d)); B.dots = [];
+  for (let i = 0; i < n; i++){
+    const d = new st.THREE.Mesh(new st.THREE.SphereGeometry(n > 50 ? 0.07 : 0.12, 10, 8), new st.THREE.MeshStandardMaterial({ color: 0xFDE047, emissive: 0xCA8A04, emissiveIntensity: 0.6 }));
+    st.scene.add(d); B.dots.push(d);
+  }
+  parkDots(false);
+}
+function parkDots(anim){
+  const n = B.dots.length, cols = Math.ceil(Math.sqrt(n * 3));
+  B.dots.forEach((d, i) => { const p = { x: (i % cols - cols / 2) * 0.32, y: 3.2 + Math.floor(i / cols) * 0.32, z: -1.5 }; if (anim) tweenTo(d.position, Object.assign({ duration: 0.6 }, p)); else d.position.set(p.x, p.y, p.z); });
+}
+function flowDots(id){
+  const cores = B.coreMeshes[id], g = B.chips[id], v = new st.THREE.Vector3();
+  const n = B.dots.length, waves = Math.ceil(n / cores.length);
+  B.dots.forEach((d, i) => {
+    const core = cores[i % cores.length]; core.getWorldPosition(v);
+    const wave = Math.floor(i / cores.length), delay = hasGSAP ? wave * Math.min(0.9, 3 / waves) : 0;
+    if (hasGSAP){
+      gsap.fromTo(d.position, { x: d.position.x, y: d.position.y, z: d.position.z }, { x: v.x, y: v.y + 0.25, z: v.z, duration: 0.7, delay, ease: 'power2.in' });
+      gsap.to(core.material.color, { r: 1, g: 0.85, b: 0.2, duration: 0.15, delay: delay + 0.6, yoyo: true, repeat: 1 });
+    } else d.position.set(v.x, v.y + 0.25, v.z);
+  });
+}
+function showPipe(h){
+  if (!st) return;
+  B.board.visible = false; B.dots.forEach(d => st.scene.remove(d)); B.dots = [];
+  document.querySelectorAll('#stage .label3d').forEach(d => d.style.visibility = 'hidden');
+  B.pipe.visible = true; STAGES.forEach((_, k) => B.pipe.userData['lab' + k].style.visibility = 'visible');
+  B.pipeBlocks.forEach(b => { st.scene.remove(b); b.userData.lab.remove(); }); B.pipeBlocks = [];
+  const cols = [0x2563EB, 0xDB2777, 0x0D9488];
+  h.code.forEach((t, i) => { const m = box3(2.0, 0.7, 1.2, cols[i % 3]); const a = new st.THREE.Object3D(); a.position.set(0, 0.7, 0); m.add(a); m.userData.lab = st.label(a, narrow() ? t.split(' ')[0] : t); m.userData.col = cols[i % 3]; st.scene.add(m); B.pipeBlocks.push(m); });
+  cam('pipe');
+}
+function pipePos(sch, i, c, n){
+  const sg = stageAt(sch, i, c);
+  if (sg === 'wait') return { x: -9.4, y: 0.5 + (n - 1 - i) * 0.85, z: 0 };
+  if (sg === 'done') return { x: 9.4, y: 0.5 + i * 0.85, z: 0 };
+  return { x: -6 + 3 * (sg === 'stall' ? 1 : STAGES.indexOf(sg)), y: 0.55, z: 0 };
+}
+
+/* ---------- stepper ---------- */
+function show(i){
+  si = i; const s = steps[i];
+  $('caption').innerHTML = s.cap + (s.before ? (G.answered ? s.after : s.before) : '');
+  if (!isHaz()){
+    if (st){
+      cam(s.view);
+      if (s.flow){ parkDots(false); flowDots(s.flow); } else parkDots(hasGSAP);
+      if (G.answered){ const w = WORKLOADS[G.r]; CHIPS.forEach(c => colorTo(B.chips[c.id].userData.pkg, w.best.includes(c.id) ? 0x16A34A : (c.id === s.flow ? 0xF59E0B : 0x111827), 0.4)); }
+    } else draw2D(s.flow);
+  } else {
+    if (st) s.instrs.forEach((ins, k) => {
+      const m = B.pipeBlocks[k], p = pipePos(s.sch, k, s.cycle, s.instrs.length), sg = stageAt(s.sch, k, s.cycle);
+      tweenTo(m.position, { x: p.x, y: p.y, z: p.z, duration: 0.6, ease: 'power2.inOut' });
+      colorTo(m, sg === 'stall' ? 0xDC2626 : m.userData.col, 0.3);
+      const hide = !G.answered && G.r - WORKLOADS.length === 3; m.visible = !hide; m.userData.lab.style.visibility = hide ? 'hidden' : 'visible';
+    });
+    else if (G.answered || G.r - WORKLOADS.length !== 3) draw2DPipe(s); else $('fallback2d').innerHTML = '';
+  }
+  render();
+}
+function draw2D(flow){
+  const w = WORKLOADS[G.r];
+  let svg = '';
+  CHIPS.forEach((c, k) => {
+    const x = 6 + k * 118, [r, q] = c.cores, n = Math.max(r, q), cell = 90 / n;
+    const border = G.answered && w.best.includes(c.id) ? '#16A34A' : (G.chip === c.id ? '#F59E0B' : (flow === c.id ? '#F59E0B' : '#334155'));
+    svg += '<rect x="' + x + '" y="10" width="106" height="106" rx="8" fill="#111827" stroke="' + border + '" stroke-width="4"/>';
+    for (let i = 0; i < r; i++) for (let j = 0; j < q; j++) svg += '<rect x="' + (x + 8 + j * cell + (n - q) * cell / 2) + '" y="' + (18 + i * cell + (n - r) * cell / 2) + '" width="' + (cell * 0.8) + '" height="' + (cell * 0.8) + '" fill="#' + c.color.toString(16).padStart(6, '0') + '"/>';
+    svg += '<text x="' + (x + 53) + '" y="134" text-anchor="middle" font-size="12" font-weight="600" fill="#1F2937">' + c.name + '</text>';
+  });
+  $('fallback2d').innerHTML = '<svg viewBox="0 0 600 142" role="img" aria-label="Five processor types with their cores">' + svg + '</svg>';
+}
+function draw2DPipe(s){
+  let svg = '';
+  STAGES.forEach((sg, k) => {
+    const x = 10 + k * 116, i = s.instrs.findIndex((_, j) => stageAt(s.sch, j, s.cycle) === sg || (sg === 'ID' && stageAt(s.sch, j, s.cycle) === 'stall'));
+    const stall = i >= 0 && stageAt(s.sch, i, s.cycle) === 'stall';
+    svg += '<text x="' + (x + 50) + '" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="#1F2937">' + sg + '</text><rect x="' + x + '" y="30" width="100" height="50" rx="8" fill="' + (i >= 0 ? (stall ? '#DC2626' : '#2563EB') : '#F1F5F9') + '" stroke="#94A3B8"/><text x="' + (x + 50) + '" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="' + (i >= 0 ? '#fff' : '#475569') + '">' + (i >= 0 ? s.instrs[i].op + (stall ? ' (stall)' : '') : 'empty') + '</text>';
+  });
+  $('fallback2d').innerHTML = '<svg viewBox="0 0 590 90" role="img" aria-label="Pipeline stages in cycle ' + s.cycle + '">' + svg + '</svg>';
+}
+function render(){
+  const max = G.answered ? steps.length - 1 : 0;
+  $('stepCount').textContent = (isHaz() ? 'Cycle ' + si + ' of ' + (steps.length - 1) : 'Step ' + (si + 1) + ' of ' + steps.length);
+  $('backBtn').disabled = si === 0; $('stepBtn').disabled = si >= max;
+  $('playBtn').disabled = playing || si >= max; $('pauseBtn').disabled = !playing;
+}
+function play(){
+  if (!G.answered) return;
+  if (si >= steps.length - 1) show(0);
+  playing = true; render();
+  const tick = () => { if (!playing) return; if (si >= steps.length - 1){ stopPlay(); return; } show(si + 1); timer = setTimeout(tick, isHaz() ? 1500 : 3400); };
+  timer = setTimeout(tick, 400);
+}
+function stopPlay(){ playing = false; clearTimeout(timer); if (G && steps.length) render(); }
+$('stepBtn').addEventListener('click', () => { stopPlay(); if (G.answered && si < steps.length - 1) show(si + 1); });
+$('backBtn').addEventListener('click', () => { stopPlay(); if (si > 0) show(si - 1); });
+$('playBtn').addEventListener('click', play);
+$('pauseBtn').addEventListener('click', stopPlay);
+$('nextBtn').addEventListener('click', next);
+$('againBtn').addEventListener('click', () => { newGame(); $('roundCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+newGame();
+
+</script>
+</body>
+</html>

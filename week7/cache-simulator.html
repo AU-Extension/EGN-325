@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cache simulator</title>
+<meta name="description" content="EGN 325 Week 7 interactive: Choose a cache size and a line size, run a pattern of memory reads, and watch every address split into tag, index, and offset as hits and misses add up.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/*W78CSS*/
+  .controls{display:flex;flex-wrap:wrap;gap:12px 18px;margin-bottom:12px}
+  .controls label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:14px;min-width:0}
+  .controls select{min-width:0;max-width:100%}
+  .small-label{display:block;font-size:13px;color:var(--muted);margin:4px 0}
+  #customList{width:100%;font-family:var(--mono)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .split-info{font-size:14px;color:var(--ink-2);background:#F8FAFC;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}
+  .muted{color:var(--muted);font-size:14px;margin:0 0 8px}
+  .b-tag{background:#DBEAFE;color:#1E3A8A}
+  .b-idx{background:#EDE9FE;color:#5B21B6}
+  .b-off{background:#FEF3C7;color:#92400E}
+  .bits{font-family:var(--mono);font-size:13px;white-space:nowrap}
+  .bits span{padding:1px 3px;border-radius:4px}
+  .chip{display:inline-block;font-family:var(--mono);font-size:12px;padding:2px 7px;border-radius:999px;margin-right:6px}
+  tr.active td{background:#FFF7E6}
+  .hit{color:var(--ok);font-weight:700}
+  .miss{color:var(--bad);font-weight:700}
+  .stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-weight:600}
+  .stats .big{font-size:24px;color:var(--au-red-dark)}
+  .bar{height:10px;border-radius:999px;background:#EEF1F5;margin-top:8px;overflow:hidden}
+  .bar-fill{height:100%;width:0;background:var(--net-green);transition:width .3s}
+  .q{border-top:1px solid var(--line);padding:12px 0}
+  .q:first-child{border-top:0}
+  .q p{margin:0 0 8px;font-weight:600}
+  .opts{display:flex;flex-direction:column;gap:6px}
+  .opts button{text-align:left;font-weight:500}
+  .opts button.right{border-color:var(--ok);background:var(--ok-soft)}
+  .opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+  #fallback2d{margin-top:8px}
+  #fallback2d svg{width:100%;height:auto;display:block}
+  .lines2d{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .lines2d div{min-width:44px;padding:8px 6px;border-radius:8px;border:1px solid var(--line);background:#F8FAFC;text-align:center;font:600 12px var(--mono)}
+  .lines2d div.hitc{background:var(--ok-soft);border-color:var(--ok)}
+  .lines2d div.missc{background:var(--bad-soft);border-color:var(--bad)}
+  .stepper .btn{min-width:84px}
+  .views{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .views .btn{font-size:13px;padding:6px 10px}
+  .views .btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  @media (max-width:560px){ #stage .label3d{font-size:10.5px;padding:1px 4px} }
+
+/*W78CSS-END*/
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 7 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 7 · Explorer</span>
+    <h1>Cache simulator</h1>
+    <p class="lede">Choose a cache size and a line size, run a pattern of memory reads, and watch every address split into tag, index, and offset as hits and misses add up.</p>
+  </section>
+
+<!--BODY-->
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Pick a cache size, a line size, and a pattern of memory reads. The panel shows how each 8-bit address splits into tag, index, and offset.</li>
+      <li>Press <b>Step</b> to follow one read in slow motion: the address is split, the index picks a line, the tags are compared, and the line turns green (hit) or red (miss). On a miss, a block rises from memory into the line.</li>
+      <li>Press <b>Play</b> to watch the whole pattern, <b>Pause</b> to stop, and <b>Back</b> to undo a read. Drag the 3D view to turn it, and click a layer of the pyramid to learn about it.</li>
+      <li>Change one setting at a time and run the same pattern again. That is how computer architects compare designs.</li>
+      <li>Finish with the quick check at the bottom.</li>
+    </ol>
+  </details>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Cache settings</h2>
+    <div class="controls">
+      <label>Cache size
+        <select id="cacheSize">
+          <option value="32">32 bytes</option>
+          <option value="64" selected>64 bytes</option>
+          <option value="128">128 bytes</option>
+        </select>
+      </label>
+      <label>Line size
+        <select id="lineSize">
+          <option value="4">4 bytes</option>
+          <option value="8" selected>8 bytes</option>
+          <option value="16">16 bytes</option>
+        </select>
+      </label>
+      <label>Pattern of reads
+        <select id="pattern">
+          <option value="sequential">Sequential: 32 numbers in order</option>
+          <option value="loop">Loop: 16 numbers read twice</option>
+          <option value="strided">Strided: 4 arrays 64 bytes apart</option>
+          <option value="random">Random: 32 scattered reads</option>
+          <option value="row_order">Table read row by row</option>
+          <option value="column_order">Table read column by column</option>
+          <option value="custom">Custom list of addresses</option>
+        </select>
+      </label>
+    </div>
+    <div id="customBox" hidden>
+      <label for="customList" class="small-label">Addresses from 0 to 255, separated by commas (decimal or hex such as 0x1C)</label>
+      <input type="text" id="customList" value="0, 4, 8, 64, 0, 4, 128, 8">
+      <div id="customErr" class="feedback bad" hidden></div>
+    </div>
+    <div class="split-info" id="splitInfo" aria-live="polite"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Inside the memory system</h2>
+    <p class="muted">Left: the memory hierarchy, fastest and smallest at the top. Right: this cache's lines, with main memory (RAM) underneath. Pick a view or drag to turn it.</p>
+    <div class="views" role="group" aria-label="Camera view">
+      <button class="btn small" type="button" data-view="all" aria-pressed="false">Whole system</button>
+      <button class="btn small" type="button" data-view="pyramid" aria-pressed="false">Memory pyramid</button>
+      <button class="btn small" type="button" data-view="cache" aria-pressed="false">Cache lines</button>
+    </div>
+    <div class="stage3d" id="stage"></div>
+    <div id="fallback2d" hidden></div>
+    <div class="stepper">
+      <button class="btn" id="backBtn" aria-label="Back one read">&#9664; Back</button>
+      <button class="btn primary" id="playBtn">&#9654; Play</button>
+      <button class="btn" id="pauseBtn">&#10074;&#10074; Pause</button>
+      <button class="btn" id="stepBtn">Step &#9654;</button>
+      <button class="btn" id="runBtn">Run all</button>
+      <button class="btn" id="resetBtn">Reset</button>
+    </div>
+    <div class="caption" id="caption" aria-live="polite">Press Step to follow the first read.</div>
+    <div class="stats" id="stats"></div>
+    <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+  </section>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>The cache, line by line</h2>
+      <p class="muted" id="cacheCaption"></p>
+      <div class="scroll-x"><table class="data" id="cacheTable" aria-label="Cache lines"></table></div>
+    </section>
+    <aside class="card">
+      <h2>What to notice</h2>
+      <div id="notice"></div>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Every read so far</h2>
+    <div class="scroll-x"><table class="data" id="logTable" aria-label="Access log"></table></div>
+  </section>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Quick check</h2>
+    <div id="quiz"></div>
+    <div class="score" id="quizScore"></div>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script id="app">
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---------- Week 7 and 8 extras on top of the skeleton's make3D ---------- */
+function box3(w, h, d, color, extra){
+  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.08 }, extra || {})));
+}
+function tweenTo(target, vars){
+  // GSAP when available; otherwise jump to the end state so every learning path still works
+  if (hasGSAP) return gsap.to(target, vars);
+  const v = Object.assign({}, vars); ['duration', 'ease', 'delay', 'onComplete', 'repeat', 'yoyo', 'stagger', 'overwrite'].forEach(k => delete v[k]);
+  Object.assign(target, v); if (vars.onComplete) vars.onComplete();
+  return null;
+}
+function colorTo(mesh, hex, dur){
+  const c = new THREE.Color(hex);
+  if (hasGSAP) return gsap.to(mesh.material.color, { r: c.r, g: c.g, b: c.b, duration: dur == null ? 0.4 : dur, overwrite: true });
+  mesh.material.color.copy(c); return null;
+}
+function picker(st, objects, onPick){
+  // click or tap an object in the 3D scene
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement;
+  el.addEventListener('pointerup', e => {
+    const r = el.getBoundingClientRect();
+    m.x = ((e.clientX - r.left) / r.width) * 2 - 1; m.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(m, st.camera);
+    const hit = ray.intersectObjects(objects(), true)[0];
+    if (hit) onPick(hit.object);
+  });
+}
+/* ---------- end extras ---------- */
+
+/* LOGIC START */
+function log2(n){ return Math.round(Math.log(n) / Math.log(2)); }
+function splitAddr(addr, cacheBytes, lineBytes){
+  const lines = cacheBytes / lineBytes, ob = log2(lineBytes), ib = log2(lines), tb = 8 - ob - ib;
+  return { tag: addr >> (ob + ib), index: (addr >> ob) & (lines - 1), offset: addr & (lineBytes - 1), tb, ib, ob, lines };
+}
+function runCache(addrs, cacheBytes, lineBytes){
+  const lines = cacheBytes / lineBytes;
+  const valid = new Array(lines).fill(false), tags = new Array(lines).fill(null);
+  const seen = new Set();
+  const rows = []; let hits = 0;
+  for (const a of addrs){
+    const s = splitAddr(a, cacheBytes, lineBytes);
+    const hit = valid[s.index] && tags[s.index] === s.tag;
+    let reason;
+    if (hit){ hits++; reason = { kind: 'hit' }; }
+    else {
+      const block = a >> s.ob;
+      if (valid[s.index]) reason = { kind: seen.has(block) ? 'evicted' : 'replace', oldTag: tags[s.index] };
+      else reason = { kind: 'first' };
+      valid[s.index] = true; tags[s.index] = s.tag;
+    }
+    seen.add(a >> s.ob);
+    rows.push({ addr: a, tag: s.tag, index: s.index, offset: s.offset, hit, reason });
+  }
+  return { rows, hits, misses: addrs.length - hits };
+}
+const PATTERNS = {
+  sequential: Array.from({length: 32}, (_, i) => i * 4),
+  loop: [...Array.from({length: 16}, (_, i) => i * 4), ...Array.from({length: 16}, (_, i) => i * 4)],
+  strided: [0, 64, 128, 192, 0, 64, 128, 192, 0, 64, 128, 192, 0, 64, 128, 192],
+  random: [64, 60, 36, 84, 180, 124, 120, 120, 60, 8, 40, 56, 68, 96, 228, 240, 100, 44, 0, 252, 96, 136, 28, 192, 180, 244, 40, 40, 188, 108, 20, 192],
+  row_order: Array.from({length: 16}, (_, i) => i * 4),
+  column_order: [0, 16, 32, 48, 4, 20, 36, 52, 8, 24, 40, 56, 12, 28, 44, 60]
+};
+function parseCustom(text){
+  const parts = text.split(/[\s,;]+/).filter(Boolean);
+  if (!parts.length) return { error: 'Type at least one address.' };
+  const out = [];
+  for (const p of parts){
+    const v = /^0x[0-9a-f]+$/i.test(p) ? parseInt(p, 16) : (/^\d+$/.test(p) ? parseInt(p, 10) : NaN);
+    if (Number.isNaN(v) || v < 0 || v > 255) return { error: '"' + p + '" is not an address from 0 to 255.' };
+    out.push(v);
+  }
+  if (out.length > 64) return { error: 'Use at most 64 addresses.' };
+  return { addrs: out };
+}
+/* LOGIC END */
+
+const NOTICE = {
+  sequential: 'Each number takes 4 bytes. With 8-byte lines, a miss brings in the next number too, so every second read is a hit. This is <b>spatial locality</b>: data next to what you just used is likely to be used soon. Try 4-byte and 16-byte lines.',
+  loop: 'The first pass misses whenever a new line is needed. On the second pass the same numbers are read again and, if they all fit, every read hits. This is <b>temporal locality</b>: data you used recently is likely to be used again. Try a 32-byte cache.',
+  strided: 'The four arrays start 64 bytes apart, so in a 64-byte cache their addresses all land on the <b>same index</b> and keep pushing each other out. These are <b>conflict misses</b>: the cache has room, but this design forces the blocks into one line. A bigger line does not help here; think about what would.',
+  random: 'Scattered reads have little locality, so most reads miss no matter how the cache is set. Compare the hit rate here with the sequential and loop patterns.',
+  row_order: 'A 4x4 table of 4-byte numbers is stored row by row in memory. Reading it row by row walks through memory in order, so it behaves like the sequential pattern.',
+  column_order: 'Reading the same table column by column jumps 16 bytes at a time. In a small cache the jumps keep landing on lines that were just replaced. Compare it with row order in a 32-byte cache.',
+  custom: 'Type your own list of addresses. Try two addresses that share an index but have different tags, and read them one after the other.'
+};
+const LAYERS = [
+  { name: 'SSD storage', size: 'terabytes', speed: 'about 0.1 ms', w: 4.4, color: 0x64748B, text: 'Storage keeps everything, even with the power off, but one read takes about 100,000 nanoseconds. The operating system copies what programs need into RAM first.' },
+  { name: 'RAM', size: 'gigabytes', speed: 'about 80 ns', w: 3.6, color: 0x2563EB, text: 'Main memory holds the running programs and their data. It is large, but every trip to RAM costs the processor hundreds of clock cycles. In the model on the right, RAM is the long slab under the cache.' },
+  { name: 'L2 and L3 cache', size: 'megabytes', speed: 'about 3 to 15 ns', w: 2.8, color: 0x7C3AED, text: 'Bigger, slower caches shared by the cores. They catch most of what the small L1 cache misses.' },
+  { name: 'L1 cache', size: 'tens of kilobytes', speed: 'about 1 ns', w: 2.0, color: 0x15803D, text: 'The small, very fast cache inside each core. The cache on the right works like this one: lines of bytes copied from RAM, found by index and checked by tag.' },
+  { name: 'Registers', size: 'bytes', speed: 'under 1 ns', w: 1.2, color: 0xE1141E, text: 'Registers live inside the processor and are read in a single cycle. Programs move data from memory into registers before they can compute with it.' }
+];
+
+const $ = (id) => document.getElementById(id);
+let state = { addrs: [], pos: 0, result: null };
+let playing = false, tl = null, playTimer = null;
+
+function settings(){ return { cb: parseInt($('cacheSize').value, 10), lb: parseInt($('lineSize').value, 10), pat: $('pattern').value }; }
+function bitsHTML(addr, s){
+  const b = addr.toString(2).padStart(8, '0');
+  const t = b.slice(0, s.tb), i = b.slice(s.tb, s.tb + s.ib), o = b.slice(s.tb + s.ib);
+  return '<span class="bits">' + (t ? '<span class="b-tag">' + t + '</span>' : '') + (i ? '<span class="b-idx">' + i + '</span>' : '') + '<span class="b-off">' + o + '</span></span>';
+}
+function cacheAt(pos){
+  const { cb, lb } = settings(); const s0 = splitAddr(0, cb, lb);
+  const cache = Array.from({length: cb / lb}, () => ({ valid: false, tag: null, block: null }));
+  if (state.result) state.result.rows.slice(0, pos).forEach(r => { cache[r.index] = { valid: true, tag: r.tag, block: r.addr >> s0.ob }; });
+  return cache;
+}
+function caption(html){ $('caption').innerHTML = html; }
+
+/* ---------------- 3D scene ---------------- */
+const st = make3D($('stage'), { camera: [1.5, 6.5, 14], target: [1.2, 0.8, 0] });
+const V = { lines: [], lineGroup: null, packet: null, block: null, tagLabel: null, tagAnchor: null };
+if (st){
+  const T = st.THREE;
+  // memory hierarchy pyramid
+  const pyr = new T.Group(); pyr.position.set(-5.2, -1.6, 0); st.scene.add(pyr);
+  const layerMeshes = [];
+  LAYERS.forEach((L, i) => {
+    const m = box3(L.w, 0.62, L.w * 0.7, L.color); m.position.y = i * 0.68 + 0.31; m.userData.layer = i;
+    pyr.add(m); layerMeshes.push(m);
+    const front = new T.Object3D(); front.position.set(0, 0, L.w * 0.35 + 0.01); m.add(front); st.label(front, L.name);
+  });
+  picker(st, () => layerMeshes, obj => {
+    const L = LAYERS[obj.userData.layer];
+    caption('<b>' + L.name + '</b> (' + L.size + ', ' + L.speed + '). ' + L.text);
+    layerMeshes.forEach(x => colorTo(x, LAYERS[x.userData.layer].color, 0.2));
+    focus('pyramid');
+    colorTo(obj, 0xF59E0B, 0.3); setTimeout(() => colorTo(obj, L.color, 0.6), 1400);
+  });
+  // RAM slab under the cache
+  const ram = box3(8, 0.5, 1.4, 0x1E40AF); ram.position.set(3.0, -1.6, 0); st.scene.add(ram);
+  st.label(ram, 'RAM: addresses 0 to 255');
+  V.ram = ram;
+  // processor request packet and the block that comes from RAM
+  V.packet = new T.Mesh(new T.SphereGeometry(0.22, 20, 16), new T.MeshStandardMaterial({ color: 0xF59E0B, emissive: 0x7C2D12, emissiveIntensity: 0.4 }));
+  V.packet.visible = false; st.scene.add(V.packet);
+  V.block = box3(0.8, 0.3, 0.8, 0x38BDF8, { emissive: 0x0C4A6E, emissiveIntensity: 0.3 }); V.block.visible = false; st.scene.add(V.block);
+  V.tagAnchor = new T.Object3D(); st.scene.add(V.tagAnchor);
+  V.tagLabel = st.label(V.tagAnchor, ''); V.tagLabel.style.visibility = 'hidden';
+}
+function linePos(i, n){
+  const perRow = Math.min(8, n), col = i % perRow, row = Math.floor(i / perRow), rows = Math.ceil(n / perRow);
+  const sp = Math.min(1.0, 7 / perRow);
+  return { x: 3.0 + (col - (perRow - 1) / 2) * sp, y: 1.4 - (rows > 2 ? 0 : 0), z: (row - (rows - 1) / 2) * 1.05, w: Math.min(0.8, sp - 0.14) };
+}
+const VIEWS = { all: [[1.5, 6.5, 14], [1.2, 0.8, 0]], pyramid: [[-4.5, 2.8, 8.0], [-5.2, 0.0, 0]], cache: [[3.0, 5.6, 8.0], [3.0, 0.4, 0]] };
+function narrow(){ return $('stage').clientWidth < 560; }
+function focus(where, instant){
+  if (!st || (focusMode === where && !instant)) return;
+  focusMode = where;
+  document.querySelectorAll('.views .btn').forEach(x => x.setAttribute('aria-pressed', x.dataset.view === where ? 'true' : 'false'));
+  const P = VIEWS[where];
+  if (!hasGSAP || instant){ st.camera.position.set(...P[0]); st.controls.target.set(...P[1]); st.controls.update(); return; }
+  gsap.to(st.camera.position, { x: P[0][0], y: P[0][1], z: P[0][2], duration: 1.0, ease: 'power2.inOut' });
+  gsap.to(st.controls.target, { x: P[1][0], y: P[1][1], z: P[1][2], duration: 1.0, ease: 'power2.inOut', onUpdate: () => st.controls.update() });
+}
+let focusMode = 'all';
+function buildLines(){
+  if (!st) return;
+  const T = st.THREE, { cb, lb } = settings(), n = cb / lb;
+  if (V.lineGroup){ st.scene.remove(V.lineGroup); document.querySelectorAll('#stage .label3d.idx').forEach(d => d.remove()); }
+  V.lineGroup = new T.Group(); st.scene.add(V.lineGroup); V.lines = [];
+  for (let i = 0; i < n; i++){
+    const p = linePos(i, n);
+    const m = box3(p.w, 0.5 + lb / 32, 0.8, 0xCBD5E1); m.position.set(p.x, p.y, p.z);
+    V.lineGroup.add(m); V.lines.push(m);
+    if (n <= 16){ const d = st.label(m, String(i)); d.classList.add('idx'); }
+  }
+}
+function paintLines(pos){
+  const cache = cacheAt(pos);
+  if (st) V.lines.forEach((m, i) => m.material.color.set(cache[i].valid ? 0x2563EB : 0xCBD5E1));
+  // 2D fallback strip
+  const fb = $('fallback2d');
+  if (!st){
+    const last = state.result && pos ? state.result.rows[pos - 1] : null;
+    fb.querySelector('.lines2d').innerHTML = cache.map((c, i) => '<div class="' + (last && last.index === i ? (last.hit ? 'hitc' : 'missc') : '') + '">line ' + i + '<br>' + (c.valid ? 'tag ' + c.tag : 'empty') + '</div>').join('');
+  }
+}
+function drawFallback(){
+  const fb = $('fallback2d'); fb.hidden = false; $('stage').hidden = true;
+  const bars = LAYERS.slice().reverse().map((L, i) => {
+    const w = 100 + i * 60, x = 170 - w / 2;
+    return '<rect x="' + x + '" y="' + (10 + i * 34) + '" width="' + w + '" height="28" rx="6" fill="#' + L.color.toString(16).padStart(6, '0') + '"/>' +
+      '<text x="170" y="' + (29 + i * 34) + '" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">' + L.name + '</text>' +
+      '<text x="350" y="' + (29 + i * 34) + '" font-size="12" fill="#3B4250">' + L.size + ', ' + L.speed + '</text>';
+  }).join('');
+  fb.innerHTML = '<svg viewBox="0 0 560 186" role="img" aria-label="Memory hierarchy: registers at the top, then L1 cache, L2 and L3 cache, RAM, and SSD storage at the bottom">' + bars + '</svg><div class="lines2d"></div>';
+}
+
+/* ---------------- page logic ---------------- */
+function load(){
+  stopPlay();
+  const { cb, lb, pat } = settings();
+  $('customBox').hidden = pat !== 'custom';
+  $('customErr').hidden = true;
+  let addrs = PATTERNS[pat];
+  if (pat === 'custom'){
+    const r = parseCustom($('customList').value);
+    if (r.error){ $('customErr').textContent = r.error; $('customErr').hidden = false; addrs = []; }
+    else addrs = r.addrs;
+  }
+  state = { addrs, pos: 0, result: runCache(addrs, cb, lb) };
+  const s = splitAddr(0, cb, lb);
+  $('splitInfo').innerHTML = 'This cache has <b>' + s.lines + ' lines</b> of ' + lb + ' bytes. Each 8-bit address splits into ' +
+    '<span class="chip b-tag">tag ' + s.tb + ' bits</span><span class="chip b-idx">index ' + s.ib + ' bits</span><span class="chip b-off">offset ' + s.ob + ' bits</span>' +
+    '<br><span class="muted">Index picks the line, offset picks the byte inside the line, and the tag tells which block of memory is stored there.</span>';
+  $('cacheCaption').textContent = 'Direct mapped: every address can go in exactly one line, chosen by its index bits. ' + addrs.length + ' reads in this pattern.';
+  $('notice').innerHTML = '<p>' + NOTICE[pat] + '</p>';
+  caption(addrs.length ? 'Press <b>Step</b> to follow the first read, or <b>Play</b> to watch the whole pattern.' : 'Fix the address list to start.');
+  buildLines();
+  if (st){ V.packet.visible = false; V.block.visible = false; if (V.tagLabel) V.tagLabel.style.visibility = 'hidden'; }
+  render();
+}
+function render(){
+  const { cb, lb } = settings(); const s0 = splitAddr(0, cb, lb);
+  const done = state.result ? state.result.rows.slice(0, state.pos) : [];
+  const cache = cacheAt(state.pos), last = done[done.length - 1];
+  let h = '<tr><th>Index</th><th>Valid</th><th>Tag</th><th>Bytes held</th></tr>';
+  cache.forEach((c, i) => {
+    const idx = s0.ib ? i.toString(2).padStart(s0.ib, '0') : '-';
+    const held = c.valid ? (c.block * lb) + ' to ' + (c.block * lb + lb - 1) : 'empty';
+    h += '<tr class="' + (last && last.index === i ? 'active' : '') + '"><td class="mono">' + idx + '</td><td>' + (c.valid ? '1' : '0') + '</td><td class="mono">' + (c.valid ? c.tag.toString(2).padStart(s0.tb, '0') : '-') + '</td><td>' + held + '</td></tr>';
+  });
+  $('cacheTable').innerHTML = h;
+  const hits = done.filter(r => r.hit).length, misses = done.length - hits;
+  const rate = done.length ? Math.round(100 * hits / done.length) : 0;
+  $('stats').innerHTML = '<span>Reads <span class="big">' + done.length + '</span> / ' + state.addrs.length + '</span><span class="hit">Hits ' + hits + '</span><span class="miss">Misses ' + misses + '</span><span>Hit rate <span class="big">' + rate + '%</span></span>';
+  $('barFill').style.width = rate + '%';
+  let lg = '<tr><th>#</th><th>Address</th><th>Binary (tag, index, offset)</th><th>Index</th><th>Result</th></tr>';
+  done.forEach((r, i) => {
+    lg += '<tr' + (i === done.length - 1 ? ' class="active"' : '') + '><td>' + (i + 1) + '</td><td class="mono">' + r.addr + '</td><td>' + bitsHTML(r.addr, s0) + '</td><td class="mono">' + r.index + '</td><td class="' + (r.hit ? 'hit">Hit' : 'miss">Miss') + '</td></tr>';
+  });
+  $('logTable').innerHTML = lg;
+  const end = !state.result || state.pos >= state.addrs.length;
+  $('stepBtn').disabled = end; $('runBtn').disabled = end; $('playBtn').disabled = end && !playing;
+  $('backBtn').disabled = state.pos === 0;
+  paintLines(state.pos);
+}
+function narration(r){
+  const { cb, lb } = settings(); const s = splitAddr(r.addr, cb, lb);
+  const first = (r.addr >> s.ob) * lb;
+  const split = 'Read address <b>' + r.addr + '</b> = ' + bitsHTML(r.addr, s) + ': tag ' + r.tag + ', index ' + r.index + ', offset ' + r.offset + '.';
+  const go = 'The index sends the request to <b>line ' + r.index + '</b>, the only place this address can live.';
+  let end;
+  if (r.hit) end = '<span class="hit">Hit.</span> Line ' + r.index + ' already holds tag ' + r.tag + ', so the data comes straight from the cache in about a nanosecond.';
+  else if (r.reason.kind === 'first') end = '<span class="miss">Miss.</span> Line ' + r.index + ' is empty, so the ' + lb + ' bytes from ' + first + ' to ' + (first + lb - 1) + ' are copied up from RAM. The next reads nearby can now hit.';
+  else if (r.reason.kind === 'evicted') end = '<span class="miss">Miss.</span> This block was here before, but tag ' + r.reason.oldTag + ' pushed it out. It is copied from RAM again (a conflict miss).';
+  else end = '<span class="miss">Miss.</span> Line ' + r.index + ' holds a different block (tag ' + r.reason.oldTag + '). It is replaced by bytes ' + first + ' to ' + (first + lb - 1) + ' from RAM.';
+  return [split, split + '<br>' + go, split + '<br>' + go + '<br>' + end];
+}
+function step(onDone){
+  if (!state.result || state.pos >= state.addrs.length){ if (onDone) onDone(); return; }
+  if (tl){ tl.progress(1); tl = null; }
+  const r = state.result.rows[state.pos];
+  state.pos++;
+  const msgs = narration(r);
+  render();
+  paintLines(state.pos - 1);   // show the cache as it was just before this read, then animate the change
+  if (!st || !hasGSAP){
+    caption(msgs[2]); paintLines(state.pos);
+    if (st){ V.lines[r.index].material.color.set(r.hit ? 0x16A34A : 0xDC2626); setTimeout(() => paintLines(state.pos), 700); }
+    if (onDone) setTimeout(onDone, 650);
+    return;
+  }
+  const { cb, lb } = settings(); const n = cb / lb; const line = V.lines[r.index]; const p = linePos(r.index, n);
+  if (focusMode === 'pyramid') focus(narrow() ? 'cache' : 'all');
+  V.packet.visible = true; V.packet.position.set(-5.2, 2.2, 0); V.packet.scale.set(1, 1, 1);
+  V.tagAnchor.position.set(3 + (p.x - 3) * 0.55, p.y + 1.0, p.z); V.tagLabel.style.visibility = 'hidden';
+  tl = gsap.timeline({ onComplete: () => { tl = null; paintLines(state.pos); if (onDone) onDone(); } });
+  tl.call(() => caption(msgs[0]))
+    .to(V.packet.position, { x: p.x, y: p.y + 1.2, z: p.z, duration: 0.7, ease: 'power2.inOut' })
+    .call(() => { caption(msgs[1]); V.tagLabel.textContent = 'line ' + r.index + ': ' + (line.material.color.getHex() === 0xCBD5E1 ? 'empty' : 'compare tags'); V.tagLabel.style.visibility = 'visible'; })
+    .add(colorTo(line, 0xF59E0B, 0.3))
+    .to({}, { duration: 0.35 });
+  if (r.hit){
+    tl.call(() => { caption(msgs[2]); V.tagLabel.textContent = 'tag ' + r.tag + ' matches: hit'; })
+      .add(colorTo(line, 0x16A34A, 0.3))
+      .to(V.packet.scale, { x: 0.01, y: 0.01, z: 0.01, duration: 0.35 }, '<')
+      .to({}, { duration: 0.5 });
+  } else {
+    const rx = V.ram.position.x - 4 + (r.addr / 256) * 8;
+    V.block.position.set(rx, V.ram.position.y, 0); V.block.visible = true; V.block.scale.set(lb / 8, 1, 1);
+    tl.call(() => { caption(msgs[2]); V.tagLabel.textContent = 'no match: miss, load from RAM'; })
+      .add(colorTo(line, 0xDC2626, 0.3))
+      .to(V.block.position, { x: p.x, y: p.y, z: p.z, duration: 0.75, ease: 'power2.out' })
+      .to(V.packet.scale, { x: 0.01, y: 0.01, z: 0.01, duration: 0.3 }, '<0.4')
+      .call(() => { V.block.visible = false; V.tagLabel.textContent = 'line ' + r.index + ' now holds tag ' + r.tag; })
+      .to({}, { duration: 0.45 });
+  }
+  tl.call(() => { V.packet.visible = false; });
+  if (playing) tl.timeScale(1.8);
+}
+function back(){
+  stopPlay(); if (tl){ tl.kill(); tl = null; }
+  if (state.pos === 0) return;
+  state.pos--;
+  if (st){ V.packet.visible = false; V.block.visible = false; V.tagLabel.style.visibility = 'hidden'; }
+  caption(state.pos ? 'Went back one read. ' + narration(state.result.rows[state.pos - 1])[2] : 'Back at the start. Press Step to follow the first read.');
+  render();
+}
+function play(){
+  if (playing || !state.result || state.pos >= state.addrs.length) return;
+  playing = true; $('playBtn').disabled = true;
+  const next = () => {
+    if (!playing) return;
+    if (state.pos >= state.addrs.length){ stopPlay(); runSummary(); return; }
+    step(() => { playTimer = setTimeout(next, hasGSAP ? 250 : 100); });
+  };
+  next();
+}
+function stopPlay(){ playing = false; clearTimeout(playTimer); if ($('playBtn')) $('playBtn').disabled = false; }
+function runSummary(){
+  const { hits, misses } = state.result;
+  caption('Pattern finished: <span class="hit">' + hits + ' hits</span> and <span class="miss">' + misses + ' misses</span>. Change one setting and run it again to compare.');
+}
+function runAll(){
+  stopPlay(); if (tl){ tl.kill(); tl = null; }
+  if (!state.result) return;
+  state.pos = state.addrs.length;
+  if (st){ V.packet.visible = false; V.block.visible = false; V.tagLabel.style.visibility = 'hidden'; }
+  runSummary(); render();
+}
+
+if (!st) drawFallback();
+['cacheSize', 'lineSize', 'pattern'].forEach(id => $(id).addEventListener('change', load));
+$('customList').addEventListener('change', load);
+$('stepBtn').addEventListener('click', () => { stopPlay(); step(); });
+$('runBtn').addEventListener('click', runAll);
+$('resetBtn').addEventListener('click', load);
+document.querySelectorAll('.views .btn').forEach(b => b.addEventListener('click', () => {
+  focus(b.dataset.view);
+  if (b.dataset.view === 'pyramid') caption('The memory hierarchy: the higher the layer, the smaller and faster it is. Click a layer to learn about it.');
+}));
+if (st) focus(narrow() ? 'cache' : 'all', true); else document.querySelector('.views').hidden = true;
+$('backBtn').addEventListener('click', back);
+$('playBtn').addEventListener('click', play);
+$('pauseBtn').addEventListener('click', () => { stopPlay(); caption('Paused after read ' + state.pos + '. Press Play to continue or Step to go one read at a time.'); render(); });
+
+/* Quick check */
+const QUIZ = [
+  { q: 'A program reads 4-byte numbers in order and the cache has 8-byte lines. About what hit rate should you expect?', o: ['0%', '50%', '75%', '100%'], a: 1, why: 'Each miss loads 8 bytes, which is two numbers. The first read misses and the second hits, so half of the reads hit.' },
+  { q: 'In the 64-byte cache, why does the strided pattern (0, 64, 128, 192) never hit?', o: ['The cache is too small to hold four numbers', 'All four addresses have the same index, so each one replaces the previous one', 'The line size is too small', 'Strided reads are never cached'], a: 1, why: 'Addresses 64 bytes apart share the same index bits in a 64-byte cache, so they fight over one line. These are conflict misses.' },
+  { q: 'With a 64-byte cache and 8-byte lines, how is address 77 split?', o: ['Tag 1, index 1, offset 5', 'Tag 0, index 9, offset 5', 'Tag 2, index 3, offset 1', 'Tag 1, index 5, offset 1'], a: 0, why: '77 is 01001101 in binary. With 2 tag bits, 3 index bits, and 3 offset bits that is 01 | 001 | 101: tag 1, index 1, offset 5.' },
+  { q: 'The second pass of the loop pattern hits because of which idea?', o: ['Spatial locality', 'Temporal locality', 'Pipelining', 'Virtual memory'], a: 1, why: 'The same data is used again soon after it was first used. That is temporal locality.' },
+  { q: 'Reading a table column by column in a 32-byte cache gives a 0% hit rate, but row by row gives 50%. What is the practical lesson for programmers?', o: ['Use more columns', 'Walk through data in the order it is stored in memory', 'Always use random access', 'Caches do not matter for tables'], a: 1, why: 'Reading in storage order uses every byte of each loaded line before moving on, so the cache works for you instead of against you.' },
+  { q: 'In the pyramid, why is RAM below the caches?', o: ['It is faster than the caches', 'It is bigger and slower, so it sits lower in the hierarchy', 'It is only used when the computer starts', 'It stores data with the power off'], a: 1, why: 'Each level down is bigger, cheaper per byte, and slower. Caches keep a small copy of the RAM data in use so the processor rarely waits.' }
+];
+function renderQuiz(){
+  const box = $('quiz'); box.innerHTML = '';
+  let answered = 0, right = 0;
+  QUIZ.forEach((item, qi) => {
+    const d = document.createElement('div'); d.className = 'q';
+    d.innerHTML = '<p>' + (qi + 1) + '. ' + item.q + '</p><div class="opts"></div><div class="feedback" hidden></div>';
+    const opts = d.querySelector('.opts'), fb = d.querySelector('.feedback');
+    item.o.forEach((o, oi) => {
+      const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = o;
+      b.addEventListener('click', () => {
+        if (d.dataset.done) return; d.dataset.done = '1'; answered++;
+        const ok = oi === item.a; if (ok) right++;
+        b.classList.add(ok ? 'right' : 'wrong');
+        opts.children[item.a].classList.add('right');
+        fb.hidden = false; fb.className = 'feedback ' + (ok ? 'ok' : 'bad'); fb.textContent = (ok ? 'Correct. ' : 'Not quite. ') + item.why;
+        $('quizScore').innerHTML = answered === QUIZ.length ? 'Quick check: <span class="big">' + right + ' / ' + QUIZ.length + '</span>' : '';
+      });
+      opts.appendChild(b);
+    });
+    box.appendChild(d);
+  });
+}
+renderQuiz();
+load();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Performance tuning challenge</title>
+<meta name="description" content="EGN 325 Week 7 interactive: Help a Doral logistics office spend its upgrade budget wisely: compute CPU time, average memory access time, and real speedups with Amdahl&#x27;s law.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/*W78CSS*/
+  .round-head{display:flex;justify-content:space-between;gap:8px;font-weight:600;color:var(--muted);font-size:14px}
+  .progress{height:6px;border-radius:999px;background:#EEF1F5;margin:8px 0 12px;overflow:hidden}
+  .progress div{height:100%;width:0;background:var(--au-red);transition:width .3s}
+  .opts{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+  .opts button{text-align:left;font-weight:500}
+  .opts button.right{border-color:var(--ok);background:var(--ok-soft)}
+  .opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+  .opts button:disabled{cursor:default;opacity:1;color:var(--ink)}
+  .formula{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:14px;background:#F8FAFC}
+  .muted{color:var(--muted);font-size:14px;margin:0 0 8px}
+  .stepcount{font-size:13px;color:var(--muted);margin-left:4px}
+  .hit{color:var(--ok);font-weight:700}
+  .miss{color:var(--bad);font-weight:700}
+  .big{font-size:28px;color:var(--au-red-dark)}
+  #fallback2d{margin-top:8px}
+  #fallback2d svg{width:100%;height:auto;display:block}
+  .stepper .btn{min-width:84px}
+  .stepper .btn:disabled{opacity:.45;cursor:not-allowed}
+  @media (max-width:560px){ #stage .label3d{font-size:10.5px;padding:1px 4px} }
+
+/*W78CSS-END*/
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 7 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 7 · Challenge</span>
+    <h1>Performance tuning challenge</h1>
+    <p class="lede">Help a Doral logistics office spend its upgrade budget wisely: compute CPU time, average memory access time, and real speedups with Amdahl&#x27;s law.</p>
+  </section>
+
+<!--BODY-->
+  <details class="howto card">
+    <summary>How to use this challenge</summary>
+    <ol>
+      <li>Palmetto Freight, a fictional logistics office in Doral, has a small upgrade budget. Each of the 10 rounds is one question from their IT team. Each round is worth 10 points.</li>
+      <li>Read the scenario, work it out on paper or with a calculator, and pick an answer. You get one try per round.</li>
+      <li>After you answer, press <b>Play</b> (or <b>Step</b>) under the 3D model to watch the calculation built piece by piece. Drag the model to turn it.</li>
+      <li>Keep the formula card open while you work. At the end you get a score out of 100 and can try again with the answers in a new order.</li>
+    </ol>
+  </details>
+
+  <div class="grid two">
+    <section class="card" id="roundCard">
+      <div class="round-head"><span id="roundNum">Round 1 of 10</span><span id="scoreNow">Score 0</span></div>
+      <div class="progress"><div id="progFill"></div></div>
+      <h2 id="roundTitle">Round title</h2>
+      <p id="scenario"></p>
+      <div class="opts" id="opts" role="group" aria-label="Answer choices"></div>
+      <div id="feedback" class="feedback" hidden aria-live="polite"></div>
+      <div class="btnrow"><button class="btn primary" id="nextBtn" hidden>Next round</button></div>
+    </section>
+    <aside class="card">
+      <h2>Formula card</h2>
+      <div class="formula"><b>CPU time</b> = instructions &times; CPI &times; clock period<br><span class="muted">CPI is the average number of clock cycles per instruction. Clock period = 1 / clock rate, so 2 GHz means 0.5 ns per cycle.</span></div>
+      <div class="formula"><b>Amdahl's law</b>: speedup = 1 / ((1 &minus; f) + f / s)<br><span class="muted">f is the fraction of the time the upgrade affects, and s is how many times faster that part becomes. The part you do not touch limits the whole job.</span></div>
+      <div class="formula"><b>Average memory access time (AMAT)</b> = hit time + miss rate &times; miss penalty<br><span class="muted">Miss penalty is the extra time to fetch from the next level when the cache misses.</span></div>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>See the calculation</h2>
+    <p class="muted" id="stageNote">Each round has its own model. Answer first, then play the explanation.</p>
+    <div class="stage3d" id="stage"></div>
+    <div id="fallback2d" hidden></div>
+    <div class="stepper">
+      <button class="btn" id="backBtn" aria-label="Step back">&#9664; Back</button>
+      <button class="btn primary" id="playBtn">&#9654; Play</button>
+      <button class="btn" id="pauseBtn">&#10074;&#10074; Pause</button>
+      <button class="btn" id="stepBtn" aria-label="Step forward">Step &#9654;</button>
+      <span class="stepcount" id="stepCount"></span>
+    </div>
+    <div class="caption" id="caption" aria-live="polite"></div>
+  </section>
+
+  <section class="card" id="finalCard" style="margin-top:16px" hidden>
+    <h2>Your result</h2>
+    <div class="score" id="finalScore"></div>
+    <div class="scroll-x"><table class="data" id="summary" aria-label="Round summary"></table></div>
+    <div class="btnrow"><button class="btn primary" id="againBtn">Try again</button></div>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script id="app">
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---------- Week 7 and 8 extras on top of the skeleton's make3D ---------- */
+function box3(w, h, d, color, extra){
+  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.08 }, extra || {})));
+}
+function tweenTo(target, vars){
+  // GSAP when available; otherwise jump to the end state so every learning path still works
+  if (hasGSAP) return gsap.to(target, vars);
+  const v = Object.assign({}, vars); ['duration', 'ease', 'delay', 'onComplete', 'repeat', 'yoyo', 'stagger', 'overwrite'].forEach(k => delete v[k]);
+  Object.assign(target, v); if (vars.onComplete) vars.onComplete();
+  return null;
+}
+function colorTo(mesh, hex, dur){
+  const c = new THREE.Color(hex);
+  if (hasGSAP) return gsap.to(mesh.material.color, { r: c.r, g: c.g, b: c.b, duration: dur == null ? 0.4 : dur, overwrite: true });
+  mesh.material.color.copy(c); return null;
+}
+function picker(st, objects, onPick){
+  // click or tap an object in the 3D scene
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement;
+  el.addEventListener('pointerup', e => {
+    const r = el.getBoundingClientRect();
+    m.x = ((e.clientX - r.left) / r.width) * 2 - 1; m.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(m, st.camera);
+    const hit = ray.intersectObjects(objects(), true)[0];
+    if (hit) onPick(hit.object);
+  });
+}
+/* ---------- end extras ---------- */
+
+/* LOGIC START */
+function cpuTime(instr, cpi, ghz){ return instr * cpi / (ghz * 1e9); }
+function amdahl(f, s){ return 1 / ((1 - f) + f / s); }
+function amat(hit, mr, pen){ return hit + mr * pen; }
+function fx(x, d){ return (Math.round(x * Math.pow(10, d)) / Math.pow(10, d)).toFixed(d); }
+/* LOGIC END */
+
+const X = '×';
+const ROUNDS = [
+  { title: 'How long does the route planner run?', kind: 'cpu',
+    text: 'The office route planner runs 2 billion instructions with an average CPI of 1.5 on a 3 GHz processor. What is its CPU time?',
+    spec: { boxes: [{ name: 'Planner', instr: 2e9, cpi: 1.5, ghz: 3 }] },
+    opts: [
+      { t: fx(cpuTime(2e9, 1.5, 3), 2) + ' s', ok: true, why: '2 billion ' + X + ' 1.5 = 3 billion cycles. At 3 GHz one cycle lasts 1/3 ns, so 3 billion cycles take 1.00 s.' },
+      { t: fx(2e9 / 3e9, 2) + ' s', why: 'This divides instructions by the clock rate and forgets that each instruction needs 1.5 cycles on average.' },
+      { t: fx(2e9 / (1.5 * 3e9), 2) + ' s', why: 'This divides by the CPI instead of multiplying. More cycles per instruction means more time, not less.' },
+      { t: fx(2 * 1.5 * 3, 2) + ' s', why: 'This multiplies by the clock rate. A faster clock means a shorter clock period, so you divide by the rate.' }
+    ] },
+  { title: 'Which computer finishes first?', kind: 'cpu',
+    text: 'Two quotes for the dispatch desk. Computer A runs at 3.5 GHz with a CPI of 2.0. Computer B runs at 2.8 GHz with a CPI of 1.2. The dispatch program runs 1 billion instructions. Which one finishes first?',
+    spec: { boxes: [{ name: 'A', instr: 1e9, cpi: 2.0, ghz: 3.5 }, { name: 'B', instr: 1e9, cpi: 1.2, ghz: 2.8 }] },
+    opts: [
+      { t: 'Computer B: ' + fx(cpuTime(1e9, 1.2, 2.8), 2) + ' s against ' + fx(cpuTime(1e9, 2, 3.5), 2) + ' s', ok: true, why: 'A: 1 billion ' + X + ' 2.0 / 3.5 GHz = 0.57 s. B: 1 billion ' + X + ' 1.2 / 2.8 GHz = 0.43 s. B needs fewer cycles, which beats A\'s faster clock.' },
+      { t: 'Computer A, because 3.5 GHz is the higher clock rate', why: 'Clock rate alone does not decide. A needs 2 cycles per instruction, so it does much more work per instruction.' },
+      { t: 'Computer A: ' + fx(cpuTime(1e9, 2, 3.5), 2) + ' s against ' + fx(cpuTime(1e9, 1.2, 2.8), 2) + ' s', why: 'Those are the right times, but the smaller time wins, and that is B.' },
+      { t: 'They take the same time', why: 'Compute both: they differ by more than a tenth of a second.' }
+    ] },
+  { title: 'How long is one clock cycle?', kind: 'clock',
+    text: 'The new label printer controller has a 2.5 GHz clock. How long is one clock cycle (the clock period)?',
+    spec: { ghz: 2.5 },
+    opts: [
+      { t: '0.4 ns', ok: true, why: 'Period = 1 / rate = 1 / 2.5 GHz = 0.4 ns. That is, 2.5 cycles fit in each nanosecond.' },
+      { t: '2.5 ns', why: 'That is the rate with the unit changed. The period is 1 divided by the rate.' },
+      { t: '0.25 ns', why: 'That would be a 4 GHz clock (1 / 4 = 0.25).' },
+      { t: '4 ns', why: 'A 4 ns period would be a 0.25 GHz (250 MHz) clock.' }
+    ] },
+  { title: 'Faster label printing', kind: 'amdahl',
+    text: 'Printing shipping labels takes 40% of the nightly job. New software makes the printing part 10 times faster. What is the speedup of the whole job?',
+    spec: { total: 100, unit: '%', bars: [{ name: 'Printing 10' + X, f: 0.4, s: 10 }] },
+    opts: [
+      { t: fx(amdahl(0.4, 10), 2) + X, ok: true, why: '1 / (0.6 + 0.4 / 10) = 1 / 0.64 = 1.56' + X + '. The 60% that did not change still takes as long as before.' },
+      { t: '10' + X, why: 'Only the printing part gets 10 times faster, not the whole job.' },
+      { t: '4' + X, why: '0.4 ' + X + ' 10 is not a speedup. Use Amdahl\'s law: 1 / ((1 − f) + f / s).' },
+      { t: '1.40' + X, why: 'This adds 40% to the speed. The formula gives 1 / 0.64 = 1.56' + X + '.' }
+    ] },
+  { title: 'Unlimited cores', kind: 'amdahl',
+    text: '80% of the route optimizer can run in parallel and the rest must run on one core. With unlimited cores, what is the largest possible speedup?',
+    spec: { total: 100, unit: '%', bars: [{ name: 'Unlimited cores', f: 0.8, s: Infinity }] },
+    opts: [
+      { t: fx(amdahl(0.8, Infinity), 0) + X, ok: true, why: 'Even if the parallel part took zero time, the 20% serial part remains: 1 / 0.2 = 5' + X + '.' },
+      { t: '80' + X, why: 'The percentage of parallel work is not a speedup. The serial part sets the limit.' },
+      { t: 'No limit, it keeps growing', why: 'The serial 20% never gets faster, so it caps the speedup at 1 / 0.2.' },
+      { t: '1.25' + X, why: 'That is 1 / 0.8: you used the parallel fraction where the serial fraction belongs.' }
+    ] },
+  { title: 'Four cores', kind: 'amdahl',
+    text: 'The same office runs a reporting tool where 75% of the work runs in parallel. On a 4-core processor, what is the speedup over one core?',
+    spec: { total: 100, unit: '%', bars: [{ name: '4 cores', f: 0.75, s: 4 }] },
+    opts: [
+      { t: fx(amdahl(0.75, 4), 2) + X, ok: true, why: '1 / (0.25 + 0.75 / 4) = 1 / 0.4375 = 2.29' + X + '.' },
+      { t: '4' + X, why: 'Four cores only speed up the parallel 75%. The other 25% runs at the old speed.' },
+      { t: '3' + X, why: '0.75 ' + X + ' 4 is not Amdahl\'s law. Use 1 / ((1 − f) + f / s).' },
+      { t: '1.75' + X, why: 'This adds 0.75 to 1. The formula gives 1 / 0.4375 = 2.29' + X + '.' }
+    ] },
+  { title: 'Average memory access time', kind: 'amat',
+    text: 'The database server\'s cache has a 1 ns hit time, a 5% miss rate, and a 100 ns miss penalty. What is the average memory access time?',
+    spec: { cols: [{ name: 'Today', hit: 1, mr: 0.05, pen: 100 }] },
+    opts: [
+      { t: fx(amat(1, 0.05, 100), 0) + ' ns', ok: true, why: '1 + 0.05 ' + X + ' 100 = 1 + 5 = 6 ns.' },
+      { t: '5 ns', why: 'That is only the miss part (0.05 ' + X + ' 100). Every access also pays the 1 ns hit time.' },
+      { t: '101 ns', why: 'This adds the whole penalty to every access. Only 5% of accesses miss.' },
+      { t: '1.05 ns', why: 'This uses the hit time where the miss penalty belongs.' }
+    ] },
+  { title: 'Better cache or faster memory?', kind: 'amat',
+    text: 'Two options for the same server (1 ns hit, 5% miss rate, 100 ns penalty). Option 1 cuts the miss rate to 2%. Option 2 halves the miss penalty to 50 ns. Which gives the lower AMAT?',
+    spec: { cols: [{ name: 'Today', hit: 1, mr: 0.05, pen: 100 }, { name: 'Option 1', hit: 1, mr: 0.02, pen: 100 }, { name: 'Option 2', hit: 1, mr: 0.05, pen: 50 }] },
+    opts: [
+      { t: 'Option 1: ' + fx(amat(1, 0.02, 100), 1) + ' ns against ' + fx(amat(1, 0.05, 50), 1) + ' ns', ok: true, why: 'Option 1: 1 + 0.02 ' + X + ' 100 = 3.0 ns. Option 2: 1 + 0.05 ' + X + ' 50 = 3.5 ns. Both help, and Option 1 helps more.' },
+      { t: 'Option 2: ' + fx(amat(1, 0.05, 50), 1) + ' ns against ' + fx(amat(1, 0.02, 100), 1) + ' ns', why: 'Check again: Option 2 gives 3.5 ns and Option 1 gives 3.0 ns. The lower number wins.' },
+      { t: 'Both give 3.5 ns', why: 'Option 1 gives 1 + 0.02 ' + X + ' 100 = 3.0 ns.' },
+      { t: 'Neither changes the AMAT', why: 'Both shrink the miss part of the formula, so both lower AMAT from 6 ns.' }
+    ] },
+  { title: 'Which upgrade first?', kind: 'amdahl',
+    text: 'The 90-minute dispatch job spends 70% of its time computing routes (CPU), 20% reading the database from disk, and 10% on memory-heavy sorting. Upgrades: a new CPU 1.5 times faster, an SSD that makes disk reads 4 times faster, or more RAM that makes the sorting 2 times faster. Which gives the biggest speedup?',
+    spec: { total: 90, unit: ' min', bars: [{ name: 'CPU 1.5' + X, f: 0.7, s: 1.5 }, { name: 'SSD 4' + X, f: 0.2, s: 4 }, { name: 'RAM 2' + X, f: 0.1, s: 2 }] },
+    opts: [
+      { t: 'The new CPU', ok: true, why: 'CPU: 1 / (0.3 + 0.7 / 1.5) = ' + fx(amdahl(0.7, 1.5), 2) + X + '. The SSD gives ' + fx(amdahl(0.2, 4), 2) + X + ' and the RAM ' + fx(amdahl(0.1, 2), 2) + X + '. The CPU wins because it touches the biggest part of the job.' },
+      { t: 'The SSD', why: 'The disk part gets 4 times faster, but it is only 20% of the job: 1 / (0.8 + 0.05) = ' + fx(amdahl(0.2, 4), 2) + X + ', less than the CPU\'s ' + fx(amdahl(0.7, 1.5), 2) + X + '.' },
+      { t: 'More RAM', why: 'Sorting is only 10% of the job: 1 / (0.9 + 0.05) = ' + fx(amdahl(0.1, 2), 2) + X + '.' },
+      { t: 'They all give about the same speedup', why: 'Run the numbers: the CPU gives ' + fx(amdahl(0.7, 1.5), 2) + X + ', far ahead of the others.' }
+    ] },
+  { title: 'The new run time', kind: 'amdahl',
+    text: 'Palmetto Freight buys the faster CPU (1.5 times faster on the 70% CPU part). How long does the 90-minute dispatch job take now?',
+    spec: { total: 90, unit: ' min', bars: [{ name: 'CPU 1.5' + X, f: 0.7, s: 1.5 }] },
+    opts: [
+      { t: fx(90 / amdahl(0.7, 1.5), 0) + ' min', ok: true, why: '90 ' + X + ' (0.3 + 0.7 / 1.5) = 27 + 42 = 69 minutes.' },
+      { t: '60 min', why: 'That is 90 / 1.5, as if the whole job ran on the CPU. The other 30% does not get faster.' },
+      { t: fx(90 / amdahl(0.2, 4), 1) + ' min', why: 'That is the time with the SSD upgrade instead: 90 ' + X + ' (0.8 + 0.2 / 4).' },
+      { t: '27 min', why: '27 minutes is only the untouched 30%. Add the faster CPU part: 63 / 1.5 = 42 minutes.' }
+    ] }
+];
+
+/* ---------- steps for each model: a list of blocks per step ---------- */
+const C = { a: 0x2563EB, b: 0x7C3AED, part: 0xF59E0B, rest: 0x94A3B8, hit: 0x16A34A, miss: 0xDC2626, ruler: 0x64748B, cyc1: 0x38BDF8, cyc2: 0x0EA5E9 };
+function stepsFor(r){
+  const s = r.spec, out = [];
+  if (r.kind === 'cpu'){
+    const n = s.boxes.length, gap = 3.6;
+    const info = s.boxes.map((b, i) => ({ b, x: (i - (n - 1) / 2) * gap, w: b.instr / 1e9 * 1.4, h: b.cpi * 1.2, d: (1 / b.ghz) * 3.6, cycles: b.instr * b.cpi / 1e9, period: 1 / b.ghz, t: cpuTime(b.instr, b.cpi, b.ghz), col: i ? C.b : C.a }));
+    const mk = (fn, lab) => info.map((o, i) => Object.assign({ key: 'box' + i, x: o.x, y0: 0, z: 0, color: o.col, label: o.b.name + ': ' + lab(o) }, fn(o)));
+    out.push({ cap: 'Each box is one run of the program. Its width will show the instructions, its height the cycles per instruction (CPI), and its depth the time per cycle. The volume is the CPU time.', blocks: mk(o => ({ w: 0.5, h: 0.5, d: 0.5 }), o => 'start') });
+    out.push({ cap: 'Width: the instruction count. ' + info.map(o => o.b.name + ' runs ' + o.b.instr / 1e9 + ' billion instructions.').join(' '), blocks: mk(o => ({ w: o.w, h: 0.5, d: 0.5 }), o => o.b.instr / 1e9 + ' billion instr.') });
+    out.push({ cap: 'Height: multiply by the CPI to get clock cycles. ' + info.map(o => o.b.name + ': ' + o.b.instr / 1e9 + ' billion ' + X + ' ' + o.b.cpi + ' = ' + fx(o.cycles, 1) + ' billion cycles.').join(' '), blocks: mk(o => ({ w: o.w, h: o.h, d: 0.5 }), o => fx(o.cycles, 1) + ' billion cycles') });
+    out.push({ cap: 'Depth: multiply by the clock period (1 / clock rate). ' + info.map(o => o.b.name + ': ' + o.b.ghz + ' GHz gives ' + fx(o.period, 3) + ' ns per cycle, so the time is ' + fx(o.cycles, 1) + ' billion ' + X + ' ' + fx(o.period, 3) + ' ns = ' + fx(o.t, 2) + ' s.').join(' ') + (n > 1 ? ' The smaller box finishes first.' : ''), blocks: mk(o => ({ w: o.w, h: o.h, d: o.d }), o => fx(o.t, 2) + ' s') });
+  } else if (r.kind === 'clock'){
+    const L = 6, per = L / s.ghz, ruler = { key: 'ruler', x: 0, y0: 0, z: 0, w: L, h: 0.25, d: 1.2, color: C.ruler, label: '1 nanosecond' };
+    const cyc = (hl) => { const b = []; let left = -L / 2, k = 0; while (left < L / 2 - 1e-9){ const w = Math.min(per, L / 2 - left); b.push({ key: 'c' + k, x: left + w / 2, y0: 0.25, z: 0, w: w - 0.06, h: 0.9, d: 1.0, color: hl && k === 0 ? C.part : (k % 2 ? C.cyc2 : C.cyc1), label: hl && k === 0 ? 'one cycle = ' + fx(1 / s.ghz, 1) + ' ns' : (k === 0 ? 'cycle 1' : '') }); left += per; k++; } return b; };
+    out.push({ cap: 'The grey bar is one nanosecond, a billionth of a second.', blocks: [ruler] });
+    out.push({ cap: s.ghz + ' GHz means ' + s.ghz + ' billion cycles every second, which is ' + s.ghz + ' cycles in every nanosecond. Count the blocks on the bar.', blocks: [ruler].concat(cyc(false)) });
+    out.push({ cap: 'One cycle is 1 / ' + s.ghz + ' = ' + fx(1 / s.ghz, 1) + ' ns. That is the clock period: the faster the clock, the shorter each cycle.', blocks: [ruler].concat(cyc(true)) });
+  } else if (r.kind === 'amdahl'){
+    const H = 3.6 / s.total, n = s.bars.length + 1, gap = 2.0;
+    const xs = i => (i - (n - 1) / 2) * gap, u = s.unit;
+    const v = x => (u === '%' ? fx(x, 0) + '%' : fx(x, Math.abs(x - Math.round(x)) < 1e-6 ? 0 : 1) + u);
+    const PARTC = [0x2563EB, 0x7C3AED, 0x0D9488];
+    const bar = (i, name, f, sp, lab, col) => {
+      const rest = (1 - f) * s.total, part = sp === Infinity ? 0 : f * s.total / sp;
+      return [{ key: 'r' + i, x: xs(i), y0: 0, z: 0, w: 1.2, h: Math.max(rest * H, 0.02), d: 1.2, color: C.rest, label: '' },
+              { key: 'p' + i, x: xs(i), y0: rest * H, z: 0, w: 1.2, h: Math.max(part * H, 0.02), d: 1.2, color: col || C.part, label: lab }];
+    };
+    const f0 = s.bars.length === 1 ? s.bars[0].f : null;
+    const today = bar(0, 'Today', f0 == null ? 0.7 : f0, 1, 'Today: ' + v(s.total));
+    if (f0 == null){ // several upgrades touch different parts: color today's bar by part
+      let y = 0; const segs = s.bars.map((b, j) => { const seg = { key: 't' + j, x: xs(0), y0: y, z: 0, w: 1.2, h: b.f * s.total * H, d: 1.2, color: PARTC[j % 3], label: j === s.bars.length - 1 ? 'Today: ' + v(s.total) : '' }; y += seg.h; return seg; });
+      out.push({ cap: 'Today the job takes ' + v(s.total) + '. Each color is the part of the job one upgrade can touch: ' + s.bars.map(b => b.name.split(' ')[0] + ' ' + fx(b.f * 100, 0) + '% (' + v(b.f * s.total) + ')').join(', ') + '.', blocks: segs });
+    } else {
+      out.push({ cap: 'Today the job takes ' + v(s.total) + '. The orange part (' + fx(f0 * 100, 0) + '%) is what the upgrade touches. The grey part (' + fx((1 - f0) * 100, 0) + '%) stays exactly as it is.', blocks: today });
+    }
+    let blocks = f0 == null ? out[0].blocks.slice() : today.slice();
+    s.bars.forEach((b, j) => {
+      const newT = s.total / amdahl(b.f, b.s), i = j + 1;
+      blocks = blocks.concat(bar(i, b.name, b.f, b.s, b.name + ': ' + v(newT), f0 == null ? PARTC[j % 3] : null));
+      const partTxt = b.s === Infinity ? 'shrinks to almost nothing' : 'takes ' + v(b.f * s.total) + ' / ' + b.s + ' = ' + v(b.f * s.total / b.s);
+      out.push({ cap: b.name + ': the ' + (f0 == null ? 'colored' : 'orange') + ' ' + fx(b.f * 100, 0) + '% ' + partTxt + '. The grey ' + v((1 - b.f) * s.total) + ' does not change. New time: ' + v(newT) + ', a speedup of ' + v(s.total) + ' / ' + v(newT) + ' = ' + fx(amdahl(b.f, b.s), 2) + X + '.', blocks: blocks.slice() });
+    });
+    out.push({ cap: 'Amdahl\'s law in one picture: the grey part you did not upgrade sets the limit. ' + (s.bars.length > 1 ? 'The best upgrade is the one that shrinks the most time, not the one with the biggest ' + X + ' number.' : 'Speedup = 1 / ((1 − f) + f / s).'), blocks: blocks.slice() });
+  } else if (r.kind === 'amat'){
+    const H = 0.55, n = s.cols.length, gap = 2.2, xs = i => (i - (n - 1) / 2) * gap;
+    const hits = s.cols.map((c, i) => ({ key: 'h' + i, x: xs(i), y0: 0, z: 0, w: 1.2, h: c.hit * H, d: 1.2, color: C.hit, label: c.name + ': hit ' + c.hit + ' ns' }));
+    const miss = s.cols.map((c, i) => ({ key: 'm' + i, x: xs(i), y0: c.hit * H, z: 0, w: 1.2, h: c.mr * c.pen * H, d: 1.2, color: C.miss, label: c.name + ': ' + fx(amat(c.hit, c.mr, c.pen), 1) + ' ns' }));
+    out.push({ cap: 'Every access pays the hit time first (green): ' + s.cols[0].hit + ' ns to check the cache.', blocks: hits });
+    out.push({ cap: 'Only the misses pay the penalty, so on average each access adds miss rate ' + X + ' penalty (red). ' + s.cols.map(c => c.name + ': ' + c.mr + ' ' + X + ' ' + c.pen + ' = ' + fx(c.mr * c.pen, 1) + ' ns.').join(' '), blocks: hits.map(h => Object.assign({}, h, { label: '' })).concat(miss) });
+    out.push({ cap: 'AMAT = hit time + miss rate ' + X + ' miss penalty. ' + s.cols.map(c => c.name + ': ' + fx(amat(c.hit, c.mr, c.pen), 1) + ' ns.').join(' ') + (n > 1 ? ' The shortest column wins.' : ''), blocks: hits.map(h => Object.assign({}, h, { label: '' })).concat(miss) });
+  }
+  return out;
+}
+
+/* ---------- page state ---------- */
+const $ = id => document.getElementById(id);
+let game, steps = [], si = 0, playing = false, playTimer = null;
+function shuffle(a){ a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function newGame(){ game = { r: 0, score: 0, results: [], order: ROUNDS.map(r => shuffle(r.opts)) }; $('finalCard').hidden = true; $('roundCard').hidden = false; showRound(); }
+function showRound(){
+  const r = ROUNDS[game.r];
+  $('roundNum').textContent = 'Round ' + (game.r + 1) + ' of ' + ROUNDS.length;
+  $('scoreNow').textContent = 'Score ' + game.score;
+  $('progFill').style.width = (100 * game.r / ROUNDS.length) + '%';
+  $('roundTitle').textContent = r.title; $('scenario').textContent = r.text;
+  $('feedback').hidden = true; $('nextBtn').hidden = true;
+  const box = $('opts'); box.innerHTML = '';
+  game.order[game.r].forEach(o => {
+    const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = o.t;
+    b.addEventListener('click', () => answer(o, b)); box.appendChild(b);
+  });
+  game.answered = false;
+  steps = stepsFor(r); si = 0; stopPlay(); frame(true); show(0);
+}
+function answer(o, btn){
+  if (game.answered) return; game.answered = true;
+  const r = ROUNDS[game.r], right = r.opts.find(x => x.ok);
+  if (o.ok) game.score += 10;
+  game.results.push({ title: r.title, ok: !!o.ok, picked: o.t, right: right.t });
+  [...$('opts').children].forEach(b => { b.disabled = true; if (b.textContent === right.t) b.classList.add('right'); });
+  if (!o.ok) btn.classList.add('wrong');
+  const fb = $('feedback'); fb.hidden = false; fb.className = 'feedback ' + (o.ok ? 'ok' : 'bad');
+  fb.innerHTML = o.ok ? '<b>Correct, +10.</b> ' + o.why : '<b>Not this one.</b> ' + o.why + '<br><b>The answer is ' + right.t + '.</b> ' + right.why;
+  $('scoreNow').textContent = 'Score ' + game.score;
+  $('nextBtn').hidden = false; $('nextBtn').textContent = game.r === ROUNDS.length - 1 ? 'See my score' : 'Next round';
+  $('stageNote').textContent = 'Press Play to watch the calculation, or Step to go one part at a time.';
+  show(0);
+}
+function next(){
+  if (game.r < ROUNDS.length - 1){ game.r++; showRound(); $('roundCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  $('progFill').style.width = '100%';
+  $('roundCard').hidden = true; $('finalCard').hidden = false;
+  const s = game.score;
+  $('finalScore').innerHTML = 'Final score: <span class="big">' + s + ' / 100</span><br><span class="muted">' + (s === 100 ? 'Every upgrade decision was right. Palmetto Freight should hire you.' : s >= 70 ? 'Solid work. Replay the explanations for the rounds you missed.' : 'Go back over the formula card and the 3D explanations, then try again.') + '</span>';
+  let h = '<tr><th>Round</th><th>Your answer</th><th>Correct answer</th><th>Points</th></tr>';
+  game.results.forEach((x, i) => { h += '<tr><td>' + (i + 1) + '. ' + x.title + '</td><td>' + x.picked + '</td><td>' + x.right + '</td><td class="' + (x.ok ? 'hit">10' : 'miss">0') + '</td></tr>'; });
+  $('summary').innerHTML = h;
+  $('finalCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---------- 3D and 2D drawing ---------- */
+const st = make3D($('stage'), { camera: [0, 4, 10], target: [0, 1.2, 0] });
+const meshes = {};
+function shortLabel(b){
+  if (/^[pt]\d/.test(b.key)) return b.label.split(': ').pop();
+  return b.label.replace('Option ', '#').replace(' billion instr.', ' bn instr.').replace(' billion cycles', ' bn cycles');
+}
+function narrow(){ return $('stage').clientWidth < 560; }
+if (st){
+  const g = new st.THREE.GridHelper(16, 16, 0x334155, 0x1E293B); g.position.y = -0.01; st.scene.add(g);
+} else { $('stage').hidden = true; $('fallback2d').hidden = false; }
+function meshFor(b){
+  if (meshes[b.key]) return meshes[b.key];
+  const m = box3(1, 1, 1, b.color); m.scale.set(0.001, 0.001, 0.001); m.position.set(b.x, b.y0, b.z);
+  const anchor = new st.THREE.Object3D(); anchor.position.set(0, 0.5, 0.5); m.add(anchor);
+  m.userData.lab = st.label(anchor, ''); st.scene.add(m); meshes[b.key] = m; return m;
+}
+function frame(instant){
+  if (!st) return;
+  const last = steps[steps.length - 1].blocks;
+  let minX = Infinity, maxX = -Infinity, maxY = 0;
+  last.forEach(b => { minX = Math.min(minX, b.x - b.w / 2); maxX = Math.max(maxX, b.x + b.w / 2); maxY = Math.max(maxY, b.y0 + b.h); });
+  const cx = (minX + maxX) / 2, span = Math.max(maxX - minX, maxY * 1.5, 3), aspect = st.camera.aspect || 1.6;
+  const dist = span * (aspect < 1.2 ? 1.9 : 1.35) + 2.5;
+  const pos = { x: cx + dist * 0.3, y: maxY * 0.5 + dist * 0.3, z: dist }, tgt = { x: cx, y: maxY * 0.5, z: 0 };
+  Object.keys(meshes).forEach(k => { const m = meshes[k]; m.scale.set(0.001, 0.001, 0.001); m.userData.lab.textContent = ''; m.userData.lab.style.visibility = 'hidden'; });
+  if (instant || !hasGSAP){ st.camera.position.set(pos.x, pos.y, pos.z); st.controls.target.set(tgt.x, tgt.y, tgt.z); st.controls.update(); return; }
+  gsap.to(st.camera.position, Object.assign({ duration: 1, ease: 'power2.inOut' }, pos));
+  gsap.to(st.controls.target, Object.assign({ duration: 1, ease: 'power2.inOut', onUpdate: () => st.controls.update() }, tgt));
+}
+function show(i){
+  si = i;
+  const step = steps[i], keys = new Set(step.blocks.map(b => b.key));
+  $('caption').textContent = game.answered ? step.cap : step.cap + ' Answer the question first, then press Play.';
+  if (st){
+    step.blocks.forEach(b => {
+      const m = meshFor(b);
+      const lab = m.userData.lab; lab.textContent = narrow() ? shortLabel(b) : b.label; lab.style.visibility = b.label ? 'visible' : 'hidden';
+      tweenTo(m.scale, { x: b.w, y: b.h, z: b.d, duration: 0.8, ease: 'power2.out' });
+      tweenTo(m.position, { x: b.x, y: b.y0 + b.h / 2, z: b.z, duration: 0.8, ease: 'power2.out' });
+      colorTo(m, b.color, 0.5);
+    });
+    Object.keys(meshes).forEach(k => { if (!keys.has(k)){ tweenTo(meshes[k].scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.4 }); meshes[k].userData.lab.style.visibility = 'hidden'; } });
+  } else draw2D(step);
+  render();
+}
+function draw2D(step){
+  const bl = step.blocks; let minX = Infinity, maxX = -Infinity, maxY = 0.5;
+  steps[steps.length - 1].blocks.forEach(b => { minX = Math.min(minX, b.x - b.w / 2); maxX = Math.max(maxX, b.x + b.w / 2); maxY = Math.max(maxY, b.y0 + b.h); });
+  const W = 600, Hh = 280, pad = 30, sc = Math.min((W - 2 * pad) / (maxX - minX), (Hh - 70) / maxY);
+  const ox = W / 2 - sc * (minX + maxX) / 2, base = Hh - 20;
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  let svg = '<line x1="10" y1="' + base + '" x2="590" y2="' + base + '" stroke="#CBD2DA"/>';
+  bl.forEach(b => {
+    const x = ox + sc * (b.x - b.w / 2), y = base - sc * (b.y0 + b.h), w = sc * b.w, h = Math.max(sc * b.h, 1);
+    svg += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="3" fill="' + hex(b.color) + '"/>';
+    if (b.label) svg += '<text x="' + (x + w / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle" font-size="13" font-weight="600" fill="#1F2937">' + b.label + '</text>';
+  });
+  $('fallback2d').innerHTML = '<svg viewBox="0 0 600 280" role="img" aria-label="Diagram of the current step">' + svg + '</svg>';
+}
+function render(){
+  const max = game.answered ? steps.length - 1 : 0;
+  $('stepCount').textContent = 'Step ' + (si + 1) + ' of ' + steps.length;
+  $('backBtn').disabled = si === 0;
+  $('stepBtn').disabled = si >= max;
+  $('playBtn').disabled = playing || si >= max;
+  $('pauseBtn').disabled = !playing;
+}
+function stepFwd(){ if (game.answered && si < steps.length - 1) show(si + 1); }
+function play(){
+  if (!game.answered) return;
+  if (si >= steps.length - 1) show(0);
+  playing = true; render();
+  const tick = () => { if (!playing) return; if (si >= steps.length - 1){ stopPlay(); return; } show(si + 1); playTimer = setTimeout(tick, 2600); };
+  playTimer = setTimeout(tick, si === 0 ? 900 : 0);
+}
+function stopPlay(){ playing = false; clearTimeout(playTimer); if (steps.length) render(); }
+$('stepBtn').addEventListener('click', () => { stopPlay(); stepFwd(); });
+$('backBtn').addEventListener('click', () => { stopPlay(); if (si > 0) show(si - 1); });
+$('playBtn').addEventListener('click', play);
+$('pauseBtn').addEventListener('click', stopPlay);
+$('nextBtn').addEventListener('click', next);
+$('againBtn').addEventListener('click', () => { newGame(); $('roundCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+newGame();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline visualizer</title>
+<meta name="description" content="EGN 325 Week 8 interactive: Step short instruction sequences through a five-stage pipeline, switch forwarding on and off, and count the cycles that hazards cost.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/*W78CSS*/
+  .controls{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:flex-end;margin-bottom:10px}
+  .controls label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:14px;min-width:0}
+  .controls select{min-width:0;max-width:100%}
+  .controls .switch{flex-direction:row;align-items:center;gap:8px;padding:8px 0}
+  .switch input{width:18px;height:18px}
+  ol.code{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-wrap:wrap;gap:6px 14px}
+  ol.code li{display:flex;align-items:center;gap:6px;font-size:14px}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:3px}
+  .muted{color:var(--muted);font-size:14px;margin:0 0 8px}
+  .stepcount{font-size:13px;color:var(--muted);margin-left:4px}
+  .stepper .btn{min-width:84px}
+  .stepper .btn:disabled{opacity:.45;cursor:not-allowed}
+  .caption code,.opts code,.q code{font-family:var(--mono);font-size:13px;background:rgba(15,23,34,.06);padding:0 4px;border-radius:4px}
+  .caption .occ{display:inline-block;margin-top:6px;font-size:13px;color:var(--ink-2)}
+  .miss{color:var(--bad);font-weight:700}
+  .fw{color:#B45309;font-weight:700}
+  table.pipe td,table.pipe th{text-align:center;padding:6px 6px;font-size:13px;white-space:nowrap}
+  table.pipe td.ins{text-align:left}
+  table.pipe th.now{background:#FFF7E6}
+  table.pipe td.now{outline:2px solid #F59E0B;outline-offset:-2px}
+  table.pipe td.later{opacity:.35}
+  .s-IF{background:#DBEAFE;color:#1E3A8A}
+  .s-ID{background:#EDE9FE;color:#5B21B6}
+  .s-EX{background:#DCFCE7;color:#14532D}
+  .s-MEM{background:#FEF3C7;color:#92400E}
+  .s-WB{background:#FCE7F3;color:#9D174D}
+  .s-stall{background:#FEE2E2;color:#991B1B;font-weight:700}
+  .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .legend span{font:600 12px var(--mono);padding:3px 8px;border-radius:6px}
+  tr.cur td{background:#FFF7E6;font-weight:600}
+  .big{font-size:24px;color:var(--au-red-dark)}
+  .q{border-top:1px solid var(--line);padding:12px 0}
+  .q:first-child{border-top:0}
+  .q p{margin:0 0 8px;font-weight:600}
+  .opts{display:flex;flex-direction:column;gap:6px}
+  .opts button{text-align:left;font-weight:500}
+  .opts button.right{border-color:var(--ok);background:var(--ok-soft)}
+  .opts button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+  #fallback2d{margin-top:8px}
+  #fallback2d svg{width:100%;height:auto;display:block}
+  @media (max-width:560px){ #stage .label3d{font-size:10px;padding:1px 4px} }
+  #stage{aspect-ratio:2/1}
+  @media (max-width:560px){ #stage{min-height:210px} }
+
+/*W78CSS-END*/
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 8 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 8 · Explorer</span>
+    <h1>Pipeline visualizer</h1>
+    <p class="lede">Step short instruction sequences through a five-stage pipeline, switch forwarding on and off, and count the cycles that hazards cost.</p>
+  </section>
+
+<!--BODY-->
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Pick a short RISC-V sequence. Each colored block in the 3D view is one instruction waiting in program memory on the left.</li>
+      <li>Press <b>Step</b> to advance one clock cycle. Every block moves one stage to the right: fetch (IF), decode (ID), execute (EX), memory (MEM), and write back (WB). The caption explains what happens in each stage.</li>
+      <li>Watch for red blocks: an instruction that needs a result that is not ready yet must wait (a stall), and a gray bubble moves through the pipeline in its place.</li>
+      <li>Turn forwarding on and run the same sequence again. Orange arcs show results passed straight from one stage to the next, and many stalls disappear.</li>
+      <li>Compare the cycle counts with and without pipelining, then try the quick check at the bottom.</li>
+    </ol>
+  </details>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Pipeline settings</h2>
+    <div class="controls">
+      <label>Instruction sequence
+        <select id="seq">
+          <option value="independent">Independent instructions</option>
+          <option value="alu_chain" selected>Chain of dependent instructions</option>
+          <option value="load_use">Load, then use the value right away</option>
+          <option value="gap_of_one">Dependency with one instruction between</option>
+          <option value="array_sum">Add two numbers from an array</option>
+        </select>
+      </label>
+      <label class="switch"><input type="checkbox" id="fwd"> Forwarding (bypassing) on</label>
+    </div>
+    <ol class="code" id="codeList" aria-label="Instructions in this sequence"></ol>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>The pipeline, cycle by cycle</h2>
+    <p class="muted">Program memory on the left, the five stages in the middle, finished instructions on the right. Drag to turn the view.</p>
+    <div class="stage3d" id="stage"></div>
+    <div id="fallback2d" hidden></div>
+    <div class="stepper">
+      <button class="btn" id="backBtn" aria-label="Back one cycle">&#9664; Back</button>
+      <button class="btn primary" id="playBtn">&#9654; Play</button>
+      <button class="btn" id="pauseBtn">&#10074;&#10074; Pause</button>
+      <button class="btn" id="stepBtn" aria-label="Forward one cycle">Step &#9654;</button>
+      <button class="btn" id="resetBtn">Reset</button>
+      <span class="stepcount" id="cycleNow">Cycle 0</span>
+    </div>
+    <div class="caption" id="caption" aria-live="polite"></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Pipeline diagram</h2>
+    <p class="muted">Each row is an instruction and each column is a clock cycle. The highlighted column is the current cycle.</p>
+    <div class="scroll-x"><table class="data pipe" id="grid" aria-label="Pipeline diagram"></table></div>
+    <div class="legend"><span class="s-IF">IF</span><span class="s-ID">ID</span><span class="s-EX">EX</span><span class="s-MEM">MEM</span><span class="s-WB">WB</span><span class="s-stall">stall</span></div>
+  </section>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>Count the cycles</h2>
+      <div class="scroll-x"><table class="data" id="counts" aria-label="Cycle counts"></table></div>
+      <p class="muted" id="countNote"></p>
+    </section>
+    <aside class="card">
+      <h2>The laundry analogy</h2>
+      <p>Washing, drying, folding, and putting away one load takes four steps. You do not wait for a load to be put away before starting the next wash: while load 1 dries, load 2 washes. Each load still takes the same time, but a new load finishes at every step. A processor pipeline does the same with instructions.</p>
+      <p class="muted">A hazard is anything that stops the next instruction from starting on time. Here you see data hazards: an instruction needs a value that an earlier instruction has not produced yet.</p>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Quick check</h2>
+    <div id="quiz"></div>
+    <div class="score" id="quizScore"></div>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script id="app">
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---------- Week 7 and 8 extras on top of the skeleton's make3D ---------- */
+function box3(w, h, d, color, extra){
+  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.55, metalness: 0.08 }, extra || {})));
+}
+function tweenTo(target, vars){
+  // GSAP when available; otherwise jump to the end state so every learning path still works
+  if (hasGSAP) return gsap.to(target, vars);
+  const v = Object.assign({}, vars); ['duration', 'ease', 'delay', 'onComplete', 'repeat', 'yoyo', 'stagger', 'overwrite'].forEach(k => delete v[k]);
+  Object.assign(target, v); if (vars.onComplete) vars.onComplete();
+  return null;
+}
+function colorTo(mesh, hex, dur){
+  const c = new THREE.Color(hex);
+  if (hasGSAP) return gsap.to(mesh.material.color, { r: c.r, g: c.g, b: c.b, duration: dur == null ? 0.4 : dur, overwrite: true });
+  mesh.material.color.copy(c); return null;
+}
+function picker(st, objects, onPick){
+  // click or tap an object in the 3D scene
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement;
+  el.addEventListener('pointerup', e => {
+    const r = el.getBoundingClientRect();
+    m.x = ((e.clientX - r.left) / r.width) * 2 - 1; m.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(m, st.camera);
+    const hit = ray.intersectObjects(objects(), true)[0];
+    if (hit) onPick(hit.object);
+  });
+}
+/* ---------- end extras ---------- */
+
+/* LOGIC START */
+const STAGES = ['IF', 'ID', 'EX', 'MEM', 'WB'];
+function parseInstr(s){
+  const sp = s.indexOf(' '), op = s.slice(0, sp), args = s.slice(sp + 1).replace('(', ',').replace(')', '').split(',').map(a => a.trim());
+  if (op === 'lw') return { text: s, op, dest: args[0], srcs: [args[2]], load: true };
+  if (op === 'sw') return { text: s, op, dest: null, srcs: [args[0], args[2]], load: false };
+  if (['addi', 'slli', 'andi', 'ori'].includes(op)) return { text: s, op, dest: args[0], srcs: [args[1]], load: false };
+  if (['beq', 'bne'].includes(op)) return { text: s, op, dest: null, srcs: [args[0], args[1]], load: false };
+  return { text: s, op, dest: args[0], srcs: [args[1], args[2]], load: false };
+}
+function schedule(instrs, forwarding){
+  // same rules as build/w78_models.py: IF_i = ID_(i-1); no forwarding ID_c >= ID_p + 3; forwarding: only a load needs ID_c >= ID_p + 2
+  const ifs = [], ids = [], deps = [];
+  instrs.forEach((ins, i) => {
+    let IF, ID; const d = [];
+    if (i === 0){ IF = 1; ID = 2; }
+    else {
+      IF = ids[i - 1]; ID = ids[i - 1] + 1;
+      ins.srcs.forEach(src => {
+        for (let j = i - 1; j >= 0; j--){
+          if (instrs[j].dest === src && src !== 'x0' && src !== 'zero'){
+            d.push({ reg: src, from: j });
+            if (!forwarding) ID = Math.max(ID, ids[j] + 3);
+            else if (instrs[j].load) ID = Math.max(ID, ids[j] + 2);
+            break;
+          }
+        }
+      });
+    }
+    ifs.push(IF); ids.push(ID); deps.push(d);
+  });
+  const total = ids[ids.length - 1] + 3;
+  return { ifs, ids, deps, total, stalls: total - (instrs.length + 4) };
+}
+function stageAt(sch, i, c){
+  // 'wait', 'IF', 'stall', 'ID', 'EX', 'MEM', 'WB', 'done'
+  const IF = sch.ifs[i], ID = sch.ids[i];
+  if (c < IF) return 'wait';
+  if (c === IF) return 'IF';
+  if (c < ID) return 'stall';
+  const k = c - ID;
+  return k <= 3 ? STAGES[1 + k] : 'done';
+}
+/* LOGIC END */
+
+const SEQUENCES = {
+  independent: ['add t0, t1, t2', 'sub t3, t4, t5', 'and t6, s1, s2', 'or s3, s4, s5'],
+  alu_chain: ['add t0, t1, t2', 'sub t3, t0, t4', 'and t5, t3, t6', 'or s1, s2, s3'],
+  load_use: ['lw t0, 0(s0)', 'add t1, t0, t2', 'sub t3, t4, t5', 'sw t1, 4(s0)'],
+  gap_of_one: ['add t0, t1, t2', 'sub t3, t4, t5', 'and t6, t0, s1', 'or s2, s3, s4'],
+  array_sum: ['lw t0, 0(s0)', 'lw t1, 4(s0)', 'add t2, t0, t1', 'sw t2, 8(s0)']
+};
+const COLORS = [0x2563EB, 0x7C3AED, 0x0D9488, 0xDB2777, 0xEA580C];
+const SX = [-6, -3, 0, 3, 6];
+const $ = id => document.getElementById(id);
+let S = null, cyc = 0, playing = false, timer = null;
+
+function events(c){
+  // stalls, bubbles, forwarding and same-cycle register reads during cycle c
+  const ev = { stalls: [], fwd: [], rf: [], bubbles: [] };
+  S.instrs.forEach((ins, i) => {
+    const st = stageAt(S.sch, i, c);
+    if (st === 'stall'){
+      const need = d => S.fwd ? (S.instrs[d.from].load ? S.sch.ids[d.from] + 2 : 0) : S.sch.ids[d.from] + 3;
+      const why = S.sch.deps[i].filter(d => need(d) > c).map(d => ({ d, p: stageAt(S.sch, d.from, c) }));
+      ev.stalls.push({ i, why });
+    }
+    if (st === 'EX' && S.fwd) S.sch.deps[i].forEach(d => {
+      const gap = S.sch.ids[i] - S.sch.ids[d.from];
+      if (gap === 1 || gap === 2) ev.fwd.push({ to: i, from: d.from, reg: d.reg, stage: gap === 1 ? 'MEM' : 'WB' });
+    });
+    if (st === 'ID') S.sch.deps[i].forEach(d => { if (S.sch.ids[i] - S.sch.ids[d.from] === 3) ev.rf.push({ i, from: d.from, reg: d.reg }); });
+    // bubbles created by each stall cycle s of instruction i: EX at s+1, MEM at s+2, WB at s+3
+    for (let s = S.sch.ifs[i] + 1; s < S.sch.ids[i]; s++){
+      const k = c - s; if (k >= 1 && k <= 3) ev.bubbles.push({ key: i + '-' + s, stage: 1 + k });
+    }
+  });
+  return ev;
+}
+function short(t){ return t.split(',')[0]; }
+function narrate(c){
+  const n = S.instrs.length;
+  if (c === 0) return 'Cycle 0: nothing has been fetched yet. The ' + n + ' instructions wait in program memory. Press <b>Step</b> to start the clock.';
+  const ev = events(c), parts = [];
+  ev.stalls.forEach(s => {
+    const why = s.why.map(x => '<code>' + x.d.reg + '</code>, which <code>' + short(S.instrs[x.d.from].text) + '</code> has not produced yet (it is in ' + x.p + ')').join(' and ');
+    parts.push('<span class="miss">Stall:</span> <code>' + S.instrs[s.i].text + '</code> waits in ID because it needs ' + (why || 'a value that is not ready yet') + '. A bubble (an empty slot) goes into EX instead, and fetch waits too.');
+  });
+  ev.fwd.forEach(f => parts.push('<span class="fw">Forwarding:</span> the new value of <code>' + f.reg + '</code> goes straight from <code>' + short(S.instrs[f.from].text) + '</code> in ' + f.stage + ' to <code>' + short(S.instrs[f.to].text) + '</code> in EX, without waiting for write back.'));
+  ev.rf.forEach(r => parts.push('<code>' + short(S.instrs[r.i].text) + '</code> reads <code>' + r.reg + '</code> in ID in the same cycle that <code>' + short(S.instrs[r.from].text) + '</code> writes it in WB. The register file writes in the first half of the cycle and reads in the second half, so the value is fresh.'));
+  const occ = STAGES.map((sg, k) => {
+    const i = S.instrs.findIndex((_, j) => stageAt(S.sch, j, c) === sg || (sg === 'ID' && stageAt(S.sch, j, c) === 'stall'));
+    if (i >= 0) return sg + ' <code>' + short(S.instrs[i].text) + '</code>';
+    if (ev.bubbles.some(b => b.stage === k)) return sg + ' bubble';
+    return sg + ' empty';
+  }).join(' &middot; ');
+  let lead = 'Cycle ' + c + '. ';
+  if (!parts.length){
+    const fin = S.instrs.findIndex((_, j) => stageAt(S.sch, j, c) === 'WB');
+    lead += fin >= 0 ? '<code>' + S.instrs[fin].text + '</code> writes its result and finishes. ' : '';
+    if (c <= 4 && fin < 0) lead += 'The pipeline is filling: each cycle a new instruction enters and the others move one stage right. ';
+  }
+  let end = '';
+  if (c === S.sch.total) end = '<br><b>Done:</b> ' + n + ' instructions in ' + S.sch.total + ' cycles (' + S.sch.stalls + ' stall' + (S.sch.stalls === 1 ? '' : 's') + '). Without pipelining they would take 5 &times; ' + n + ' = ' + 5 * n + ' cycles.';
+  return lead + parts.join(' ') + '<br><span class="occ">' + occ + '</span>' + end;
+}
+
+/* ---------- 3D ---------- */
+const st = make3D($('stage'), { camera: [0, 9.5, 19.5], target: [0, 0.6, 0] });
+const V = { blocks: [], bubbles: {}, arcs: [] };
+if (st){
+  const T = st.THREE;
+  const belt = box3(22, 0.12, 1.6, 0x1E293B); belt.position.set(0, -0.06, 0); st.scene.add(belt);
+  STAGES.forEach((sg, k) => {
+    const pad = box3(2.5, 0.2, 2.2, 0x334155); pad.position.set(SX[k], 0.1, 0); st.scene.add(pad);
+    const a = new T.Object3D(); a.position.set(SX[k], 0.1, 1.5); st.scene.add(a); st.label(a, sg).classList.add('stage-lab');
+  });
+  const mem = box3(2.4, 0.2, 2.2, 0x0F172A); mem.position.set(-9.8, 0.1, 0); st.scene.add(mem);
+  const ma = new T.Object3D(); ma.position.set(-9.8, 0.1, 1.5); st.scene.add(ma); st.label(ma, 'program');
+  const dn = box3(2.4, 0.2, 2.2, 0x0F172A); dn.position.set(9.8, 0.1, 0); st.scene.add(dn);
+  const da = new T.Object3D(); da.position.set(9.8, 0.1, 1.5); st.scene.add(da); st.label(da, 'finished');
+}
+function narrow(){ return $('stage').clientWidth < 560; }
+function fit(){
+  // keep all five stages plus both stacks in view at any width
+  if (!st) return;
+  const el = $('stage'), a = el.clientWidth / Math.max(el.clientHeight, 1);
+  const d = 12.2 / (Math.tan(Math.PI / 8) * a) + 1.5;
+  st.camera.position.set(0, d * 0.5, d * 0.87); st.controls.target.set(0, 0.8, 0); st.controls.update();
+}
+if (st){ fit(); let lastW = 0; new ResizeObserver(() => { const w = $('stage').clientWidth; if (Math.abs(w - lastW) > 20){ lastW = w; fit(); } }).observe($('stage')); }
+function buildBlocks(){
+  if (!st) return;
+  V.blocks.forEach(b => { st.scene.remove(b); b.userData.lab.remove(); });
+  Object.values(V.bubbles).forEach(b => { st.scene.remove(b); b.userData.lab.remove(); }); V.bubbles = {};
+  V.blocks = S.instrs.map((ins, i) => {
+    const m = box3(2.1, 0.8, 1.3, COLORS[i % COLORS.length], { emissive: 0x000000 });
+    const a = new st.THREE.Object3D(); a.position.set(0, 0.75, 0); m.add(a);
+    m.userData.lab = st.label(a, narrow() ? ins.op : ins.text);
+    st.scene.add(m); return m;
+  });
+}
+function blockPos(i, c){
+  const sg = stageAt(S.sch, i, c);
+  if (sg === 'wait'){ const k = S.instrs.filter((_, j) => j < i && stageAt(S.sch, j, c) === 'wait').length; return { x: -9.8, y: 0.6 + k * 0.95, z: 0 }; }
+  if (sg === 'done'){ const k = S.instrs.filter((_, j) => j < i && stageAt(S.sch, j, c) === 'done').length; return { x: 9.8, y: 0.6 + k * 0.95, z: 0 }; }
+  const k = sg === 'stall' ? 1 : STAGES.indexOf(sg);
+  return { x: SX[k], y: 0.6, z: 0 };
+}
+function clearArcs(){ V.arcs.forEach(a => { st.scene.remove(a); if (a.userData.lab) a.userData.lab.remove(); }); V.arcs = []; }
+function draw3D(c, animate){
+  if (!st) return;
+  const dur = animate && hasGSAP ? 0.7 : 0;
+  S.instrs.forEach((ins, i) => {
+    const m = V.blocks[i], p = blockPos(i, c), sg = stageAt(S.sch, i, c);
+    if (dur) gsap.to(m.position, { x: p.x, y: p.y, z: p.z, duration: dur, ease: 'power2.inOut' }); else m.position.set(p.x, p.y, p.z);
+    colorTo(m, sg === 'stall' ? 0xDC2626 : COLORS[i % COLORS.length], dur ? 0.4 : 0);
+    m.userData.lab.textContent = narrow() ? ins.op : ins.text + (sg === 'stall' ? ' (stall)' : '');
+  });
+  // bubbles
+  const ev = events(c), live = new Set(ev.bubbles.map(b => b.key));
+  ev.bubbles.forEach(b => {
+    let m = V.bubbles[b.key];
+    if (!m){
+      m = new st.THREE.Mesh(new st.THREE.SphereGeometry(0.45, 20, 14), new st.THREE.MeshStandardMaterial({ color: 0xCBD5E1, transparent: true, opacity: 0.55 }));
+      m.position.set(SX[b.stage], 0.6, 0); m.scale.set(0.01, 0.01, 0.01); st.scene.add(m); V.bubbles[b.key] = m;
+      const a = new st.THREE.Object3D(); a.position.set(0, 0.7, 0); m.add(a); m.userData.lab = st.label(a, 'bubble');
+    }
+    tweenTo(m.scale, { x: 1, y: 1, z: 1, duration: dur || 0.01 });
+    tweenTo(m.position, { x: SX[b.stage], duration: dur || 0.01, ease: 'power2.inOut' });
+  });
+  Object.keys(V.bubbles).forEach(k => { if (!live.has(k)){ const m = V.bubbles[k]; st.scene.remove(m); m.userData.lab.remove(); delete V.bubbles[k]; } });
+  // forwarding arcs
+  clearArcs();
+  const addArcs = () => ev.fwd.forEach(f => {
+    const x0 = SX[STAGES.indexOf(f.stage)], x1 = SX[2];
+    const curve = new st.THREE.QuadraticBezierCurve3(new st.THREE.Vector3(x0, 1.0, 0), new st.THREE.Vector3((x0 + x1) / 2, 3.2, 0), new st.THREE.Vector3(x1 + 0.3, 1.0, 0));
+    const tube = new st.THREE.Mesh(new st.THREE.TubeGeometry(curve, 30, 0.07, 8, false), new st.THREE.MeshStandardMaterial({ color: 0xF59E0B, emissive: 0xB45309, emissiveIntensity: 0.6 }));
+    st.scene.add(tube); V.arcs.push(tube);
+    const a = new st.THREE.Object3D(); a.position.set((x0 + x1) / 2, 2.4, 0); tube.add(a); tube.userData.lab = st.label(a, f.reg + ' forwarded');
+    if (hasGSAP && dur){ tube.scale.set(0.01, 0.01, 0.01); gsap.to(tube.scale, { x: 1, y: 1, z: 1, duration: 0.4 }); }
+  });
+  if (dur) setTimeout(addArcs, 650); else addArcs();
+}
+function draw2D(c){
+  const ev = events(c);
+  let svg = '';
+  STAGES.forEach((sg, k) => {
+    const x = 20 + k * 112;
+    const i = S.instrs.findIndex((_, j) => stageAt(S.sch, j, c) === sg || (sg === 'ID' && stageAt(S.sch, j, c) === 'stall'));
+    const stall = i >= 0 && stageAt(S.sch, i, c) === 'stall', bub = i < 0 && ev.bubbles.some(b => b.stage === k);
+    const fill = i >= 0 ? (stall ? '#DC2626' : '#' + COLORS[i % 5].toString(16).padStart(6, '0')) : (bub ? '#CBD5E1' : '#F1F5F9');
+    svg += '<rect x="' + x + '" y="40" width="100" height="56" rx="8" fill="' + fill + '" stroke="#94A3B8"/>';
+    svg += '<text x="' + (x + 50) + '" y="28" text-anchor="middle" font-size="14" font-weight="700" fill="#1F2937">' + sg + '</text>';
+    svg += '<text x="' + (x + 50) + '" y="73" text-anchor="middle" font-size="13" font-weight="600" fill="' + (i >= 0 ? '#fff' : '#475569') + '">' + (i >= 0 ? short(S.instrs[i].text) + (stall ? ' (stall)' : '') : (bub ? 'bubble' : 'empty')) + '</text>';
+  });
+  ev.fwd.forEach(f => { const x0 = 70 + STAGES.indexOf(f.stage) * 112, x1 = 70 + 2 * 112; svg += '<path d="M' + x0 + ' 100 Q ' + (x0 + x1) / 2 + ' 140 ' + x1 + ' 100" fill="none" stroke="#F59E0B" stroke-width="4" marker-end="url(#ah)"/><text x="' + (x0 + x1) / 2 + '" y="140" text-anchor="middle" font-size="12" fill="#92400E">' + f.reg + ' forwarded</text>'; });
+  const waiting = S.instrs.filter((_, j) => stageAt(S.sch, j, c) === 'wait').length, done = S.instrs.filter((_, j) => stageAt(S.sch, j, c) === 'done').length;
+  svg += '<text x="20" y="168" font-size="13" fill="#475569">Waiting in program memory: ' + waiting + '. Finished: ' + done + '.</text>';
+  $('fallback2d').innerHTML = '<svg viewBox="0 0 580 180" role="img" aria-label="Five pipeline stages in cycle ' + c + '"><defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#F59E0B"/></marker></defs>' + svg + '</svg>';
+}
+
+/* ---------- tables and controls ---------- */
+function drawGrid(){
+  const T = S.sch.total;
+  let h = '<tr><th>Instruction</th>' + Array.from({ length: T }, (_, k) => '<th class="' + (k + 1 === cyc ? 'now' : '') + '">' + (k + 1) + '</th>').join('') + '</tr>';
+  S.instrs.forEach((ins, i) => {
+    h += '<tr><td class="mono ins">' + ins.text + '</td>';
+    for (let c = 1; c <= T; c++){
+      const sg = stageAt(S.sch, i, c), show = sg !== 'wait' && sg !== 'done';
+      h += '<td class="' + (show ? 's-' + sg : '') + (c === cyc ? ' now' : '') + (c > cyc ? ' later' : '') + '">' + (show ? sg : '') + '</td>';
+    }
+    h += '</tr>';
+  });
+  $('grid').innerHTML = h;
+}
+function drawCounts(){
+  const n = S.instrs.length, off = schedule(S.instrs, false), on = schedule(S.instrs, true);
+  const row = (label, cyc, stalls, cur) => '<tr' + (cur ? ' class="cur"' : '') + '><td>' + label + '</td><td>' + cyc + '</td><td>' + stalls + '</td><td>' + (5 * n / cyc).toFixed(2) + '&times;</td></tr>';
+  $('counts').innerHTML = '<tr><th>Processor</th><th>Cycles</th><th>Stalls</th><th>Speedup</th></tr>' +
+    row('No pipelining (5 &times; ' + n + ')', 5 * n, '-', false) + row('Pipelined, forwarding off', off.total, off.stalls, !S.fwd) + row('Pipelined, forwarding on', on.total, on.stalls, S.fwd);
+  $('countNote').innerHTML = 'An ideal 5-stage pipeline needs ' + n + ' + 4 = ' + (n + 4) + ' cycles for ' + n + ' instructions: 4 cycles to fill the pipeline, then one instruction finishes every cycle. Each stall adds one cycle.';
+}
+function load(){
+  stopPlay();
+  const key = $('seq').value;
+  const instrs = SEQUENCES[key].map(parseInstr);
+  S = { key, instrs, fwd: $('fwd').checked, sch: schedule(instrs, $('fwd').checked) };
+  cyc = 0;
+  $('codeList').innerHTML = instrs.map((ins, i) => '<li><span class="dot" style="background:#' + COLORS[i % 5].toString(16).padStart(6, '0') + '"></span><code>' + ins.text + '</code></li>').join('');
+  buildBlocks(); if (st) clearArcs();
+  drawCounts(); show(false);
+}
+function show(animate){
+  $('cycleNow').textContent = 'Cycle ' + cyc + ' of ' + S.sch.total;
+  $('caption').innerHTML = narrate(cyc);
+  draw3D(cyc, animate); if (!st) draw2D(cyc);
+  drawGrid();
+  $('backBtn').disabled = cyc === 0; $('stepBtn').disabled = cyc >= S.sch.total;
+  $('playBtn').disabled = playing || cyc >= S.sch.total; $('pauseBtn').disabled = !playing;
+}
+function stepF(){ if (cyc < S.sch.total){ cyc++; show(true); } }
+function play(){
+  if (cyc >= S.sch.total) return;
+  playing = true; show(false);
+  const tick = () => { if (!playing) return; stepF(); if (cyc >= S.sch.total){ stopPlay(); return; } timer = setTimeout(tick, hasGSAP ? 1900 : 900); };
+  tick();
+}
+function stopPlay(){ playing = false; clearTimeout(timer); if (S){ $('playBtn').disabled = cyc >= S.sch.total; $('pauseBtn').disabled = true; } }
+if (!st){ $('stage').hidden = true; $('fallback2d').hidden = false; }
+$('seq').addEventListener('change', load);
+$('fwd').addEventListener('change', load);
+$('stepBtn').addEventListener('click', () => { stopPlay(); stepF(); });
+$('backBtn').addEventListener('click', () => { stopPlay(); if (cyc > 0){ cyc--; show(true); } });
+$('playBtn').addEventListener('click', play);
+$('pauseBtn').addEventListener('click', () => { stopPlay(); show(false); });
+$('resetBtn').addEventListener('click', load);
+
+/* ---------- quick check ---------- */
+const QUIZ = [
+  { q: 'Four independent instructions go through a 5-stage pipeline with no stalls. How many clock cycles until the last one finishes?', o: ['4', '8', '20', '5'], a: 1, why: '4 cycles to fill the pipeline plus one cycle per instruction: 4 + 4 = 8.' },
+  { q: 'Without pipelining, each instruction takes all 5 stages before the next starts. How many cycles for the same 4 instructions?', o: ['8', '9', '20', '25'], a: 2, why: '5 cycles each, one after another: 5 ' + '×' + ' 4 = 20.' },
+  { q: '<code>add t0, t1, t2</code> is followed directly by <code>sub t3, t0, t4</code>. Without forwarding, how many stall cycles does sub wait?', o: ['0', '1', '2', '3'], a: 2, why: 'sub can read t0 in ID only in the cycle when add writes it in WB, three cycles after add\'s ID. One cycle is normal, so sub waits 2 extra cycles.' },
+  { q: 'With forwarding on, <code>lw t0, 0(s0)</code> is followed directly by <code>add t1, t0, t2</code>. How many stall cycles remain?', o: ['0', '1', '2', '3'], a: 1, why: 'A load has its value only at the end of MEM, but add needs it at the start of EX in the very next cycle. Forwarding cannot go back in time, so one stall remains.' },
+  { q: 'Which statement about pipelining is true?', o: ['Each instruction finishes in fewer cycles', 'More instructions finish per second, even though each one still takes 5 stages', 'It removes every hazard', 'It only helps programs with loads'], a: 1, why: 'Like the laundry: each load takes as long as before, but a new one finishes every cycle. That raises throughput.' },
+  { q: 'What is a data hazard?', o: ['Two instructions use the same stage at once', 'An instruction needs a value that an earlier instruction has not produced yet', 'The program has a bug', 'Memory is full'], a: 1, why: 'Data hazards come from dependencies between instructions: the consumer must wait for, or be forwarded, the producer\'s result.' }
+];
+function renderQuiz(){
+  const box = $('quiz'); box.innerHTML = ''; let answered = 0, right = 0;
+  QUIZ.forEach((item, qi) => {
+    const d = document.createElement('div'); d.className = 'q';
+    d.innerHTML = '<p>' + (qi + 1) + '. ' + item.q + '</p><div class="opts"></div><div class="feedback" hidden></div>';
+    const opts = d.querySelector('.opts'), fb = d.querySelector('.feedback');
+    item.o.forEach((o, oi) => {
+      const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = o;
+      b.addEventListener('click', () => {
+        if (d.dataset.done) return; d.dataset.done = '1'; answered++;
+        const ok = oi === item.a; if (ok) right++;
+        b.classList.add(ok ? 'right' : 'wrong'); opts.children[item.a].classList.add('right');
+        fb.hidden = false; fb.className = 'feedback ' + (ok ? 'ok' : 'bad'); fb.textContent = (ok ? 'Correct. ' : 'Not quite. ') + item.why;
+        $('quizScore').innerHTML = answered === QUIZ.length ? 'Quick check: <span class="big">' + right + ' / ' + QUIZ.length + '</span>' : '';
+      });
+      opts.appendChild(b);
+    });
+    box.appendChild(d);
+  });
+}
+renderQuiz();
+load();
+
+</script>
+</body>
+</html>
