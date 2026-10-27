@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bay-4 computer simulator</title>
+<meta name="description" content="EGN 325 Computer Architecture: a 3D Bay-4 computer that steps a program through the fetch-decode-execute cycle, with live registers and memory and data moving on the buses.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Instrument+Sans:wght@400;500;600;700&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B;
+    --board:#06130E; --board-2:#0A1F17; --mask:#0F3324; --mask-2:#134030; --edge:#1E4A39; --edge-2:#2B5E4A;
+    --silk:#EAF2E8; --silk-2:#B9CCBF; --dim:#86A193; --copper:#D08A4E; --copper-2:#9C6034;
+    --addr:#FFB020; --data:#38D6FF; --oper:#B5FF3C; --ctrl:#FF4FB0; --alu:#FF7A45; --out:#FFE36E; --led:#7CFF9B;
+    --ok:#7CFF9B; --bad:#FF6B6B;
+    --display:"Big Shoulders Display","Arial Narrow",sans-serif;
+    --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --mono:"Martian Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  html{background:#06110C}
+  [hidden]{display:none!important}
+  body{color:var(--silk);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(1100px 520px at 85% -8%,rgba(56,214,255,.11),transparent 62%),
+      radial-gradient(900px 520px at -12% 18%,rgba(255,176,32,.08),transparent 60%),
+      radial-gradient(700px 400px at 50% 110%,rgba(255,79,176,.06),transparent 60%),
+      linear-gradient(180deg,#07150F,#06110C 60%,#050E0A);
+    min-height:100vh}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      radial-gradient(circle at 1px 1px,rgba(234,242,232,.07) 1px,transparent 1.4px),
+      linear-gradient(rgba(234,242,232,.025) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(234,242,232,.025) 1px,transparent 1px);
+    background-size:28px 28px,112px 112px,112px 112px}
+  a{color:var(--data)}
+  /* brand bar (AU logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{position:relative;z-index:2;background:#fff;border-bottom:3px solid var(--au-red)}
+  .topbar-inner{max-width:1240px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:#6B7280;letter-spacing:.02em;border-left:1px solid #E3E6EB;padding-left:16px}
+  .crumb b{color:#16181D;font-weight:600}
+  .crumb a{color:#A3282B}
+  main{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:28px 16px 40px}
+  .hero{display:grid;gap:18px;align-items:end;margin-bottom:22px}
+  @media(min-width:960px){.hero{grid-template-columns:1.35fr 1fr}}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--addr)}
+  .eyebrow::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--addr);box-shadow:0 0 10px var(--addr)}
+  h1{font-family:var(--display);font-weight:800;font-size:clamp(44px,8vw,92px);line-height:.88;letter-spacing:.005em;margin:10px 0 12px;color:var(--silk)}
+  h1 .num{color:var(--addr);text-shadow:0 0 28px rgba(255,176,32,.45)}
+  h2{font-family:var(--display);font-weight:800;font-size:28px;line-height:1;letter-spacing:.01em;margin:0 0 12px}
+  h3{font-family:var(--display);font-weight:600;font-size:20px;margin:0 0 8px;letter-spacing:.02em}
+  .lede{color:var(--silk-2);max-width:680px;margin:0;font-size:17px}
+  .spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--edge);border:1px solid var(--edge);border-radius:12px;overflow:hidden}
+  .spec div{background:rgba(10,31,23,.92);padding:10px 12px}
+  .spec b{display:block;font:600 18px var(--mono);color:var(--silk)}
+  .spec span{font-size:12px;color:var(--dim);letter-spacing:.04em}
+  .card{position:relative;background:linear-gradient(180deg,rgba(17,56,41,.62),rgba(9,30,22,.9));border:1px solid var(--edge);border-radius:var(--r);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 18px 40px rgba(0,0,0,.35);padding:18px;min-width:0}
+  .card::after{content:attr(data-ref);position:absolute;top:10px;right:14px;font:600 10px var(--mono);letter-spacing:.12em;color:rgba(185,204,191,.45)}
+  .grid>*{min-width:0}
+  .bench{display:grid;gap:16px}
+  @media(min-width:1040px){.bench{grid-template-columns:minmax(0,1.65fr) minmax(0,1fr)}}
+  .lower{display:grid;gap:16px;margin-top:16px}
+  @media(min-width:900px){.lower{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:300px;border-radius:12px;overflow:hidden;touch-action:none;
+    background:radial-gradient(ellipse at 50% 35%,#123a2b,#071710 70%);border:1px solid var(--edge)}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;font-size:12px;color:var(--silk-2);background:rgba(6,19,14,.8);text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 11px var(--mono);color:var(--silk);background:rgba(6,19,14,.78);border:1px solid rgba(234,242,232,.18);
+    padding:2px 6px;border-radius:5px;transform:translate(-50%,-50%);white-space:nowrap;letter-spacing:.02em}
+  .stage3d .label3d.pkt{border-color:currentColor;background:rgba(6,19,14,.92);font-size:12px;transition:opacity .2s;box-shadow:0 0 12px currentColor}
+  .stage3d .flat{position:absolute;inset:0;width:100%;height:100%}
+  @media(max-width:640px){.stage3d{aspect-ratio:4/3}}
+  @media(max-width:600px){.stage3d .label3d{font-size:9px;padding:1px 4px}.stage3d .label3d.pkt{font-size:10px}}
+  @media(min-width:1040px){.bench>.card:first-child{display:flex;flex-direction:column}.bench>.card:first-child .stage3d{flex:1;aspect-ratio:auto;min-height:560px}}
+  .stagebar{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:12px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--silk-2)}
+  .legend i{display:inline-block;width:18px;height:4px;border-radius:2px;margin-right:6px;vertical-align:middle;box-shadow:0 0 8px currentColor}
+  .toggles{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--silk-2)}
+  label.chk{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+  input[type=checkbox]{accent-color:var(--addr);width:16px;height:16px}
+  .btn{font:600 12px var(--mono);letter-spacing:.04em;border-radius:9px;border:1px solid var(--edge-2);background:rgba(6,19,14,.6);color:var(--silk);
+    padding:9px 12px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s,box-shadow .15s;display:inline-flex;gap:6px;align-items:center}
+  .btn:hover{border-color:var(--copper);background:rgba(208,138,78,.12)}
+  .btn:active{transform:translateY(1px)}
+  .btn.go{background:var(--addr);border-color:var(--addr);color:#1A1203;box-shadow:0 0 18px rgba(255,176,32,.35)}
+  .btn.go:hover{background:#FFC24D}
+  .btn[disabled]{opacity:.4;cursor:not-allowed}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--data);outline-offset:2px}
+  .rail{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:4px 0 12px;position:relative}
+  .rail div{position:relative;text-align:center;padding:8px 2px 7px;border-radius:9px;border:1px solid var(--edge);font:600 11px var(--mono);letter-spacing:.06em;color:var(--dim);background:rgba(6,19,14,.5);transition:all .25s}
+  .rail div small{display:block;font:500 10px var(--sans);letter-spacing:.02em;margin-top:2px;color:inherit;opacity:.8}
+  .rail div.on{color:#07130E;background:var(--c);border-color:var(--c);box-shadow:0 0 18px var(--c)}
+  .rail div.done{color:var(--c);border-color:var(--c)}
+  .caption{min-height:7.5em;padding:12px 14px;border-radius:10px;background:rgba(6,19,14,.72);border:1px solid var(--edge);border-left:4px solid var(--cap,var(--addr))}
+  .caption .t{font:600 12px var(--mono);letter-spacing:.06em;color:var(--cap,var(--addr));margin-bottom:6px;text-transform:uppercase}
+  .caption p{margin:0;color:var(--silk);font-size:15px}
+  code,.mono{font-family:var(--mono);font-size:.88em}
+  code{background:rgba(234,242,232,.08);padding:1px 5px;border-radius:4px}
+  .k{font-weight:600}
+  .k.addr{color:var(--addr)}.k.data{color:var(--data)}.k.oper{color:var(--oper)}.k.ctrl{color:var(--ctrl)}.k.alu{color:var(--alu)}.k.out{color:var(--out)}
+  .stepper{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 4px}
+  .speed{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--silk-2);font-family:var(--mono)}
+  input[type=range]{accent-color:var(--addr);width:110px}
+  .regs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+  .reg{border:1px solid var(--edge);border-radius:10px;padding:8px 10px;background:rgba(6,19,14,.55);transition:box-shadow .3s,border-color .3s}
+  .reg.flash{border-color:var(--led);box-shadow:0 0 0 1px var(--led),0 0 22px rgba(124,255,155,.35)}
+  .reg .n{display:flex;justify-content:space-between;align-items:baseline;font:600 11px var(--mono);letter-spacing:.08em;color:var(--dim)}
+  .reg .n b{font:800 22px var(--display);color:var(--silk);letter-spacing:.02em}
+  .bits{display:flex;gap:4px;margin:6px 0 2px}
+  .bits i{width:16px;height:16px;border-radius:4px;background:#0B2018;border:1px solid #1C3E30;font:600 9px/14px var(--mono);font-style:normal;color:#3D5F50;text-align:center}
+  .bits i.on{background:var(--led);border-color:var(--led);color:#05220F;box-shadow:0 0 10px rgba(124,255,155,.6)}
+  .bits i.gap{margin-left:6px}
+  .reg.ir{grid-column:1/-1}
+  .reg.ir .bits i.on{background:var(--data);border-color:var(--data);box-shadow:0 0 10px rgba(56,214,255,.6)}
+  .reg.pc .bits i.on{background:var(--addr);border-color:var(--addr);box-shadow:0 0 10px rgba(255,176,32,.6)}
+  .reg .sub{font:500 11px var(--mono);color:var(--silk-2)}
+  .sigs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px;margin-top:10px;font:500 11px var(--mono)}
+  .sigs div{display:flex;justify-content:space-between;gap:6px;padding:4px 8px;border-radius:6px;background:rgba(6,19,14,.45);color:var(--dim)}
+  .sigs div.on{color:var(--ctrl);background:rgba(255,79,176,.10);box-shadow:inset 3px 0 0 var(--ctrl)}
+  .sigs b{color:inherit}
+  .predict{margin-top:12px;padding:12px;border-radius:10px;border:1px dashed var(--ctrl);background:rgba(255,79,176,.07)}
+  .predict .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  input[type=number],select,textarea{font:500 14px var(--mono);background:#06130E;color:var(--silk);border:1px solid var(--edge-2);border-radius:8px;padding:8px 10px;min-width:0}
+  input[type=number]{width:90px}
+  .fb{margin-top:10px;padding:10px 12px;border-radius:8px;font-size:14px}
+  .fb.ok{background:rgba(124,255,155,.10);border:1px solid rgba(124,255,155,.4)}
+  .fb.bad{background:rgba(255,107,107,.10);border:1px solid rgba(255,107,107,.45)}
+  .info{margin-top:12px;font-size:14px;color:var(--silk-2);border-top:1px solid var(--edge);padding-top:10px}
+  .info b{color:var(--silk)}
+  .scroll{overflow-x:auto}
+  table.rom,table.trace{border-collapse:collapse;width:100%;font:500 12px var(--mono)}
+  table.rom th,table.trace th{font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-align:left;padding:6px 8px;border-bottom:1px solid var(--edge)}
+  table.rom td,table.trace td{padding:5px 8px;border-bottom:1px solid rgba(30,74,57,.5);white-space:nowrap}
+  table.rom tr{transition:background .25s}
+  table.rom tr.pc td{background:rgba(255,176,32,.08)}
+  table.rom tr.pc td:nth-child(2){color:var(--addr);font-weight:600}
+  table.rom tr.sel td{background:rgba(56,214,255,.14)}
+  table.rom tr.sel td:nth-child(4){color:var(--data);text-shadow:0 0 10px rgba(56,214,255,.6)}
+  table.rom td.w b{color:var(--silk)}
+  table.rom td.w span{color:var(--dim)}
+  table.rom tr.empty td{color:#4F6E60}
+  .bp{width:22px;height:22px;border-radius:50%;border:1px solid var(--edge-2);background:transparent;cursor:pointer;padding:0}
+  .bp.on{background:var(--bad);border-color:var(--bad);box-shadow:0 0 10px var(--bad)}
+  table.trace tr.last td{background:rgba(124,255,155,.08)}
+  .readout{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 14px;border-radius:10px;background:#040C08;border:1px solid var(--edge);margin-bottom:12px}
+  .seg{font:600 46px/1 var(--mono);color:var(--out);text-shadow:0 0 18px rgba(255,227,110,.6);min-width:2.4ch;text-align:right}
+  .seg.off{color:#2A3A2F;text-shadow:none}
+  .hist{display:flex;flex-wrap:wrap;gap:5px;font:600 12px var(--mono)}
+  .hist span{padding:3px 7px;border-radius:6px;background:rgba(255,227,110,.10);color:var(--out);border:1px solid rgba(255,227,110,.3)}
+  textarea{width:100%;min-height:200px;resize:vertical;line-height:1.6}
+  .err{color:var(--bad);font-size:14px;margin:6px 0 0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  details.howto{margin:0 0 18px;border:1px solid var(--edge);border-radius:12px;background:rgba(6,19,14,.55);padding:12px 16px}
+  details.howto summary{cursor:pointer;font:600 13px var(--mono);letter-spacing:.06em;color:var(--addr)}
+  details.howto ol{margin:10px 0 0;padding-left:20px;color:var(--silk-2)}
+  details.howto li{margin-bottom:6px}
+  .stats{display:flex;gap:14px;flex-wrap:wrap;font:500 11px var(--mono);color:var(--dim);margin-top:10px}
+  .stats b{color:var(--silk)}
+  footer.foot{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:18px 16px 28px;color:var(--dim);font-size:13px;border-top:1px solid var(--edge)}
+  footer .byline{margin-top:4px;font-weight:600;color:var(--silk-2)}
+  .reveal{animation:rise .75s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*90ms)}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · <a href="index.html">Course interactives</a> · Bay-4 computer simulator</div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="reveal" style="--i:0">
+      <span class="eyebrow">Course simulator · Weeks 5 to 8</span>
+      <h1>Bay<span class="num">-4</span> computer simulator</h1>
+      <p class="lede">Watch a whole computer run a program. Every instruction goes through the fetch-decode-execute cycle, and you can see each value travel on the buses, land in a register, and change the memory view in real time. This is the same Bay-4 CPU you trace in Week 5 and build in the final project.</p>
+    </div>
+    <div class="spec reveal" style="--i:1" aria-label="Bay-4 at a glance">
+      <div><b>4-bit</b><span>data and registers A, B</span></div>
+      <div><b>16 × 8</b><span>instruction ROM</span></div>
+      <div><b>11</b><span>instructions</span></div>
+      <div><b>Z flag</b><span>set by every ALU result</span></div>
+    </div>
+  </section>
+
+  <details class="howto reveal" style="--i:2">
+    <summary>How to use the simulator</summary>
+    <ol>
+      <li>Press <b>Step</b> to move one micro-step: the caption explains what happens and the board animates it. <b>Play</b> runs the steps on their own, and the speed slider makes them faster or slower.</li>
+      <li>Drag the board to orbit it, scroll or pinch to zoom, and click any chip (PC, ROM, IR, control unit, A, B, ALU, Z, OUT) to read what it does.</li>
+      <li>Turn on <b>Predict before execute</b>. After each decode, the simulator asks what will change. Answer before you see it happen.</li>
+      <li>Click the dot next to a ROM address to set a breakpoint. <b>Play</b> and <b>Run to HLT</b> stop when the PC reaches it.</li>
+      <li>Load a preset or type your own program (one instruction per line, addresses optional), then compare the trace table with your hand trace.</li>
+    </ol>
+  </details>
+
+  <section class="bench">
+    <div class="card reveal" style="--i:3" data-ref="U1 · BOARD">
+      <h2>The board</h2>
+      <div class="stage3d" id="stage" aria-label="3D model of the Bay-4 computer"></div>
+      <div class="stagebar">
+        <div class="legend" aria-label="Bus colors">
+          <span style="color:var(--addr)"><i style="background:var(--addr)"></i>Address</span>
+          <span style="color:var(--data)"><i style="background:var(--data)"></i>Instruction</span>
+          <span style="color:var(--oper)"><i style="background:var(--oper)"></i>Operand</span>
+          <span style="color:var(--ctrl)"><i style="background:var(--ctrl)"></i>Control</span>
+          <span style="color:var(--alu)"><i style="background:var(--alu)"></i>ALU</span>
+          <span style="color:var(--out)"><i style="background:var(--out)"></i>Output</span>
+        </div>
+        <div class="toggles">
+          <label class="chk"><input type="checkbox" id="follow" checked> Follow the action</label>
+          <button class="btn" id="overview" type="button">Overview</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="card reveal" style="--i:4" data-ref="U2 · CONTROL PANEL">
+      <h2>Instruction cycle</h2>
+      <div class="rail" id="rail">
+        <div data-p="fetch" style="--c:var(--addr)">FETCH<small>get the word</small></div>
+        <div data-p="decode" style="--c:var(--ctrl)">DECODE<small>read opcode</small></div>
+        <div data-p="execute" style="--c:var(--oper)">EXECUTE<small>do the work</small></div>
+        <div data-p="pc" style="--c:var(--data)">NEXT PC<small>pick next</small></div>
+      </div>
+      <div class="caption" id="cap" aria-live="polite"><div class="t" id="capT">Ready</div><p id="capB"></p></div>
+      <div class="stepper">
+        <button class="btn" id="reset" type="button" title="Back to address 0 with all registers cleared">Reset</button>
+        <button class="btn" id="back" type="button">◀ Step back</button>
+        <button class="btn go" id="play" type="button">▶ Play</button>
+        <button class="btn" id="step" type="button">Step ▶</button>
+        <button class="btn" id="instr" type="button">Finish instruction</button>
+        <button class="btn" id="tohlt" type="button">Run to HLT</button>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:6px">
+        <label class="speed">Speed <input type="range" id="speed" min="0.25" max="8" step="0.25" value="1"> <span id="speedv">1×</span></label>
+        <label class="chk" style="font-size:13px;color:var(--silk-2)"><input type="checkbox" id="predict"> Predict before execute</label>
+      </div>
+      <div class="predict" id="pq" hidden>
+        <div id="pqT" style="font-weight:600"></div>
+        <div class="row"><input type="number" id="pqIn" min="0" max="15" inputmode="numeric" aria-label="Your prediction (0 to 15)"><button class="btn go" id="pqGo" type="button">Check</button><span class="mono" id="pqScore" style="font-size:12px;color:var(--silk-2)"></span></div>
+        <div id="pqFb"></div>
+      </div>
+      <div class="regs" id="regs"></div>
+      <h3 style="margin-top:14px">Control signals</h3>
+      <div class="sigs" id="sigs"></div>
+      <div class="stats" id="stats"></div>
+      <div class="info" id="info">Click any chip on the board to learn what it does.</div>
+    </aside>
+  </section>
+
+  <section class="lower">
+    <div class="card reveal" style="--i:5" data-ref="U3 · MEMORY">
+      <h2>Instruction memory (ROM)</h2>
+      <p style="margin:0 0 10px;color:var(--silk-2);font-size:14px">16 words of 8 bits: the opcode (high 4 bits) and the operand (low 4 bits). The amber row is where the PC points; the blue row is the word being read right now.</p>
+      <div class="scroll"><table class="rom" id="rom"></table></div>
+    </div>
+    <div class="card reveal" style="--i:6" data-ref="U4 · I/O">
+      <h2>Output and program</h2>
+      <div class="readout"><div class="seg off" id="seg">--</div><div><div style="font:600 11px var(--mono);letter-spacing:.1em;color:var(--dim)">DISPLAY HISTORY</div><div class="hist" id="hist"></div></div></div>
+      <div class="row" style="margin-bottom:8px">
+        <label for="preset" style="font-size:14px;color:var(--silk-2)">Preset</label>
+        <select id="preset"></select>
+      </div>
+      <textarea id="prog" spellcheck="false" aria-label="Bay-4 program, one instruction per line"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn go" id="load" type="button">Load program</button><span style="font-size:13px;color:var(--dim)">Opcodes: NOP LDA n LDB n ADD SUB AND OR OUT JMP a JZ a HLT</span></div>
+      <p class="err" id="err" role="alert"></p>
+    </div>
+  </section>
+
+  <section class="card reveal" style="--i:7;margin-top:16px" data-ref="U5 · TRACE">
+    <h2>Trace table</h2>
+    <p style="margin:0 0 10px;color:var(--silk-2);font-size:14px">One row per executed instruction, with the state after it runs. These are the columns of the Week 5 midterm trace, so you can check your own work here.</p>
+    <div class="scroll"><table class="trace" id="trace"></table></div>
+  </section>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline">By Professor De Leon</div></footer>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+// ENGINE START: Bay-4 reference emulator (mirrors EGN-325/build/bay4.py)
+const BAY4 = (function () {
+  const OPC = {NOP: 0, LDA: 1, LDB: 2, ADD: 3, SUB: 4, AND: 5, OR: 6, OUT: 7, JMP: 8, JZ: 9, HLT: 15};
+  const NAMES = {}; Object.keys(OPC).forEach(k => { NAMES[OPC[k]] = k; });
+  const HAS_OP = {LDA: 1, LDB: 1, JMP: 1, JZ: 1};
+  const ALU = {ADD: 0, SUB: 1, AND: 2, OR: 3};
+  function assemble(src) {
+    const lines = Array.isArray(src) ? src : String(src).replace(/\n/g, ';').split(';');
+    const rom = [];
+    for (let ln of lines) {
+      ln = ln.split('#')[0].trim();
+      if (!ln) continue;
+      const parts = ln.toUpperCase().replace(/,/g, ' ').split(/\s+/);
+      if (parts.length > 1 && /^\d+:?$/.test(parts[0])) parts.shift(); // allow a leading ROM address, as printed in the assignments
+      const op = parts[0];
+      if (!(op in OPC)) throw new Error('Unknown instruction "' + parts[0] + '"');
+      if (HAS_OP[op] && parts.length < 2) throw new Error(op + ' needs a number from 0 to 15');
+      const n = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+      if (isNaN(n) || n < 0 || n > 15) throw new Error('Operand must be 0 to 15 in "' + ln + '"');
+      rom.push((OPC[op] << 4) | n);
+    }
+    if (rom.length > 16) throw new Error('Bay-4 programs have at most 16 instructions');
+    return rom;
+  }
+  function dis(word) {
+    const name = NAMES[word >> 4] || 'NOP';
+    return HAS_OP[name] ? name + ' ' + (word & 15) : name;
+  }
+  function alu(a, b, code) {
+    let r = code === 0 ? (a + b) & 15 : code === 1 ? (a - b) & 15 : code === 2 ? (a & b) : (a | b);
+    return [r, r === 0 ? 1 : 0];
+  }
+  function signals(name, Z) {
+    // control signals for one instruction (what the decoder turns on)
+    return {
+      A_load: (name === 'LDA' || name in ALU) ? 1 : 0,
+      A_src: name === 'LDA' ? 'operand' : (name in ALU ? 'ALU' : '-'),
+      B_load: name === 'LDB' ? 1 : 0,
+      ALU_op: name in ALU ? ALU[name].toString(2).padStart(2, '0') : '-',
+      Z_load: name in ALU ? 1 : 0,
+      OUT_en: name === 'OUT' ? 1 : 0,
+      PC_src: (name === 'JMP' || (name === 'JZ' && Z === 1)) ? 'jump' : (name === 'HLT' ? 'hold' : 'PC+1'),
+      HALT: name === 'HLT' ? 1 : 0
+    };
+  }
+  function step(state, rom) {
+    const s = Object.assign({}, state, {out: state.out.slice()});
+    const word = rom[s.PC] || 0;
+    const name = NAMES[word >> 4] || 'NOP';
+    const n = word & 15;
+    const sig = signals(name, s.Z);
+    let next = (s.PC + 1) & 15;
+    if (name === 'LDA') s.A = n;
+    else if (name === 'LDB') s.B = n;
+    else if (name in ALU) { const r = alu(s.A, s.B, ALU[name]); s.A = r[0]; s.Z = r[1]; }
+    else if (name === 'OUT') s.out.push(s.A);
+    else if (name === 'JMP') next = n;
+    else if (name === 'JZ') { if (s.Z === 1) next = n; }
+    s.halted = name === 'HLT';
+    const pcBefore = s.PC;
+    if (!s.halted) s.PC = next;
+    s.steps = (s.steps || 0) + 1;
+    return {state: s, info: {pc: pcBefore, word: word, name: name, operand: n, text: dis(word), sig: sig}};
+  }
+  function run(rom, maxSteps) {
+    let s = {A: 0, B: 0, Z: 0, PC: 0, out: [], halted: false, steps: 0};
+    const trace = [];
+    const full = rom.concat(new Array(16 - rom.length).fill(0));
+    for (let i = 0; i < (maxSteps || 64) && !s.halted; i++) {
+      const r = step(s, full);
+      s = r.state;
+      trace.push(Object.assign({}, r.info, {A: s.A, B: s.B, Z: s.Z, nextPC: s.PC, out: s.out.slice(), halted: s.halted}));
+    }
+    return {trace: trace, out: s.out, state: s};
+  }
+  return {OPC: OPC, NAMES: NAMES, HAS_OP: HAS_OP, assemble: assemble, dis: dis, alu: alu, signals: signals, step: step, run: run};
+})();
+// ENGINE END
+
+
+// ---------------- helpers ----------------
+const $ = s => document.querySelector(s);
+const b4 = v => (v & 15).toString(2).padStart(4, '0');
+const b8 = v => b4(v >> 4) + ' ' + b4(v & 15);
+const hex = v => (v & 255).toString(16).toUpperCase().padStart(2, '0');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const COLOR = {addr: '#FFB020', data: '#38D6FF', oper: '#B5FF3C', ctrl: '#FF4FB0', alu: '#FF7A45', out: '#FFE36E'};
+const ALU_NAMES = {ADD: 1, SUB: 1, AND: 1, OR: 1};
+
+// ---------------- board geometry (x to the right, z toward the viewer) ----------------
+const COMP = {
+  rom: {x: -5.6, z: -2.2, w: 3.4, d: 4.6, h: 0.32, name: 'ROM 16 × 8'},
+  pc: {x: -5.6, z: 2.9, w: 2.0, d: 1.0, h: 0.45, name: 'PC'},
+  inc: {x: -3.4, z: 4.1, w: 1.1, d: 0.7, h: 0.3, name: 'PC + 1'},
+  ir: {x: -1.0, z: -2.6, w: 2.6, d: 1.0, h: 0.45, name: 'IR'},
+  cu: {x: -1.0, z: 1.6, w: 2.6, d: 1.6, h: 0.55, name: 'Control unit'},
+  a: {x: 2.9, z: -3.1, w: 2.0, d: 1.0, h: 0.45, name: 'A'},
+  b: {x: 2.9, z: -0.4, w: 2.0, d: 1.0, h: 0.45, name: 'B'},
+  alu: {x: 6.0, z: -1.7, w: 1.9, d: 2.4, h: 0.5, name: 'ALU'},
+  z: {x: 6.0, z: 0.9, w: 0.7, d: 0.7, h: 0.35, name: 'Z'},
+  out: {x: 5.4, z: 3.4, w: 2.6, d: 1.6, h: 0.25, name: 'OUT'},
+  clk: {x: -7.3, z: 4.4, w: 0.9, d: 0.45, h: 0.3, name: 'Clock'}
+};
+const BUS = {
+  addr: {c: 'addr', pts: [[-5.6, 2.4], [-5.6, 0.1]]},
+  data: {c: 'data', pts: [[-3.9, -2.6], [-2.3, -2.6]]},
+  opcode: {c: 'ctrl', pts: [[-1.6, -2.1], [-1.6, 0.8]]},
+  operA: {c: 'oper', pts: [[0.3, -2.6], [1.1, -2.6], [1.1, -3.1], [1.9, -3.1]]},
+  operB: {c: 'oper', pts: [[0.3, -2.6], [1.1, -2.6], [1.1, -0.4], [1.9, -0.4]]},
+  jump: {c: 'oper', pts: [[-2.1, -2.1], [-2.1, -1.4], [-3.3, -1.4], [-3.3, 2.9], [-4.6, 2.9]]},
+  incIn: {c: 'addr', pts: [[-5.2, 3.4], [-5.2, 4.1], [-3.95, 4.1]]},
+  incOut: {c: 'addr', pts: [[-3.1, 3.75], [-3.1, 3.15], [-4.6, 3.15]]},
+  aAlu: {c: 'alu', pts: [[3.9, -3.1], [4.6, -3.1], [4.6, -2.3], [5.05, -2.3]]},
+  bAlu: {c: 'alu', pts: [[3.9, -0.4], [4.6, -0.4], [4.6, -1.1], [5.05, -1.1]]},
+  aluA: {c: 'alu', pts: [[6.95, -1.7], [7.6, -1.7], [7.6, -4.3], [2.9, -4.3], [2.9, -3.6]]},
+  aluZ: {c: 'alu', pts: [[6.0, -0.8], [6.0, 0.55]]},
+  aOut: {c: 'out', pts: [[3.6, -2.6], [3.6, -1.6], [4.3, -1.6], [4.3, 2.6]]},
+  zCu: {c: 'ctrl', pts: [[5.65, 0.9], [5.0, 0.9], [5.0, 1.6], [0.3, 1.6]]}
+};
+const ARC_TARGET = {a: 'a', b: 'b', alu: 'alu', z: 'z', out: 'out', pc: 'pc', clk: 'clk'};
+function polyLen(p) { let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return L; }
+function polyAt(p, t) {
+  const L = polyLen(p) * Math.max(0, Math.min(1, t)); let acc = 0;
+  for (let i = 1; i < p.length; i++) {
+    const s = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+    if (acc + s >= L) { const k = s ? (L - acc) / s : 0; return [p[i - 1][0] + (p[i][0] - p[i - 1][0]) * k, p[i - 1][1] + (p[i][1] - p[i - 1][1]) * k]; }
+    acc += s;
+  }
+  return p[p.length - 1].slice();
+}
+function sigTargets(sig) {
+  if (!sig) return [];
+  const t = [];
+  if (sig.A_load) t.push('a');
+  if (sig.B_load) t.push('b');
+  if (sig.ALU_op !== '-') t.push('alu');
+  if (sig.Z_load) t.push('z');
+  if (sig.OUT_en) t.push('out');
+  if (sig.PC_src === 'jump') t.push('pc');
+  if (sig.HALT) t.push('clk');
+  return t;
+}
+const INFO = {
+  pc: '<b>Program counter (PC).</b> A 4-bit register that holds the address of the next instruction. It normally counts up by one; a jump loads a new address instead.',
+  rom: '<b>Instruction ROM.</b> 16 words of 8 bits. Each word is one instruction: a 4-bit opcode and a 4-bit operand. The address on the address bus picks which word is read.',
+  ir: '<b>Instruction register (IR).</b> Holds the instruction being executed. Its high 4 bits (the opcode) go to the control unit; its low 4 bits (the operand) go to A, B, or the PC.',
+  cu: '<b>Control unit.</b> The decoder. It turns the opcode into control signals (the pink arcs) that tell every other part what to do during this instruction.',
+  a: '<b>Register A (the accumulator).</b> Receives the operand (LDA) or the ALU result (ADD, SUB, AND, OR). OUT shows its value on the display.',
+  b: '<b>Register B.</b> The second ALU input. Only LDB writes it, so it keeps its value while A changes.',
+  alu: '<b>ALU (arithmetic logic unit).</b> Computes A + B, A − B, A AND B, or A OR B, chosen by the 2-bit ALU_op signal (00, 01, 10, 11). Results wrap around modulo 16.',
+  z: '<b>Zero flag (Z).</b> 1 when the last ALU result was 0000, otherwise 0. JZ reads it to decide whether to jump. LDA, LDB, OUT, and jumps leave it unchanged.',
+  out: '<b>Output register and display.</b> OUT copies A here so you can see results. The two-digit display shows the value in decimal.',
+  inc: '<b>PC + 1 adder.</b> Computes the address of the next instruction. Because the PC has 4 bits, 15 + 1 wraps around to 0.',
+  clk: '<b>Clock.</b> Each tick moves the computer forward. Here the cycle is slowed into micro-steps so you can watch every part; the Bay-4 you build in Logisim-evolution can finish a whole instruction in one tick. HLT stops the clock.'
+};
+
+// ---------------- 3D board ----------------
+function Board3D(stage) {
+  const narrow = () => stage.clientWidth < 640;
+  const home = () => narrow() ? {cam: [0, 17.5, 15.5], tgt: [0, 0, 0.2]} : {cam: [0, 12.5, 10.8], tgt: [0, 0, 0.2]};
+  const st = make3D(stage, {camera: home().cam, target: home().tgt});
+  if (!st) return null;
+  const T = THREE, scene = st.scene, camera = st.camera, controls = st.controls;
+  if (controls) { controls.enablePan = false; controls.minDistance = 5; controls.maxDistance = 30; controls.maxPolarAngle = Math.PI * 0.46; }
+  scene.add(new T.AmbientLight(0x335544, 0.5));
+  const V3 = (x, z, y) => new T.Vector3(x, y || 0, z);
+  // board
+  const board = new T.Mesh(new T.BoxGeometry(16.6, 0.3, 10.6), new T.MeshStandardMaterial({color: 0x0d3524, roughness: 0.85, metalness: 0.05}));
+  board.position.y = -0.15; scene.add(board);
+  const rim = new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(16.6, 0.3, 10.6)), new T.LineBasicMaterial({color: 0x2b5e4a}));
+  rim.position.y = -0.15; scene.add(rim);
+  // mounting holes
+  [[-7.9, -4.9], [7.9, -4.9], [-7.9, 4.9], [7.9, 4.9]].forEach(([x, z]) => {
+    const h = new T.Mesh(new T.CylinderGeometry(0.22, 0.22, 0.02, 24), new T.MeshStandardMaterial({color: 0xc8823f, metalness: 0.8, roughness: 0.3}));
+    h.position.set(x, 0.01, z); scene.add(h);
+  });
+  const epoxy = new T.MeshStandardMaterial({color: 0x121614, roughness: 0.55, metalness: 0.15});
+  const pinMat = new T.MeshStandardMaterial({color: 0xc9ced1, metalness: 0.9, roughness: 0.25});
+  const ledOff = new T.MeshStandardMaterial({color: 0x163126, roughness: 0.6});
+  const mkOn = (c, k) => new T.MeshStandardMaterial({color: c, emissive: c, emissiveIntensity: k || 0.5, roughness: 0.5});
+  const ON = {led: mkOn(0x3fd96a, 0.55), addr: mkOn(0xe89a10, 0.55), data: mkOn(0x1fb8e0, 0.6), dataDim: new T.MeshStandardMaterial({color: 0x1f7c95, emissive: 0x0e4a5a, emissiveIntensity: 0.6}), out: mkOn(0xffe36e)};
+  const segOff = new T.MeshStandardMaterial({color: 0x1d2a20, roughness: 0.7});
+  const parts = {}, pickables = [];
+  function chip(id, opts) {
+    const c = COMP[id]; opts = opts || {};
+    let mesh;
+    if (id === 'alu') {
+      const s = new T.Shape();
+      s.moveTo(-0.95, -1.2); s.lineTo(0.95, -0.6); s.lineTo(0.95, 0.6); s.lineTo(-0.95, 1.2); s.lineTo(-0.95, 0.3); s.lineTo(-0.6, 0); s.lineTo(-0.95, -0.3); s.closePath();
+      const g = new T.ExtrudeGeometry(s, {depth: c.h, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 2});
+      mesh = new T.Mesh(g, epoxy.clone()); mesh.rotation.x = -Math.PI / 2; mesh.position.set(c.x, 0, c.z);
+    } else if (id === 'clk') {
+      mesh = new T.Mesh(new T.CylinderGeometry(c.d / 2, c.d / 2, c.w, 24), new T.MeshStandardMaterial({color: 0xd9dde0, metalness: 0.9, roughness: 0.2}));
+      mesh.rotation.z = Math.PI / 2; mesh.position.set(c.x, c.d / 2, c.z);
+    } else {
+      mesh = new T.Mesh(new T.BoxGeometry(c.w, c.h, c.d), (opts.mat || epoxy).clone());
+      mesh.position.set(c.x, c.h / 2, c.z);
+      if (!opts.noPins) {
+        const n = Math.max(2, Math.floor(c.w / 0.34));
+        for (let i = 0; i < n; i++) for (const side of [-1, 1]) {
+          const p = new T.Mesh(new T.BoxGeometry(0.12, 0.08, 0.2), pinMat);
+          p.position.set(c.x - c.w / 2 + (i + 0.5) * c.w / n, 0.04, c.z + side * (c.d / 2 + 0.08)); scene.add(p);
+        }
+      }
+      // pin-1 dot
+      const dot = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, 0.01, 12), new T.MeshStandardMaterial({color: 0x2c332f}));
+      dot.position.set(c.x - c.w / 2 + 0.16, c.h + 0.006, c.z + c.d / 2 - 0.16); scene.add(dot);
+    }
+    mesh.userData.id = id; scene.add(mesh); pickables.push(mesh);
+    const anchor = new T.Object3D(); anchor.position.set(c.x, (c.h || 0.4) + 0.75, c.z - (c.d || 1) / 2 - 0.05); scene.add(anchor);
+    const lab = st.label(anchor, c.name);
+    parts[id] = {mesh: mesh, label: lab, bits: []};
+    return parts[id];
+  }
+  function bitRow(id, n, pitch, y, gapAfter) {
+    const c = COMP[id]; const arr = [];
+    const width = (n - 1) * pitch + (gapAfter ? 0.14 : 0);
+    for (let i = 0; i < n; i++) {
+      const m = new T.Mesh(new T.BoxGeometry(pitch * 0.7, 0.08, 0.34), ledOff);
+      m.position.set(c.x - width / 2 + i * pitch + (gapAfter && i >= gapAfter ? 0.14 : 0), y, c.z); scene.add(m); arr.push(m);
+    }
+    parts[id].bits = arr;
+  }
+  Object.keys(COMP).forEach(id => chip(id, id === 'out' ? {mat: new T.MeshStandardMaterial({color: 0x050807, roughness: 0.3}), noPins: true} : null));
+  bitRow('pc', 4, 0.42, COMP.pc.h + 0.04);
+  bitRow('a', 4, 0.42, COMP.a.h + 0.04);
+  bitRow('b', 4, 0.42, COMP.b.h + 0.04);
+  bitRow('ir', 8, 0.28, COMP.ir.h + 0.04, 4);
+  bitRow('z', 1, 0.4, COMP.z.h + 0.04);
+  // ROM bit grid: 16 rows x 8 bits
+  const romBits = [], rc = COMP.rom;
+  for (let r = 0; r < 16; r++) {
+    const row = [];
+    for (let k = 0; k < 8; k++) {
+      const m = new T.Mesh(new T.BoxGeometry(0.22, 0.06, 0.17), ledOff);
+      m.position.set(rc.x - 1.32 + k * 0.34 + (k >= 4 ? 0.16 : 0), rc.h + 0.03, rc.z - 1.95 + r * 0.26); scene.add(m); row.push(m);
+    }
+    romBits.push(row);
+  }
+  const selBar = new T.Mesh(new T.BoxGeometry(3.2, 0.02, 0.24), new T.MeshBasicMaterial({color: 0x38d6ff, transparent: true, opacity: 0}));
+  selBar.position.set(rc.x, rc.h + 0.012, 0); scene.add(selBar);
+  const pcBar = new T.Mesh(new T.BoxGeometry(3.3, 0.015, 0.25), new T.MeshBasicMaterial({color: 0xffb020, transparent: true, opacity: 0.28}));
+  pcBar.position.set(rc.x, rc.h + 0.008, 0); scene.add(pcBar);
+  // seven-segment display on OUT
+  const SEGS = {a: [0, -0.5, 1], g: [0, 0, 1], d: [0, 0.5, 1], f: [-0.27, -0.25, 0], b: [0.27, -0.25, 0], e: [-0.27, 0.25, 0], c: [0.27, 0.25, 0]};
+  const DIG = {0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg', '-': 'g', ' ': ''};
+  const digits = [-0.45, 0.45].map(dx => {
+    const o = {};
+    Object.keys(SEGS).forEach(k => {
+      const [sx, sz, hz] = SEGS[k];
+      const m = new T.Mesh(new T.BoxGeometry(hz ? 0.46 : 0.09, 0.05, hz ? 0.09 : 0.42), segOff);
+      m.position.set(COMP.out.x + dx + sx, COMP.out.h + 0.03, COMP.out.z + sz); scene.add(m); o[k] = m;
+    });
+    return o;
+  });
+  // copper buses
+  const buses = {};
+  Object.keys(BUS).forEach((id, bi) => {
+    const p = BUS[id].pts, mats = [];
+    const mat = new T.MeshStandardMaterial({color: 0xb87333, metalness: 0.75, roughness: 0.32, emissive: 0x000000});
+    const y = 0.02 + (id === 'aOut' ? 0.02 : 0) + (id === 'zCu' ? 0.01 : 0);
+    for (let i = 1; i < p.length; i++) {
+      const [x1, z1] = p[i - 1], [x2, z2] = p[i];
+      const horiz = Math.abs(x2 - x1) > Math.abs(z2 - z1);
+      const len = Math.hypot(x2 - x1, z2 - z1) + 0.15;
+      const m = new T.Mesh(new T.BoxGeometry(horiz ? len : 0.15, 0.035, horiz ? 0.15 : len), mat);
+      m.position.set((x1 + x2) / 2, y, (z1 + z2) / 2); scene.add(m);
+    }
+    [p[0], p[p.length - 1]].forEach(q => { const pad = new T.Mesh(new T.CylinderGeometry(0.13, 0.13, 0.04, 16), mat); pad.position.set(q[0], y, q[1]); scene.add(pad); });
+    // packet (glowing block plus a label with its bits)
+    const col = new T.Color(COLOR[BUS[id].c]);
+    const pk = new T.Mesh(new T.BoxGeometry(0.34, 0.16, 0.34), new T.MeshStandardMaterial({color: col, emissive: col, emissiveIntensity: 1.2, transparent: true, opacity: 0}));
+    pk.position.set(p[0][0], 0.3, p[0][1]); scene.add(pk);
+    const lab = st.label(pk, ''); lab.classList.add('pkt'); lab.style.color = COLOR[BUS[id].c]; lab.style.opacity = 0;
+    buses[id] = {mat: mat, col: col, pk: pk, lab: lab};
+  });
+  // control arcs from the control unit
+  const arcs = {};
+  Object.keys(ARC_TARGET).forEach(k => {
+    const c = COMP[ARC_TARGET[k]], s = V3(COMP.cu.x + 0.6, COMP.cu.z - 0.2, COMP.cu.h + 0.05), e = V3(c.x, c.z, (c.h || 0.4) + 0.05);
+    const mid = s.clone().add(e).multiplyScalar(0.5); mid.y = 2.4 + s.distanceTo(e) * 0.12;
+    const curve = new T.QuadraticBezierCurve3(s, mid, e);
+    const mat = new T.MeshBasicMaterial({color: 0xff4fb0, transparent: true, opacity: 0.06});
+    const tube = new T.Mesh(new T.TubeGeometry(curve, 40, 0.035, 6, false), mat); scene.add(tube);
+    const spark = new T.Mesh(new T.SphereGeometry(0.11, 12, 12), new T.MeshBasicMaterial({color: 0xffb3dc, transparent: true, opacity: 0}));
+    scene.add(spark);
+    arcs[k] = {curve: curve, mat: mat, spark: spark};
+  });
+  // picking
+  const ray = new T.Raycaster(), mouse = new T.Vector2(); let down = null;
+  renderer().domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  renderer().domElement.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+    const r = e.target.getBoundingClientRect();
+    mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (hit && api.onPick) api.onPick(hit.object.userData.id);
+  });
+  function renderer() { return st.renderer; }
+  const glowMats = {};
+  function setBits(arr, v, n, onMat) { arr.forEach((m, i) => { m.material = ((v >> (n - 1 - i)) & 1) ? onMat : ledOff; }); }
+  const api = {
+    kind: '3d',
+    packet(id, text, dur) {
+      const b = buses[id], p = BUS[id].pts, o = {t: 0};
+      b.lab.textContent = text;
+      const tl = gsap.timeline();
+      tl.set(b.pk.material, {opacity: 1}).set(b.lab.style, {opacity: 1})
+        .to(b.mat.emissive, {r: b.col.r * 0.9, g: b.col.g * 0.9, b: b.col.b * 0.9, duration: 0.2}, 0)
+        .to(o, {t: 1, duration: dur || 0.9, ease: 'power1.inOut', onUpdate: () => { const q = polyAt(p, o.t); b.pk.position.set(q[0], 0.3 + Math.sin(o.t * Math.PI) * 0.18, q[1]); }}, 0)
+        .to(b.pk.material, {opacity: 0, duration: 0.25}, '>-0.05').set(b.lab.style, {opacity: 0}, '<')
+        .to(b.mat.emissive, {r: 0, g: 0, b: 0, duration: 0.6}, '<');
+      return tl;
+    },
+    ctrl(sig) {
+      const tl = gsap.timeline();
+      sigTargets(sig).forEach((k, i) => {
+        const a = arcs[k], o = {t: 0};
+        tl.to(a.mat, {opacity: 0.85, duration: 0.25}, i * 0.08)
+          .set(a.spark.material, {opacity: 1}, i * 0.08)
+          .to(o, {t: 1, duration: 0.7, ease: 'power2.out', onUpdate: () => a.spark.position.copy(a.curve.getPoint(o.t))}, i * 0.08)
+          .to(a.spark.material, {opacity: 0, duration: 0.2}, '>');
+      });
+      if (!tl.duration()) tl.to({}, {duration: 0.5});
+      return tl;
+    },
+    glow(id, hexColor) {
+      const m = parts[id].mesh.material, c = new T.Color(hexColor);
+      return gsap.timeline().to(m.emissive, {r: c.r * 0.6, g: c.g * 0.6, b: c.b * 0.6, duration: 0.3}).to(m.emissive, {r: 0, g: 0, b: 0, duration: 0.6}, '+=0.35');
+    },
+    tick() {
+      const m = parts.clk.mesh;
+      return gsap.timeline().to(m.scale, {x: 1.25, y: 1.25, z: 1.25, duration: 0.12}).to(m.scale, {x: 1, y: 1, z: 1, duration: 0.25});
+    },
+    focus(x, z, near) {
+      if (!$('#follow').checked || !hasGSAP) return;
+      const k = narrow() ? 1.9 : 1, d = near ? 0.8 : 1;
+      gsap.to(camera.position, {x: x * 0.85, y: 9.6 * k * d, z: z + 8.6 * k * d, duration: 1.0, ease: 'power2.inOut', overwrite: 'auto'});
+      if (controls) gsap.to(controls.target, {x: x, y: 0, z: z, duration: 1.0, ease: 'power2.inOut', overwrite: 'auto'});
+    },
+    overview() {
+      const h = home();
+      if (hasGSAP) {
+        gsap.to(camera.position, {x: h.cam[0], y: h.cam[1], z: h.cam[2], duration: 1.0, ease: 'power2.inOut', overwrite: 'auto'});
+        if (controls) gsap.to(controls.target, {x: h.tgt[0], y: h.tgt[1], z: h.tgt[2], duration: 1.0, ease: 'power2.inOut', overwrite: 'auto'});
+      } else { camera.position.set(...h.cam); if (controls) controls.target.set(...h.tgt); }
+    },
+    clearTransient() {
+      Object.values(buses).forEach(b => { b.pk.material.opacity = 0; b.lab.style.opacity = 0; b.mat.emissive.setRGB(0, 0, 0); });
+      Object.values(arcs).forEach(a => { a.spark.material.opacity = 0; });
+      Object.values(parts).forEach(p => { if (p.mesh.material.emissive) p.mesh.material.emissive.setRGB(0, 0, 0); p.mesh.scale.set(1, 1, 1); });
+    },
+    update(V, rom) {
+      setBits(parts.pc.bits, V.PC, 4, ON.addr);
+      setBits(parts.a.bits, V.A, 4, ON.led);
+      setBits(parts.b.bits, V.B, 4, ON.led);
+      setBits(parts.ir.bits, V.IR == null ? 0 : V.IR, 8, ON.data);
+      setBits(parts.z.bits, V.Z, 1, ON.led);
+      for (let r = 0; r < 16; r++) setBits(romBits[r], rom[r] || 0, 8, r === V.memSel ? ON.data : ON.dataDim);
+      pcBar.position.z = rc.z - 1.95 + V.PC * 0.26;
+      selBar.material.opacity = V.memSel == null ? 0 : 0.35; if (V.memSel != null) selBar.position.z = rc.z - 1.95 + V.memSel * 0.26;
+      const last = V.out.length ? V.out[V.out.length - 1] : null;
+      const txt = last == null ? '--' : String(last).padStart(2, ' ');
+      digits.forEach((d, i) => { const on = DIG[txt[i]] || ''; Object.keys(d).forEach(k => { d[k].material = on.includes(k) ? ON.out : segOff; }); });
+      const tgts = sigTargets(V.sig);
+      Object.keys(arcs).forEach(k => { if (!hasGSAP || !gsap.isTweening(arcs[k].mat)) arcs[k].mat.opacity = tgts.includes(k) ? 0.55 : 0.06; });
+      parts.pc.label.textContent = 'PC ' + V.PC;
+      parts.a.label.textContent = 'A ' + V.A;
+      parts.b.label.textContent = 'B ' + V.B;
+      parts.z.label.textContent = 'Z ' + V.Z;
+      parts.ir.label.textContent = 'IR ' + (V.IR == null ? 'empty' : BAY4.dis(V.IR));
+      parts.out.label.textContent = 'OUT ' + (last == null ? '' : last);
+      parts.clk.label.textContent = V.halted ? 'Clock stopped' : 'Clock';
+    },
+    onPick: null
+  };
+  return api;
+}
+
+// ---------------- 2D board (used when WebGL or Three.js is missing) ----------------
+function Board2D(stage) {
+  const NS = 'http://www.w3.org/2000/svg', S = 40, X = x => (x + 8.3) * S, Y = z => (z + 5.3) * S;
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 664 424'); svg.setAttribute('class', 'flat'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Bay-4 board diagram');
+  stage.appendChild(svg);
+  const el = (tag, at, parent) => { const e = document.createElementNS(NS, tag); Object.keys(at).forEach(k => e.setAttribute(k, at[k])); (parent || svg).appendChild(e); return e; };
+  el('rect', {x: 4, y: 4, width: 656, height: 416, rx: 14, fill: '#0d3524', stroke: '#2b5e4a'});
+  const buses = {};
+  Object.keys(BUS).forEach(id => {
+    const pts = BUS[id].pts.map(p => X(p[0]) + ',' + Y(p[1])).join(' ');
+    const line = el('polyline', {points: pts, fill: 'none', stroke: '#b87333', 'stroke-width': 5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'});
+    const g = el('g', {opacity: 0});
+    el('circle', {r: 9, fill: COLOR[BUS[id].c]}, g);
+    const t = el('text', {y: -13, 'text-anchor': 'middle', fill: COLOR[BUS[id].c], 'font-size': 12, 'font-family': 'Martian Mono, monospace', 'font-weight': 600}, g);
+    buses[id] = {line: line, g: g, t: t};
+  });
+  const parts = {};
+  Object.keys(COMP).forEach(id => {
+    const c = COMP[id];
+    const r = el('rect', {x: X(c.x - c.w / 2), y: Y(c.z - c.d / 2), width: c.w * S, height: c.d * S, rx: 6, fill: '#121614', stroke: '#3c5a4c', 'stroke-width': 1.5, style: 'cursor:pointer'});
+    r.addEventListener('click', () => api.onPick && api.onPick(id));
+    el('text', {x: X(c.x), y: Y(c.z - c.d / 2) - 5, 'text-anchor': 'middle', fill: '#EAF2E8', 'font-size': 11, 'font-family': 'Martian Mono, monospace'}).textContent = c.name;
+    const v = el('text', {x: X(c.x), y: Y(c.z) + 5, 'text-anchor': 'middle', fill: '#7CFF9B', 'font-size': id === 'rom' ? 12 : 14, 'font-family': 'Martian Mono, monospace', 'font-weight': 600});
+    parts[id] = {r: r, v: v};
+  });
+  const api = {
+    kind: '2d',
+    packet(id, text, dur) {
+      const b = buses[id], p = BUS[id].pts, o = {t: 0}; b.t.textContent = text;
+      return gsap.timeline().set(b.g, {attr: {opacity: 1}}).set(b.line, {attr: {stroke: COLOR[BUS[id].c]}})
+        .to(o, {t: 1, duration: dur || 0.9, ease: 'power1.inOut', onUpdate: () => { const q = polyAt(p, o.t); b.g.setAttribute('transform', 'translate(' + X(q[0]) + ',' + Y(q[1]) + ')'); }})
+        .set(b.g, {attr: {opacity: 0}}).set(b.line, {attr: {stroke: '#b87333'}}, '+=0.3');
+    },
+    ctrl(sig) {
+      const tl = gsap.timeline();
+      sigTargets(sig).forEach((k, i) => tl.set(parts[ARC_TARGET[k]].r, {attr: {stroke: '#FF4FB0', 'stroke-width': 3}}, i * 0.1));
+      tl.to({}, {duration: 0.6});
+      return tl;
+    },
+    glow(id, color) { return gsap.timeline().set(parts[id].r, {attr: {fill: color}}).set(parts[id].r, {attr: {fill: '#121614'}}, '+=0.7'); },
+    tick() { return null; },
+    focus() {}, overview() {},
+    clearTransient() { Object.values(buses).forEach(b => { b.g.setAttribute('opacity', 0); b.line.setAttribute('stroke', '#b87333'); }); Object.values(parts).forEach(p => p.r.setAttribute('fill', '#121614')); },
+    update(V, rom) {
+      const tg = sigTargets(V.sig);
+      Object.keys(parts).forEach(id => { const on = tg.some(k => ARC_TARGET[k] === id); parts[id].r.setAttribute('stroke', on ? '#FF4FB0' : '#3c5a4c'); parts[id].r.setAttribute('stroke-width', on ? 3 : 1.5); });
+      const last = V.out.length ? V.out[V.out.length - 1] : '--';
+      parts.pc.v.textContent = b4(V.PC) + ' (' + V.PC + ')';
+      parts.a.v.textContent = b4(V.A) + ' (' + V.A + ')';
+      parts.b.v.textContent = b4(V.B) + ' (' + V.B + ')';
+      parts.ir.v.textContent = V.IR == null ? 'empty' : b8(V.IR);
+      parts.z.v.textContent = V.Z;
+      parts.out.v.textContent = last;
+      parts.cu.v.textContent = V.IR == null ? '' : BAY4.dis(V.IR);
+      parts.rom.v.textContent = V.memSel == null ? 'PC → row ' + V.PC : 'reading row ' + V.memSel;
+      parts.clk.v.textContent = V.halted ? 'off' : '';
+      parts.alu.v.textContent = ''; parts.inc.v.textContent = '';
+    },
+    onPick: null
+  };
+  return api;
+}
+
+// ---------------- simulator state ----------------
+const PRESETS = [
+  {name: 'Count down from 5 (final project test 1)', src: 'LDA 5\nLDB 1\nOUT\nSUB\nJZ 6\nJMP 2\nOUT\nHLT'},
+  {name: 'ALU check (final project test 2)', src: 'LDA 3\nLDB 4\nADD\nOUT\nLDB 15\nAND\nOUT\nLDB 9\nOR\nOUT\nHLT'},
+  {name: 'Add 7 and 5', src: 'LDA 7\nLDB 5\nADD\nOUT\nHLT'},
+  {name: 'Count by 3 until the sum wraps to 0', src: 'LDA 0\nLDB 3\nADD\nOUT\nJZ 6\nJMP 2\nHLT'},
+  {name: 'Bit masks with AND and OR', src: 'LDA 13\nLDB 6\nAND\nOUT\nLDA 9\nOR\nOUT\nHLT'}
+];
+let rom = new Array(16).fill(0), romLen = 0;
+let V, micros = null, mi = 0, ctx = null, history = [], trace = [], running = false, tl = null, waitTimer = null, resumeOnce = false;
+let awaiting = null, score = {ok: 0, n: 0}, speed = 1;
+const bps = new Set();
+let B = null;
+const fresh = () => ({A: 0, B: 0, Z: 0, PC: 0, IR: null, out: [], halted: false, steps: 0, sig: null, memSel: null, phase: 'idle', done: []});
+const cpuOf = v => ({A: v.A, B: v.B, Z: v.Z, PC: v.PC, out: v.out.slice(), halted: false, steps: v.steps});
+const add = (t, tw, pos) => { if (t && tw) t.add(tw, pos); };
+
+const WHAT = {
+  NOP: 'NOP means do nothing for one instruction.',
+  LDA: 'LDA n copies the operand n into register A.',
+  LDB: 'LDB n copies the operand n into register B.',
+  ADD: 'ADD sets A = A + B (wrapping at 16) and updates Z.',
+  SUB: 'SUB sets A = A − B (wrapping below 0) and updates Z.',
+  AND: 'AND sets A = A AND B, bit by bit, and updates Z.',
+  OR: 'OR sets A = A OR B, bit by bit, and updates Z.',
+  OUT: 'OUT copies A to the output display.',
+  JMP: 'JMP a puts the address a into the PC.',
+  JZ: 'JZ a jumps to address a, but only when Z = 1.',
+  HLT: 'HLT stops the clock. The program is finished.'
+};
+function sigText(sig) {
+  const on = [];
+  if (sig.A_load) on.push('A_load (A takes the ' + sig.A_src + ')');
+  if (sig.B_load) on.push('B_load');
+  if (sig.ALU_op !== '-') on.push('ALU_op = ' + sig.ALU_op);
+  if (sig.Z_load) on.push('Z_load');
+  if (sig.OUT_en) on.push('OUT_en');
+  if (sig.HALT) on.push('HALT');
+  on.push('PC_src = ' + sig.PC_src);
+  return on.join(', ');
+}
+function aluWhy(name, a, b, r) {
+  if (name === 'ADD') return a + ' + ' + b + ' = ' + (a + b) + (a + b > 15 ? ', which does not fit in 4 bits, so it wraps around to ' + (a + b) + ' − 16 = ' + r : '');
+  if (name === 'SUB') return a + ' − ' + b + ' = ' + (a - b) + (a - b < 0 ? ', which is below 0, so it wraps around to ' + (a - b) + ' + 16 = ' + r : '');
+  return '<code>' + b4(a) + '</code> ' + name + ' <code>' + b4(b) + '</code> = <code>' + b4(r) + '</code>, which is ' + r;
+}
+
+function buildMicros(c, v) {
+  const i = c.info, s = c.state, name = i.name, n = i.operand, w = i.word, pc = i.pc, M = [];
+  const lastOut = name === 'OUT' ? s.A : '';
+  const row = () => ({step: s.steps, pc: pc, text: i.text, A: s.A, B: s.B, Z: s.Z, next: s.PC, out: lastOut});
+  M.push({phase: 'fetch', title: 'Fetch, part 1: send the address',
+    html: 'The program counter holds <b>PC = ' + pc + '</b> (<code>' + b4(pc) + '</code>). It drives the <span class="k addr">address bus</span>, and the ROM selects row ' + pc + '.',
+    focus: [-5.4, 0.6], anim: t => { add(t, B.tick()); add(t, B.packet('addr', b4(pc)), 0); },
+    commit: x => { x.memSel = pc; x.sig = null; }});
+  M.push({phase: 'fetch', title: 'Fetch, part 2: read the instruction',
+    html: 'ROM row ' + pc + ' holds <code>' + b8(w) + '</code> (hex ' + hex(w) + '). The word travels on the <span class="k data">instruction bus</span> into the instruction register, IR.',
+    focus: [-3.4, -2.5], anim: t => { add(t, B.tick()); add(t, B.packet('data', b8(w)), 0); },
+    commit: x => { x.IR = w; }});
+  M.push({phase: 'decode', title: 'Decode: ' + i.text,
+    html: 'The opcode <code>' + b4(w >> 4) + '</code> goes to the control unit: it means <b>' + name + '</b>. ' + WHAT[name] + ' The control unit turns on: ' + sigText(i.sig) + '.',
+    focus: [-0.5, 0.2], predict: name !== 'HLT',
+    anim: t => { add(t, B.tick()); add(t, B.packet('opcode', b4(w >> 4), 0.7), 0); add(t, B.ctrl(i.sig)); },
+    commit: x => { x.sig = i.sig; }});
+  if (name === 'LDA' || name === 'LDB') {
+    const r = name === 'LDA' ? 'A' : 'B';
+    M.push({phase: 'execute', title: 'Execute: ' + r + ' = ' + n,
+      html: 'The operand <code>' + b4(n) + '</code> leaves the IR on the <span class="k oper">operand bus</span> and is loaded into register ' + r + '. ' + r + ' was ' + v[r] + '; now ' + r + ' = ' + n + '.',
+      focus: [1.6, name === 'LDA' ? -2.8 : -1.4], anim: t => { add(t, B.tick()); add(t, B.packet(name === 'LDA' ? 'operA' : 'operB', b4(n)), 0); },
+      commit: x => { x[r] = s[r]; }});
+  } else if (ALU_NAMES[name]) {
+    const a = v.A, bb = v.B, res = s.A;
+    M.push({phase: 'execute', title: 'Execute, part 1: the ALU computes',
+      html: 'A (<code>' + b4(a) + '</code>) and B (<code>' + b4(bb) + '</code>) travel on the <span class="k alu">ALU buses</span>. ALU_op = ' + i.sig.ALU_op + ' selects ' + name + ': ' + aluWhy(name, a, bb, res) + '.',
+      focus: [5.0, -1.9], anim: t => { add(t, B.tick()); add(t, B.packet('aAlu', b4(a)), 0); add(t, B.packet('bAlu', b4(bb)), 0); add(t, B.glow('alu', '#FF7A45')); },
+      commit: () => {}});
+    M.push({phase: 'execute', title: 'Execute, part 2: write the result',
+      html: 'The result <code>' + b4(res) + '</code> goes back into A, so A = ' + res + '. The zero flag is loaded too: the result ' + (res === 0 ? 'is 0000, so <b>Z = 1</b>.' : 'is not zero, so <b>Z = 0</b>.'),
+      focus: [5.2, -2.6], anim: t => { add(t, B.tick()); add(t, B.packet('aluA', b4(res), 1.1), 0); add(t, B.packet('aluZ', 'Z=' + s.Z, 0.6), 0.2); },
+      commit: x => { x.A = s.A; x.Z = s.Z; }});
+  } else if (name === 'OUT') {
+    M.push({phase: 'execute', title: 'Execute: show A on the display',
+      html: 'OUT_en is on, so A (<code>' + b4(v.A) + '</code>) travels on the <span class="k out">output bus</span> into the output register. The display now shows <b>' + v.A + '</b>.',
+      focus: [4.4, 1.2], anim: t => { add(t, B.tick()); add(t, B.packet('aOut', b4(v.A), 1.1), 0); },
+      commit: x => { x.out = s.out.slice(); }});
+  } else if (name === 'JZ') {
+    const taken = v.Z === 1;
+    M.push({phase: 'execute', title: 'Execute: check the zero flag',
+      html: 'The control unit reads the zero flag: <b>Z = ' + v.Z + '</b>. ' + (taken ? 'The last ALU result was zero, so the jump is <b>taken</b>: the next PC will be ' + n + '.' : 'The last ALU result was not zero, so the jump is <b>not taken</b>: the CPU just moves on to the next address.'),
+      focus: [2.6, 1.3], anim: t => { add(t, B.tick()); add(t, B.packet('zCu', 'Z=' + v.Z, 1.0), 0); },
+      commit: () => {}});
+  } else if (name === 'JMP') {
+    M.push({phase: 'execute', title: 'Execute: nothing to compute',
+      html: 'JMP changes no data register and does not touch Z. Its only job is to replace the PC with ' + n + ', which happens in the next step.',
+      focus: [-1.0, 0.6], anim: t => { add(t, B.tick()); add(t, B.glow('cu', '#B5FF3C')); }, commit: () => {}});
+  } else if (name === 'NOP') {
+    M.push({phase: 'execute', title: 'Execute: no operation',
+      html: 'NOP turns on no load signals, so A, B, Z, and the display keep their values. The clock still ticks and the PC still moves on.',
+      focus: [-1.0, 0.6], anim: t => { add(t, B.tick()); add(t, B.glow('cu', '#B5FF3C')); }, commit: () => {}});
+  } else if (name === 'HLT') {
+    M.push({phase: 'execute', title: 'Execute: halt',
+      html: 'HALT is on, so the clock stops and the PC stays at ' + pc + '. The program ran ' + s.steps + ' instructions' + (s.out.length ? ' and showed ' + s.out.join(', ') : '') + '. Press Reset to run it again, or load another program.',
+      focus: [-7.0, 3.6], anim: t => { add(t, B.glow('clk', '#FF4FB0')); },
+      commit: x => { x.halted = true; x.steps = s.steps; x.memSel = null; trace.push(row()); }});
+    return M;
+  }
+  const jump = i.sig.PC_src === 'jump';
+  M.push({phase: 'pc', title: 'Next PC: ' + (jump ? 'jump to ' + n : 'PC + 1'),
+    html: jump ? 'PC_src = jump, so the operand <code>' + b4(n) + '</code> travels on the <span class="k oper">jump bus</span> into the PC. The next instruction comes from address <b>' + n + '</b>.'
+      : 'PC_src = PC+1, so the adder computes ' + pc + ' + 1 = ' + (pc + 1) + (pc === 15 ? ', which wraps around to 0 in 4 bits' : '') + '. The next instruction comes from address <b>' + s.PC + '</b>.',
+    focus: [-4.4, 2.6],
+    anim: t => { add(t, B.tick()); if (jump) add(t, B.packet('jump', b4(n), 1.1), 0); else { add(t, B.packet('incIn', b4(pc), 0.6), 0); add(t, B.packet('incOut', b4(s.PC), 0.5)); } },
+    commit: x => { x.PC = s.PC; x.steps = s.steps; x.memSel = null; trace.push(row()); }});
+  return M;
+}
+
+function snapshot() { return {V: JSON.parse(JSON.stringify(V)), micros: micros, mi: mi, ctx: ctx, tlen: trace.length}; }
+function restore(sn) {
+  if (tl) { tl.kill(); tl = null; }
+  V = sn.V; micros = sn.micros; mi = sn.mi; ctx = sn.ctx; trace.length = sn.tlen;
+  if (B) B.clearTransient();
+  hidePredict();
+  render();
+}
+function atBoundary() { return !micros || mi >= micros.length; }
+function ensureMicros() {
+  if (atBoundary()) { ctx = BAY4.step(cpuOf(V), rom); micros = buildMicros(ctx, V); mi = 0; V.done = []; }
+}
+function setCaption(title, html, phase) {
+  const colors = {fetch: 'var(--addr)', decode: 'var(--ctrl)', execute: 'var(--oper)', pc: 'var(--data)'};
+  $('#cap').style.setProperty('--cap', colors[phase] || 'var(--addr)');
+  $('#capT').textContent = title; $('#capB').innerHTML = html;
+}
+
+function stepForward(animated) {
+  if (V.halted || awaiting) return false;
+  if (tl) { tl.progress(1); return true; }
+  ensureMicros();
+  if (history.length > 3000) history.shift();
+  history.push(snapshot());
+  const m = micros[mi];
+  V.phase = m.phase;
+  setCaption(m.title, m.html, m.phase);
+  renderPhase();
+  if (animated && hasGSAP && B) {
+    if (m.focus) B.focus(m.focus[0], m.focus[1]);
+    tl = gsap.timeline({onComplete: () => finish(m, true)});
+    m.anim(tl);
+    if (tl.duration() < 0.6) tl.to({}, {duration: 0.6 - tl.duration()});
+    tl.timeScale(speed);
+  } else finish(m, animated);
+  return true;
+}
+function finish(m, animated) {
+  tl = null;
+  m.commit(V);
+  if (V.done.indexOf(m.phase) < 0) V.done.push(m.phase);
+  mi++;
+  render();
+  if (m.predict && animated && $('#predict').checked) { askPredict(); return; }
+  if (running) scheduleNext();
+}
+function scheduleNext() {
+  clearTimeout(waitTimer);
+  waitTimer = setTimeout(runNext, (hasGSAP ? 380 : 900) / speed);
+}
+function runNext() {
+  if (!running) return;
+  if (V.halted) { stopRun(); return; }
+  if (atBoundary() && bps.has(V.PC) && !resumeOnce) {
+    stopRun();
+    setCaption('Breakpoint at address ' + V.PC, 'The PC reached address ' + V.PC + ', where you set a breakpoint. Inspect the registers, then press Play or Step to continue.', 'fetch');
+    return;
+  }
+  resumeOnce = false;
+  stepForward(true);
+}
+function startRun() {
+  if (V.halted) return;
+  running = true; resumeOnce = atBoundary(); $('#play').innerHTML = '❚❚ Pause';
+  if (tl) tl.play(); else if (!awaiting) runNext();
+}
+function stopRun() {
+  running = false; clearTimeout(waitTimer); $('#play').innerHTML = '▶ Play';
+  if (tl) tl.pause();
+}
+function finishInstruction() {
+  if (V.halted || awaiting) return;
+  const wasRunning = running; stopRun();
+  if (tl) { tl.progress(1); }
+  if (awaiting) return;
+  if (atBoundary()) stepForward(false);
+  while (!atBoundary() && !V.halted) stepForward(false);
+  if (B) B.clearTransient();
+  const r = trace[trace.length - 1];
+  if (r) setCaption('Done: ' + r.text, 'Instruction ' + r.step + ' (' + r.text + ' at address ' + r.pc + ') is complete. A = ' + r.A + ', B = ' + r.B + ', Z = ' + r.Z + (V.halted ? '. The CPU has halted.' : ', and the next instruction is at address ' + r.next + '.'), 'pc');
+  if (wasRunning && !V.halted) startRun();
+}
+function runToHalt() {
+  stopRun();
+  if (awaiting) hidePredict();
+  if (tl) tl.progress(1);
+  hidePredict();
+  let n = 0, first = true;
+  while (!V.halted && n < 256) {
+    if (atBoundary() && bps.has(V.PC) && !first) {
+      setCaption('Breakpoint at address ' + V.PC, 'Run to HLT stopped at your breakpoint at address ' + V.PC + ' after ' + n + ' instructions. Press Run to HLT again to continue.', 'fetch');
+      if (B) B.clearTransient(); render(); return;
+    }
+    first = false;
+    if (atBoundary()) stepForward(false);
+    while (!atBoundary() && !V.halted) stepForward(false);
+    n++;
+  }
+  if (B) B.clearTransient();
+  render();
+  if (V.halted) setCaption('Halted', 'The program ran ' + V.steps + ' instructions in total' + (V.out.length ? ' and the display showed ' + V.out.join(', ') : ', and it never used OUT') + '. Check the trace table below, or press Step back to watch the end again.', 'execute');
+  else setCaption('Still running after 256 instructions', 'The program has run 256 more instructions without reaching HLT, so it is probably an endless loop. Look at the trace: which jump keeps sending the PC back?', 'fetch');
+}
+function stepBack() {
+  stopRun();
+  if (!history.length) return;
+  const m = (tl && micros) ? micros[mi] : (micros && mi > 0 ? micros[mi - 1] : null);
+  restore(history.pop());
+  setCaption('Stepped back', m ? 'Back to just before: <b>' + esc(m.title) + '</b>. Press Step to watch it again.' : 'Back one step.', V.phase);
+}
+function resetCPU() {
+  stopRun();
+  if (tl) { tl.kill(); tl = null; }
+  V = fresh(); micros = null; mi = 0; ctx = null; history = []; trace = [];
+  if (B) { B.clearTransient(); B.overview(); }
+  hidePredict();
+  setCaption('Ready', 'All registers are 0 and the PC points to address 0. Press <b>Step</b> to start the first fetch, or <b>Play</b> to watch the program run.', 'fetch');
+  render();
+}
+
+// ---------------- prediction mode ----------------
+function askPredict() {
+  const i = ctx.info, s = ctx.state, nm = i.name;
+  let q, ans, why;
+  if (nm === 'LDA' || ALU_NAMES[nm]) { q = 'What will register A hold after ' + i.text + '?'; ans = s.A; why = nm === 'LDA' ? 'LDA copies the operand, ' + i.operand + ', into A.' : aluWhy(nm, V.A, V.B, s.A) + '.'; }
+  else if (nm === 'LDB') { q = 'What will register B hold after ' + i.text + '?'; ans = s.B; why = 'LDB copies the operand, ' + i.operand + ', into B.'; }
+  else if (nm === 'OUT') { q = 'Which number will appear on the display?'; ans = s.A; why = 'OUT shows the current value of A, which is ' + s.A + '.'; }
+  else { q = 'What will the PC be after ' + i.text + '?'; ans = s.PC; why = nm === 'JMP' ? 'JMP always loads its operand into the PC.' : nm === 'JZ' ? (V.Z === 1 ? 'Z = 1, so JZ jumps to ' + i.operand + '.' : 'Z = 0, so JZ does not jump and the PC just adds 1.') : 'NOP changes nothing, so the PC just adds 1.'; }
+  awaiting = {ans: ans, why: why};
+  $('#pqT').textContent = q; $('#pqIn').value = ''; $('#pqFb').innerHTML = ''; $('#pqGo').textContent = 'Check';
+  $('#pq').hidden = false;
+  try { $('#pqIn').focus({preventScroll: true}); } catch (e) {}
+}
+function checkPredict() {
+  if (!awaiting) return;
+  if (awaiting.checked) { const r = running; hidePredict(); if (r) scheduleNext(); return; }
+  const g = parseInt($('#pqIn').value, 10);
+  if (isNaN(g) || g < 0 || g > 15) { $('#pqFb').innerHTML = '<div class="fb bad">Type a whole number from 0 to 15. Bay-4 values have 4 bits.</div>'; return; }
+  const ok = g === awaiting.ans; score.n++; if (ok) score.ok++;
+  $('#pqFb').innerHTML = '<div class="fb ' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'Correct. ' : 'Not this time: the answer is ' + awaiting.ans + '. ') + awaiting.why + '</div>';
+  $('#pqScore').textContent = score.ok + ' of ' + score.n + ' correct';
+  awaiting.checked = true; $('#pqGo').textContent = 'Continue';
+}
+function hidePredict() { awaiting = null; $('#pq').hidden = true; }
+
+// ---------------- rendering ----------------
+let prevShown = {};
+function renderPhase() {
+  document.querySelectorAll('#rail div').forEach(d => {
+    const p = d.dataset.p;
+    d.classList.toggle('on', V.phase === p && !V.halted);
+    d.classList.toggle('done', V.done.indexOf(p) >= 0 && V.phase !== p);
+  });
+}
+function bitsHTML(v, n, gap) {
+  let h = '';
+  for (let i = 0; i < n; i++) { const bit = (v >> (n - 1 - i)) & 1; h += '<i class="' + (bit ? 'on' : '') + (gap && i === gap ? ' gap' : '') + '">' + bit + '</i>'; }
+  return h;
+}
+function render() {
+  const regs = [
+    ['pc', 'PC', V.PC, 4, 'next address'],
+    ['a', 'A', V.A, 4, 'accumulator'],
+    ['b', 'B', V.B, 4, 'second operand'],
+    ['z', 'Z', V.Z, 1, V.Z ? 'last result was 0' : 'last result not 0']
+  ];
+  let h = regs.map(r => '<div class="reg ' + r[0] + (prevShown[r[0]] !== undefined && prevShown[r[0]] !== r[2] ? ' flash' : '') + '"><div class="n">' + r[1] + ' <b>' + r[2] + '</b></div><div class="bits">' + bitsHTML(r[2], r[3]) + '</div><div class="sub">' + r[4] + '</div></div>').join('');
+  const irv = V.IR == null ? 0 : V.IR;
+  h += '<div class="reg ir' + (prevShown.ir !== undefined && prevShown.ir !== V.IR ? ' flash' : '') + '"><div class="n">IR <b>' + (V.IR == null ? 'empty' : esc(BAY4.dis(V.IR))) + '</b></div><div class="bits">' + bitsHTML(irv, 8, 4) + '</div><div class="sub">opcode ' + b4(irv >> 4) + ' · operand ' + b4(irv) + ' · hex ' + hex(irv) + '</div></div>';
+  $('#regs').innerHTML = h;
+  prevShown = {pc: V.PC, a: V.A, b: V.B, z: V.Z, ir: V.IR};
+  setTimeout(() => document.querySelectorAll('.reg.flash').forEach(e => e.classList.remove('flash')), 650);
+  const s = V.sig;
+  const sg = [['A_load', s ? s.A_load : 0], ['A_src', s ? s.A_src : '-'], ['B_load', s ? s.B_load : 0], ['ALU_op', s ? s.ALU_op : '-'], ['Z_load', s ? s.Z_load : 0], ['OUT_en', s ? s.OUT_en : 0], ['PC_src', s ? s.PC_src : '-'], ['HALT', s ? s.HALT : 0]];
+  $('#sigs').innerHTML = sg.map(x => { const on = x[1] !== 0 && x[1] !== '-' && !(x[0] === 'PC_src' && x[1] === 'PC+1') && !(x[0] === 'A_src'); return '<div class="' + (on ? 'on' : '') + '"><span>' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('');
+  $('#stats').innerHTML = '<span>Instructions run <b>' + V.steps + '</b></span><span>Micro-steps done <b>' + (micros ? mi + ' of ' + micros.length : '0') + '</b></span><span>Status <b>' + (V.halted ? 'halted' : running ? 'running' : 'paused') + '</b></span>';
+  // ROM
+  let r = '<tr><th aria-label="Breakpoint"></th><th>Addr</th><th>Binary</th><th>Word</th><th>Hex</th><th>Instruction</th></tr>';
+  for (let a = 0; a < 16; a++) {
+    const w = rom[a] || 0, cls = (a === V.PC ? 'pc ' : '') + (a === V.memSel ? 'sel ' : '') + (a >= romLen ? 'empty' : '');
+    r += '<tr class="' + cls + '"><td><button class="bp' + (bps.has(a) ? ' on' : '') + '" data-a="' + a + '" type="button" aria-pressed="' + bps.has(a) + '" aria-label="Breakpoint at address ' + a + '"></button></td><td>' + a + '</td><td>' + b4(a) + '</td><td class="w"><b>' + b4(w >> 4) + '</b> <span>' + b4(w) + '</span></td><td>' + hex(w) + '</td><td>' + (a >= romLen ? 'NOP (empty)' : esc(BAY4.dis(w))) + (a === V.PC && !V.halted ? ' <span style="color:var(--addr)">◀ PC</span>' : '') + '</td></tr>';
+  }
+  $('#rom').innerHTML = r;
+  // output
+  const last = V.out.length ? V.out[V.out.length - 1] : null;
+  $('#seg').textContent = last == null ? '--' : String(last); $('#seg').classList.toggle('off', last == null);
+  $('#hist').innerHTML = V.out.length ? V.out.map(x => '<span>' + x + '</span>').join('') : '<span style="opacity:.5">nothing yet</span>';
+  // trace
+  let t = '<tr><th>Step</th><th>PC</th><th>Instruction</th><th>A</th><th>B</th><th>Z</th><th>Next PC</th><th>Output</th></tr>';
+  if (!trace.length) t += '<tr><td colspan="8" style="color:var(--dim)">No instructions have finished yet.</td></tr>';
+  const start = Math.max(0, trace.length - 200);
+  for (let k = start; k < trace.length; k++) { const x = trace[k]; t += '<tr class="' + (k === trace.length - 1 ? 'last' : '') + '"><td>' + x.step + '</td><td>' + x.pc + '</td><td>' + esc(x.text) + '</td><td>' + x.A + '</td><td>' + x.B + '</td><td>' + x.Z + '</td><td>' + (x.text === 'HLT' ? '(halted)' : x.next) + '</td><td>' + x.out + '</td></tr>'; }
+  $('#trace').innerHTML = t;
+  renderPhase();
+  ['#step', '#instr', '#tohlt', '#play'].forEach(id => { $(id).disabled = V.halted; });
+  $('#back').disabled = !history.length;
+  if (B) B.update(V, rom);
+}
+
+// ---------------- program loading ----------------
+function loadProgram(src) {
+  try {
+    const words = BAY4.assemble(src);
+    if (!words.length) throw new Error('The program is empty. Type at least one instruction.');
+    rom = words.concat(new Array(16 - words.length).fill(0)); romLen = words.length;
+    $('#err').textContent = '';
+    bps.clear();
+    resetCPU();
+    return true;
+  } catch (e) { $('#err').textContent = e.message + '. Check the spelling, and that numbers are 0 to 15.'; return false; }
+}
+
+// ---------------- wiring ----------------
+function init() {
+  const stage = $('#stage');
+  B = Board3D(stage) || (hasGSAP ? Board2D(stage) : Board2D(stage));
+  B.onPick = id => { $('#info').innerHTML = INFO[id] || ''; if (B.kind === '3d') { const c = COMP[id]; B.focus(c.x, c.z, true); } };
+  const sel = $('#preset');
+  sel.innerHTML = PRESETS.map((p, i) => '<option value="' + i + '">' + esc(p.name) + '</option>').join('');
+  sel.addEventListener('change', () => { $('#prog').value = PRESETS[sel.value].src; loadProgram($('#prog').value); });
+  $('#prog').value = PRESETS[0].src;
+  $('#load').addEventListener('click', () => loadProgram($('#prog').value));
+  $('#step').addEventListener('click', () => { if (running) stopRun(); stepForward(true); });
+  $('#play').addEventListener('click', () => running ? stopRun() : startRun());
+  $('#back').addEventListener('click', stepBack);
+  $('#reset').addEventListener('click', resetCPU);
+  $('#instr').addEventListener('click', finishInstruction);
+  $('#tohlt').addEventListener('click', runToHalt);
+  $('#overview').addEventListener('click', () => B.overview());
+  $('#speed').addEventListener('input', e => { speed = parseFloat(e.target.value); $('#speedv').textContent = speed + '×'; if (tl) tl.timeScale(speed); });
+  $('#pqGo').addEventListener('click', checkPredict);
+  $('#pqIn').addEventListener('keydown', e => { if (e.key === 'Enter') checkPredict(); });
+  $('#predict').addEventListener('change', e => { if (!e.target.checked && awaiting) { const r = running; hidePredict(); if (r) scheduleNext(); } });
+  $('#rom').addEventListener('click', e => { const b = e.target.closest('.bp'); if (!b) return; const a = +b.dataset.a; bps.has(a) ? bps.delete(a) : bps.add(a); render(); });
+  if (!hasGSAP) setTimeout(() => { $('#capB').innerHTML += ' (Animations are off because the animation library did not load; every step still works.)'; }, 0);
+  loadProgram($('#prog').value);
+}
+init();
+</script>
+</body>
+</html>

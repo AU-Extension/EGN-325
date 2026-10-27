@@ -17,6 +17,8 @@ Live site: https://au-extension.github.io/EGN-325/
 | week7 | Memory hierarchy and performance | cache-simulator.html | performance-tuning-challenge.html |
 | week8 | Pipelining, parallelism, and modern processors | pipeline-visualizer.html | architecture-matchmaker.html |
 
+`simulator.html`: Bay-4 computer simulator. A 3D Bay-4 computer that runs your program through the fetch-decode-execute cycle, with live registers, memory, and data moving on the buses. Use it in Weeks 5 to 8.
+
 ## Publishing
 
 1. Push this folder to the `main` branch of `AU-Extension/EGN-325`.
