@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logic gate playground</title>
+<meta name="description" content="EGN 325 Week 3 interactive: Place gates, connect them, flip the inputs, and watch the signals travel through a 3D circuit while the truth table fills in.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  .muted{color:var(--muted)} .small{font-size:13px} .mt{margin-top:16px} .row{display:flex;flex-wrap:wrap;align-items:center} .gap{gap:8px}
+  .presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+  .presets .btn{padding:6px 10px;font-size:13px}
+  h3.sec{margin:16px 0 8px;font-size:15px}
+  .inputs{display:flex;gap:10px;flex-wrap:wrap}
+  .sw{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#fff;cursor:pointer;font:inherit;font-weight:600}
+  .sw .bit{display:inline-block;min-width:28px;text-align:center;border-radius:6px;padding:2px 6px;font-family:var(--mono);background:#EEF1F5;color:var(--ink-2)}
+  .sw[aria-pressed="true"] .bit{background:var(--au-red);color:#fff}
+  .check{display:inline-flex;gap:6px;align-items:center;margin-top:8px}
+  .gates{display:grid;gap:10px}
+  .gcard{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px;background:#FBFBFC}
+  .gcard .gname{font-family:var(--mono);font-weight:600;font-size:14px;background:var(--ink);color:#fff;border-radius:6px;padding:2px 8px}
+  .gcard .controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .gcard select{font-size:14px;padding:6px 8px}
+  .gcard .vis{grid-column:1 / -1;display:flex;align-items:center;gap:10px}
+  .gsvg{width:150px;height:auto;flex:none}
+  .val{font-family:var(--mono);font-weight:600;border-radius:6px;padding:2px 8px;background:#EEF1F5}
+  .val.on{background:var(--au-red);color:#fff}
+  .outputs{display:grid;gap:8px}
+  .orow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .led{width:18px;height:18px;border-radius:50%;background:#D1D5DB;border:2px solid #9CA3AF;display:inline-block}
+  .led.on{background:var(--au-red);border-color:var(--au-red-dark);box-shadow:0 0 10px rgba(225,20,30,.55)}
+  table.tt td,table.tt th{text-align:center;font-family:var(--mono)}
+  table.tt th.out,table.tt td.out{font-weight:700}
+  table.tt td.gate,table.tt th.gate{color:var(--muted)}
+  table.tt tr.now td{background:var(--au-red-soft)}
+  table.tt td.one{color:var(--au-red-dark)}
+  .exprs{font-family:var(--mono);font-size:14px;display:grid;gap:6px;word-break:break-word}
+  .refgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+  .reftile{border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px;cursor:pointer;font:inherit;text-align:center}
+  .reftile[aria-pressed="true"]{border-color:var(--au-red);box-shadow:0 0 0 2px var(--au-red-soft)}
+  .reftile .gsvg{width:100%}
+  .refdetail{margin-top:12px}
+  .q{border-top:1px solid var(--line);padding:12px 0}
+  .q p{margin:0 0 8px;font-weight:600}
+  .opts{display:grid;gap:6px}
+  .opt{text-align:left}
+  .opt.right{border-color:var(--ok);background:var(--ok-soft)}
+  .opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+  .grid>*{min-width:0}
+  .stage3d{position:relative}
+  .stage3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+  .stage3d .label3d.big{font-size:14px;padding:3px 8px}
+  .stage3d .hint3d{position:absolute;left:10px;bottom:8px;font-size:12px;color:#CBD5E1;background:rgba(15,23,34,.6);padding:2px 8px;border-radius:6px;pointer-events:none}
+  .stepper .btn{padding:7px 12px}
+  .stepper .count{font-size:13px;color:var(--muted);margin-left:auto}
+  .caption b{color:var(--au-red-dark)}
+  .card3d{margin-bottom:16px}
+  .active-step{outline:3px solid var(--au-red);outline-offset:2px}
+  @media(max-width:520px){.stage3d{aspect-ratio:4/3}}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 3 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 3 · Explorer</span>
+    <h1>Logic gate playground</h1>
+    <p class="lede">Place gates, connect them, flip the inputs, and watch the signals travel through a 3D circuit while the truth table fills in.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Flip the input switches A, B, and C. A red wire carries a 1, a gray wire carries a 0.</li>
+      <li>Choose a gate type for each gate card and pick where its inputs come from: a switch or an earlier gate.</li>
+      <li>Choose which gate drives each output. The truth table on the right fills in every input combination for you, and the highlighted row is the one your switches show now.</li>
+      <li>Load a preset (half adder, multiplexer, full adder) to see a finished circuit, then change one wire and watch which rows of the truth table change.</li>
+      <li>Finish with the self-check at the bottom of the page.</li>
+    </ol>
+  </details>
+
+  <section class="card card3d" aria-labelledby="flow-h">
+    <h2 id="flow-h">Signal flow in 3D</h2>
+    <p class="small muted">Drag to orbit, pinch or scroll to zoom. Tap an input pad to flip it, or tap a gate to hear what it is doing. Press Play to follow the signals one gate at a time.</p>
+    <div class="stage3d" id="stage"><span class="hint3d">Red = 1, gray = 0, dark = not computed yet</span></div>
+      <div class="stepper" role="group" aria-label="Step-by-step explanation">
+        <button class="btn" data-n="restart" aria-label="Restart">&#9198; Restart</button>
+        <button class="btn" data-n="prev" aria-label="Step back">&#9664; Back</button>
+        <button class="btn primary" data-n="play">&#9654; Play</button>
+        <button class="btn primary" data-n="pause" hidden>&#10074;&#10074; Pause</button>
+        <button class="btn" data-n="next" aria-label="Step forward">Next &#9654;</button>
+        <span class="count" data-n="counter"></span>
+      </div>
+      <div class="caption" data-n="caption" aria-live="polite"></div>
+  </section>
+  <div class="grid two">
+    <section class="card" aria-labelledby="circ-h">
+      <h2 id="circ-h">Your circuit</h2>
+      <div class="presets" role="group" aria-label="Presets">
+        <span class="muted small">Presets:</span>
+        <button class="btn" data-preset="and">One AND gate</button>
+        <button class="btn" data-preset="half">Half adder</button>
+        <button class="btn" data-preset="mux">2-to-1 multiplexer</button>
+        <button class="btn" data-preset="full">Full adder</button>
+        <button class="btn" data-preset="clear">Clear</button>
+      </div>
+      <h3 class="sec">Inputs</h3>
+      <div class="inputs" id="inputs"></div>
+      <label class="small check"><input type="checkbox" id="useC"> Use a third input (C)</label>
+      <h3 class="sec">Gates <span class="muted small">(signals flow from top to bottom: a gate can use the switches and any gate above it)</span></h3>
+      <div id="gates" class="gates"></div>
+      <div class="row gap">
+        <button class="btn" id="addGate">Add a gate</button>
+        <button class="btn" id="removeGate">Remove the last gate</button>
+      </div>
+      <h3 class="sec">Outputs</h3>
+      <div id="outputs" class="outputs"></div>
+    </section>
+    <aside class="card" aria-labelledby="tt-h">
+      <h2 id="tt-h">Truth table</h2>
+      <p class="small muted">Every possible input combination. The highlighted row matches your switches.</p>
+      <div class="scroll-x"><table class="data tt" id="tt"></table></div>
+      <h3 class="sec">As a Boolean expression</h3>
+      <div id="exprs" class="exprs"></div>
+      <div class="feedback info small" id="explain"></div>
+    </aside>
+  </div>
+
+  <section class="card mt" aria-labelledby="ref-h">
+    <h2 id="ref-h">Gate reference</h2>
+    <p class="small muted">Tap a gate to see its truth table. Tap "Use in G1" to try it in your circuit.</p>
+    <div class="refgrid" id="refgrid"></div>
+    <div id="refdetail" class="refdetail"></div>
+  </section>
+
+  <section class="card mt" aria-labelledby="quiz-h">
+    <h2 id="quiz-h">Self-check</h2>
+    <div id="quiz"></div>
+    <div class="score" id="quizScore" hidden><span>Your score:</span><span class="big" id="quizBig"></span></div>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script>
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---- page code ---- */
+// Shared logic engine for the Week 3 pages (gate circuits) and Week 4 pages (timing, state machines).
+const GATES = {
+  AND:  {n:2, f:(a,b)=>a&b},
+  OR:   {n:2, f:(a,b)=>a|b},
+  NOT:  {n:1, f:(a)=>a^1},
+  NAND: {n:2, f:(a,b)=>(a&b)^1},
+  NOR:  {n:2, f:(a,b)=>(a|b)^1},
+  XOR:  {n:2, f:(a,b)=>a^b}
+};
+// circuit: {inputs:['A','B'], gates:[{type:'AND', a:'A', b:'B'}], outputs:[{name:'Y', src:'G1'}]}
+function evalCircuit(c, vals){
+  const v = Object.assign({}, vals);
+  c.gates.forEach((g, i) => {
+    const key = 'G' + (i + 1);
+    if (!g.type || !GATES[g.type]) { v[key] = null; return; }
+    const ga = v[g.a], gb = v[g.b];
+    if (ga === undefined || ga === null) { v[key] = null; return; }
+    if (GATES[g.type].n === 2 && (gb === undefined || gb === null)) { v[key] = null; return; }
+    v[key] = GATES[g.type].n === 1 ? GATES[g.type].f(ga) : GATES[g.type].f(ga, gb);
+  });
+  return v;
+}
+function combos(inputs){
+  const rows = [];
+  for (let i = 0; i < (1 << inputs.length); i++){
+    const r = {};
+    inputs.forEach((name, k) => { r[name] = (i >> (inputs.length - 1 - k)) & 1; });
+    rows.push(r);
+  }
+  return rows;
+}
+function truthTable(c){
+  return combos(c.inputs).map(r => {
+    const v = evalCircuit(c, r);
+    const out = {};
+    c.outputs.forEach(o => { out[o.name] = (o.src && v[o.src] !== undefined) ? v[o.src] : null; });
+    return {inputs: r, outputs: out};
+  });
+}
+function exprOf(c, key, depth){
+  depth = depth || 0;
+  if (c.inputs.indexOf(key) >= 0) return key;
+  const m = /^G(\d+)$/.exec(key || '');
+  if (!m || depth > 8) return '?';
+  const g = c.gates[+m[1] - 1];
+  if (!g || !g.type) return '?';
+  const A = exprOf(c, g.a, depth + 1), B = exprOf(c, g.b, depth + 1);
+  const wrap = s => / /.test(s) && !/^NOT \w+$/.test(s) ? '(' + s + ')' : s;
+  if (g.type === 'NOT') return 'NOT ' + wrap(A);
+  return wrap(A) + ' ' + g.type + ' ' + wrap(B);
+}
+function matches(c, target){
+  // target: {inputs:[...], outputs:{Y:[bits in combo order]}}
+  const tt = truthTable(c);
+  let wrongRows = [];
+  tt.forEach((row, i) => {
+    Object.keys(target.outputs).forEach(name => {
+      if (row.outputs[name] !== target.outputs[name][i]) wrongRows.push(i);
+    });
+  });
+  wrongRows = Array.from(new Set(wrongRows));
+  return {ok: wrongRows.length === 0, wrongRows};
+}
+// ---------- Week 4: timing ----------
+// clk, d: arrays of 0/1 per time slot. Returns q arrays for a gated D latch and a rising-edge D flip-flop.
+function latchQ(clk, d, q0){ const q = []; let s = q0 || 0; for (let t = 0; t < clk.length; t++){ if (clk[t]) s = d[t]; q.push(s); } return q; }
+function flipFlopQ(clk, d, q0){ const q = []; let s = q0 || 0; for (let t = 0; t < clk.length; t++){ if (t > 0 && clk[t] === 1 && clk[t-1] === 0) s = d[t-1]; q.push(s); } return q; }
+// Register with load enable: on a clock tick, Q takes D only when LE = 1. Bits are [b3, b2, b1, b0].
+function registerStep(q, d, le){ return le ? d.slice() : q.slice(); }
+// 4-bit counter: counts 0..15 and wraps to 0; reset forces 0.
+function counterStep(n, reset){ return reset ? 0 : (n + 1) & 15; }
+function toBits(n){ return [3, 2, 1, 0].map(i => (n >> i) & 1); }
+// ---------- Week 4: state machines ----------
+function runFSM(fsm, start, inputs){ let s = start; const trace = [s]; const outs = []; for (const x of inputs){ const tr = fsm[s][x]; if (!tr) return {error:'no transition from ' + s + ' on ' + x}; if (tr.out) outs.push(tr.out); s = tr.next; trace.push(s); } return {state:s, trace, outs}; }
+
+// Draw a gate symbol as SVG markup. Values: 1, 0, or null (not connected).
+function wireColor(v){ return v === 1 ? '#E1141E' : (v === 0 ? '#9CA3AF' : '#CBD2DA'); }
+function wireW(v){ return v === 1 ? 3.5 : 2; }
+function gateSVG(type, a, b, y, label){
+  const one = type === 'NOT';
+  const bubble = (type === 'NAND' || type === 'NOR' || type === 'NOT');
+  const orLike = (type === 'OR' || type === 'NOR' || type === 'XOR');
+  let body = '';
+  if (type === 'AND' || type === 'NAND') body = '<path d="M30,10 H55 A20,20 0 0 1 55,50 H30 Z"/>';
+  else if (orLike) body = '<path d="M28,10 Q50,10 78,30 Q50,50 28,50 Q40,30 28,10 Z"/>' + (type === 'XOR' ? '<path d="M21,10 Q33,30 21,50" fill="none"/>' : '');
+  else if (type === 'NOT') body = '<path d="M32,12 L70,30 L32,48 Z"/>';
+  else body = '<rect x="30" y="10" width="45" height="40" rx="6" stroke-dasharray="4 3"/>';
+  const outX = type === 'NOT' ? 70 : (orLike ? 78 : 75);
+  const bub = bubble ? `<circle cx="${outX + 4}" cy="30" r="4" />` : '';
+  const ins = one
+    ? `<line x1="0" y1="30" x2="32" y2="30" stroke="${wireColor(a)}" stroke-width="${wireW(a)}"/>`
+    : `<line x1="0" y1="20" x2="${orLike ? 34 : 30}" y2="20" stroke="${wireColor(a)}" stroke-width="${wireW(a)}"/><line x1="0" y1="40" x2="${orLike ? 34 : 30}" y2="40" stroke="${wireColor(b)}" stroke-width="${wireW(b)}"/>`;
+  const out = `<line x1="${outX + (bubble ? 8 : 0)}" y1="30" x2="120" y2="30" stroke="${wireColor(y)}" stroke-width="${wireW(y)}"/>`;
+  const txt = label ? `<text x="52" y="35" text-anchor="middle" font-size="11" font-weight="600" fill="#3B4250">${label}</text>` : '';
+  return `<svg viewBox="0 0 120 60" role="img" aria-label="${type || 'empty'} gate" class="gsvg">${ins}${out}<g fill="#fff" stroke="#16181D" stroke-width="2">${body}${bub}</g>${txt}</svg>`;
+}
+
+// ---------- Helpers on top of the skeleton's make3D (Three.js r147) ----------
+const COL = {on:0xFF3B44, off:0x475569, idle:0x2B3546, ink:0x0F1722, white:0xF8FAFC, ok:0x22C55E, bad:0xEF4444, amber:0xF59E0B, blue:0x60A5FA};
+// Fit the camera to a box, looking along `view` (a direction from the target to the camera). Refits on resize.
+function fitter(st, el, view){
+  const T = THREE; let box = null; const dir = new T.Vector3(...(view || [0.2, 0.35, 1])).normalize();
+  function fit(){
+    if (!box) return;
+    const size = new T.Vector3(), c = new T.Vector3(); box.getSize(size); box.getCenter(c);
+    const aspect = Math.max(0.5, (el.clientWidth || 320) / (el.clientHeight || 200));
+    const fov = st.camera.fov * Math.PI / 180, t = 2 * Math.tan(fov / 2);
+    const d = Math.max((size.y + 1.2) / t, (size.x + 1.2) / (t * aspect)) + size.z * 0.5;
+    st.camera.position.copy(c).add(dir.clone().multiplyScalar(d)); st.camera.lookAt(c);
+    if (st.controls){ st.controls.target.copy(c); st.controls.minDistance = d * 0.45; st.controls.maxDistance = d * 2.2; st.controls.update(); }
+  }
+  if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(fit)).observe(el);
+  function goal(){
+    const size = new T.Vector3(), c = new T.Vector3(); box.getSize(size); box.getCenter(c);
+    const aspect = Math.max(0.5, (el.clientWidth || 320) / (el.clientHeight || 200));
+    const fov = st.camera.fov * Math.PI / 180, t = 2 * Math.tan(fov / 2);
+    const d = Math.max((size.y + 1.2) / t, (size.x + 1.2) / (t * aspect)) + size.z * 0.5;
+    return {c, d, p:c.clone().add(dir.clone().multiplyScalar(d))};
+  }
+  function fly(){
+    if (!box || !hasGSAP){ fit(); return; }
+    const g = goal();
+    if (st.controls){ st.controls.minDistance = g.d * 0.45; st.controls.maxDistance = g.d * 2.2; gsap.to(st.controls.target, {x:g.c.x, y:g.c.y, z:g.c.z, duration:0.9, ease:'power2.inOut'}); }
+    gsap.to(st.camera.position, {x:g.p.x, y:g.p.y, z:g.p.z, duration:0.9, ease:'power2.inOut', onUpdate:() => { if (!st.controls) st.camera.lookAt(g.c); }});
+  }
+  return {set(b, animate, view2){ box = b; if (view2) dir.set(...view2).normalize(); if (animate) fly(); else fit(); }, fit};
+}
+// HTML labels that can be cleared when a scene is rebuilt.
+function labelLayer(st, el){
+  const items = []; const v = new THREE.Vector3();
+  st.onFrame(() => { items.forEach(({obj, d}) => { obj.getWorldPosition(v); v.project(st.camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; let vis = true; for (let o = obj; o; o = o.parent) if (!o.visible){ vis = false; break; } d.style.display = (vis && v.z < 1 && v.x > -1.1 && v.x < 1.1) ? '' : 'none'; }); });
+  return {
+    add(obj, text, cls){ const d = document.createElement('div'); d.className = 'label3d' + (cls ? ' ' + cls : ''); d.textContent = text; el.appendChild(d); items.push({obj, d}); return d; },
+    clear(){ items.splice(0).forEach(({d}) => d.remove()); }
+  };
+}
+function disposeGroup(g){ while (g.children.length){ const c = g.children.pop(); c.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); }); } }
+function glowMat(color, on){ return new THREE.MeshStandardMaterial({color, emissive: on ? color : 0x000000, emissiveIntensity: on ? 0.75 : 0, roughness: 0.45, metalness: 0.1}); }
+function setGlow(mat, color, on, animate){
+  const target = new THREE.Color(color), em = on ? new THREE.Color(color) : new THREE.Color(0x000000), ei = on ? 0.8 : 0;
+  if (animate && hasGSAP){ gsap.to(mat.color, {r:target.r, g:target.g, b:target.b, duration:0.35}); gsap.to(mat.emissive, {r:em.r, g:em.g, b:em.b, duration:0.35}); gsap.to(mat, {emissiveIntensity:ei, duration:0.35}); }
+  else { mat.color.copy(target); mat.emissive.copy(em); mat.emissiveIntensity = ei; }
+}
+// Click picking that ignores orbit drags.
+function picker(st, objectsFn, onPick){
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement; let down = null;
+  el.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  el.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
+    const r = el.getBoundingClientRect(); m.x = ((e.clientX - r.left) / r.width) * 2 - 1; m.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(m, st.camera); const hit = ray.intersectObjects(objectsFn(), true)[0];
+    if (hit){ let o = hit.object; while (o && !o.userData.pick) o = o.parent; if (o) onPick(o.userData.pick); }
+  });
+}
+// ---------- Step-by-step narrator driven by a GSAP timeline (manual fallback without GSAP) ----------
+function Narrator(ui){
+  // ui: {caption, counter, play, pause, prev, next, restart}; steps: [{text, show(animate), dur}]
+  let steps = [], i = -1, tl = null, timer = null;
+  function go(k, animate){ if (!steps.length) return; i = Math.max(0, Math.min(steps.length - 1, k)); ui.caption.innerHTML = steps[i].text; steps[i].show(animate); ui.counter.textContent = 'Step ' + (i + 1) + ' of ' + steps.length; ui.prev.disabled = i <= 0; ui.next.disabled = i >= steps.length - 1; }
+  function stop(){ if (tl){ tl.kill(); tl = null; } if (timer){ clearTimeout(timer); timer = null; } ui.play.hidden = false; ui.pause.hidden = true; }
+  function play(){
+    stop(); if (i >= steps.length - 1) go(0, true);
+    ui.play.hidden = true; ui.pause.hidden = false;
+    if (hasGSAP){
+      tl = gsap.timeline({onComplete: stop});
+      tl.to({}, {duration: steps[i].dur || 2.2});
+      for (let k = i + 1; k < steps.length; k++){ tl.add('step' + k); tl.call(() => go(k, true)); tl.to({}, {duration: steps[k].dur || 2.2}); }
+    } else {
+      const tick = () => { if (i >= steps.length - 1){ stop(); return; } go(i + 1, true); timer = setTimeout(tick, (steps[i].dur || 2.2) * 1000); };
+      timer = setTimeout(tick, (steps[i].dur || 2.2) * 1000);
+    }
+  }
+  ui.play.addEventListener('click', play);
+  ui.pause.addEventListener('click', stop);
+  ui.prev.addEventListener('click', () => { stop(); go(i - 1, false); });
+  ui.next.addEventListener('click', () => { stop(); go(i + 1, true); });
+  ui.restart.addEventListener('click', () => { stop(); go(0, true); });
+  return { load(s, atEnd){ stop(); steps = s; go(atEnd ? s.length - 1 : 0, false); }, go, stop, play, get index(){ return i; } };
+}
+function narratorUI(root){ const q = n => root.querySelector('[data-n="' + n + '"]'); return {caption:q('caption'), counter:q('counter'), play:q('play'), pause:q('pause'), prev:q('prev'), next:q('next'), restart:q('restart')}; }
+
+// ---------- A logic circuit as a 3D model: input pads, gate blocks, glowing wire tubes, output LEDs ----------
+function Circuit3D(st, el, onPick){
+  const T = THREE, root = new T.Group(); st.scene.add(root);
+  const floorG = new T.Group(); st.scene.add(floorG);
+  const fit = fitter(st, el, [0.18, 0.32, 1]), labels = labelLayer(st, el);
+  let nodes = {}, wires = [], pulses = new T.Group(); st.scene.add(pulses);
+  const DX = 3.4, DY = 2.1;
+  function level(c, key, memo){
+    if (c.inputs.indexOf(key) >= 0) return 0;
+    if (memo[key] !== undefined) return memo[key];
+    const m = /^G(\d+)$/.exec(key || ''); if (!m) return 0;
+    const g = c.gates[+m[1] - 1]; if (!g) return 0;
+    memo[key] = 1 + Math.max(g.a ? level(c, g.a, memo) : 0, (g.type !== 'NOT' && g.b) ? level(c, g.b, memo) : 0);
+    return memo[key];
+  }
+  function gateMesh(type){
+    const g = new T.Group(), mat = glowMat(COL.idle, false);
+    const orLike = type === 'OR' || type === 'NOR' || type === 'XOR';
+    let body;
+    if (type === 'NOT'){ body = new T.Mesh(new T.ConeGeometry(0.62, 1.3, 32), mat); body.rotation.z = -Math.PI / 2; }
+    else if (orLike){ body = new T.Mesh(new T.CylinderGeometry(0.62, 0.62, 1.5, 32), mat); body.rotation.z = Math.PI / 2; }
+    else { body = new T.Mesh(new T.BoxGeometry(1.5, 1.3, 0.9), mat); }
+    g.add(body);
+    if (type === 'XOR'){ const ring = new T.Mesh(new T.TorusGeometry(0.66, 0.06, 8, 32), new T.MeshStandardMaterial({color:0xCBD5E1})); ring.rotation.y = Math.PI / 2; ring.position.x = -0.95; g.add(ring); }
+    if (type === 'NAND' || type === 'NOR' || type === 'NOT'){ const b = new T.Mesh(new T.SphereGeometry(0.16, 16, 12), new T.MeshStandardMaterial({color:0xF8FAFC})); b.position.x = type === 'NOT' ? 0.78 : 0.9; g.add(b); }
+    if (!type){ mat.transparent = true; mat.opacity = 0.35; }
+    return {group:g, mat};
+  }
+  function build(c, vals){
+    disposeGroup(root); disposeGroup(pulses); labels.clear(); nodes = {}; wires = [];
+    const memo = {}, byLevel = {};
+    c.gates.forEach((g, i) => { const k = 'G' + (i + 1), L = level(c, k, memo); (byLevel[L] = byLevel[L] || []).push(k); });
+    const maxL = Math.max(0, ...Object.keys(byLevel).map(Number));
+    // inputs
+    c.inputs.forEach((n, k) => {
+      const y = ((c.inputs.length - 1) / 2 - k) * DY, mat = glowMat(COL.off, false);
+      const pad = new T.Mesh(new T.BoxGeometry(1.1, 1.1, 0.5), mat); pad.position.set(0, y, 0); pad.userData.pick = {kind:'input', key:n};
+      root.add(pad); labels.add(pad, n, 'big');
+      nodes[n] = {mesh:pad, mat, out:new T.Vector3(0.55, y, 0)};
+    });
+    // gates
+    Object.keys(byLevel).forEach(L => {
+      const list = byLevel[L];
+      list.forEach((k, j) => {
+        const g = c.gates[+k.slice(1) - 1], y = ((list.length - 1) / 2 - j) * DY * 1.1, x = L * DX;
+        const gm = gateMesh(g.type); gm.group.position.set(x, y, 0); gm.group.userData.pick = {kind:'gate', key:k};
+        root.add(gm.group); labels.add(gm.group, k + (g.type ? ' ' + g.type : ' (empty)'));
+        const one = g.type === 'NOT';
+        nodes[k] = {mesh:gm.group, mat:gm.mat, out:new T.Vector3(x + 1.0, y, 0), inA:new T.Vector3(x - 0.8, one ? y : y + 0.32, 0), inB:new T.Vector3(x - 0.8, y - 0.32, 0)};
+      });
+    });
+    // outputs
+    const outs = c.outputs.filter(o => o.src);
+    outs.forEach((o, k) => {
+      const y = ((outs.length - 1) / 2 - k) * DY, x = (maxL + 1) * DX, mat = glowMat(COL.off, false);
+      const led = new T.Mesh(new T.SphereGeometry(0.5, 32, 20), mat); led.position.set(x, y, 0); led.userData.pick = {kind:'output', key:o.name};
+      root.add(led); labels.add(led, o.name, 'big');
+      nodes['out:' + o.name] = {mesh:led, mat, inA:new T.Vector3(x - 0.5, y, 0)};
+    });
+    // wires
+    function wire(fromKey, toKey, p1){
+      const f = nodes[fromKey]; if (!f || !p1) return;
+      const p0 = f.out, dx = Math.max(0.6, (p1.x - p0.x) * 0.5);
+      const curve = new T.CubicBezierCurve3(p0.clone(), new T.Vector3(p0.x + dx, p0.y, 0), new T.Vector3(p1.x - dx, p1.y, 0), p1.clone());
+      const mat = glowMat(COL.off, false);
+      const tube = new T.Mesh(new T.TubeGeometry(curve, 40, 0.07, 8, false), mat); root.add(tube);
+      wires.push({from:fromKey, to:toKey, curve, mat});
+    }
+    c.gates.forEach((g, i) => { const k = 'G' + (i + 1); if (g.a) wire(g.a, k, nodes[k].inA); if (g.type !== 'NOT' && g.b) wire(g.b, k, nodes[k].inB); });
+    outs.forEach(o => wire(o.src, 'out:' + o.name, nodes['out:' + o.name].inA));
+    // floor grid for depth
+    disposeGroup(floorG);
+    const box = new T.Box3().setFromObject(root);
+    const grid = new T.GridHelper(Math.max(12, (maxL + 2) * DX + 4), 16, 0x334155, 0x1E293B); grid.position.set((box.min.x + box.max.x) / 2, box.min.y - 0.9, 0); floorG.add(grid);
+    fit.set(box.expandByScalar(0.6));
+    setValues(vals, false);
+  }
+  function colorOf(v){ return v === 1 ? COL.on : (v === 0 ? COL.off : COL.idle); }
+  function setValues(v, animate){
+    Object.keys(nodes).forEach(k => {
+      const n = nodes[k], val = k.startsWith('out:') ? v[k] : v[k];
+      setGlow(n.mat, val === 1 ? COL.on : (val === 0 ? 0x64748B : COL.idle), val === 1, animate);
+    });
+    wires.forEach(w => { const val = v[w.from]; setGlow(w.mat, colorOf(val), val === 1, animate); });
+  }
+  function pulseFrom(keys, dur){
+    // send a bright packet along every wire leaving any of `keys`
+    keys.forEach(k => wires.filter(w => w.from === k).forEach(w => {
+      const s = new T.Mesh(new T.SphereGeometry(0.17, 16, 12), new T.MeshBasicMaterial({color:0xFFF4B0})); pulses.add(s);
+      const o = {t:0}; s.position.copy(w.curve.getPoint(0));
+      if (hasGSAP) gsap.to(o, {t:1, duration:dur || 0.9, ease:'power1.inOut', onUpdate:() => s.position.copy(w.curve.getPoint(o.t)), onComplete:() => { pulses.remove(s); s.geometry.dispose(); }});
+      else { pulses.remove(s); }
+    }));
+  }
+  function pulseInto(key, dur){
+    wires.filter(w => w.to === key).forEach(w => {
+      const s = new T.Mesh(new T.SphereGeometry(0.17, 16, 12), new T.MeshBasicMaterial({color:0xFFF4B0})); pulses.add(s);
+      const o = {t:0}; s.position.copy(w.curve.getPoint(0));
+      if (hasGSAP) gsap.to(o, {t:1, duration:dur || 0.9, ease:'power1.inOut', onUpdate:() => s.position.copy(w.curve.getPoint(o.t)), onComplete:() => { pulses.remove(s); s.geometry.dispose(); }});
+      else pulses.remove(s);
+    });
+  }
+  function bump(key){ const n = nodes[key]; if (n && hasGSAP) gsap.fromTo(n.mesh.scale, {x:1, y:1, z:1}, {x:1.18, y:1.18, z:1.18, duration:0.25, yoyo:true, repeat:1}); }
+  if (onPick) picker(st, () => root.children, onPick);
+  return {build, setValues, pulseFrom, pulseInto, bump, get nodes(){ return nodes; }};
+}
+
+// ---------- 2D SVG version of Circuit3D (same API), used when Three.js or WebGL is missing ----------
+function Circuit2D(el, onPick){
+  const NS = 'http://www.w3.org/2000/svg', fb = el.querySelector('.fallback');
+  if (fb) { fb.textContent = '2D view (3D is not available on this device)'; fb.style.cssText = 'inset:0 0 auto auto;padding:6px 10px;font-size:12px;opacity:.8;justify-content:flex-end'; }
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'c2d'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Circuit diagram');
+  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%'; el.insertBefore(svg, el.firstChild);
+  let nodes = {}, wires = [];
+  const DX = 150, DY = 80, ON = '#FF3B44', OFF = '#64748B', IDLE = '#2B3546';
+  function level(c, key, memo){
+    if (c.inputs.indexOf(key) >= 0) return 0; if (memo[key] !== undefined) return memo[key];
+    const m = /^G(\d+)$/.exec(key || ''); if (!m) return 0; const g = c.gates[+m[1] - 1]; if (!g) return 0;
+    return (memo[key] = 1 + Math.max(g.a ? level(c, g.a, memo) : 0, (g.type !== 'NOT' && g.b) ? level(c, g.b, memo) : 0));
+  }
+  function mk(tag, attrs, parent){ const e = document.createElementNS(NS, tag); Object.keys(attrs).forEach(k => e.setAttribute(k, attrs[k])); (parent || svg).appendChild(e); return e; }
+  function text(x, y, s, size){ const t = mk('text', {x, y, 'text-anchor':'middle', 'dominant-baseline':'middle', fill:'#F8FAFC', 'font-size':size || 13, 'font-family':'IBM Plex Mono, monospace', 'font-weight':600}); t.textContent = s; return t; }
+  function build(c, vals){
+    svg.innerHTML = ''; nodes = {}; wires = [];
+    const memo = {}, byLevel = {};
+    c.gates.forEach((g, i) => { const k = 'G' + (i + 1), L = level(c, k, memo); (byLevel[L] = byLevel[L] || []).push(k); });
+    const maxL = Math.max(0, ...Object.keys(byLevel).map(Number));
+    const wireLayer = mk('g', {}), nodeLayer = mk('g', {});
+    let minY = 0, maxY = 0; const ys = y => { minY = Math.min(minY, y); maxY = Math.max(maxY, y); return y; };
+    c.inputs.forEach((n, k) => {
+      const y = ys(((c.inputs.length - 1) / 2 - k) * -DY), g = mk('g', {tabindex:0, role:'button', 'aria-label':'Input ' + n, style:'cursor:pointer'}, nodeLayer);
+      const r = mk('rect', {x:-22, y:y - 22, width:44, height:44, rx:8}, g); text(0, y, n, 16).setAttribute('pointer-events', 'none'); g.appendChild(svg.lastChild);
+      g.addEventListener('click', () => onPick && onPick({kind:'input', key:n}));
+      nodes[n] = {shape:r, out:[22, y]};
+    });
+    Object.keys(byLevel).forEach(L => byLevel[L].forEach((k, j, list) => {
+      const gt = c.gates[+k.slice(1) - 1], x = L * DX, y = ys(((list.length - 1) / 2 - j) * -DY * 1.1);
+      const g = mk('g', {tabindex:0, role:'button', 'aria-label':'Gate ' + k, style:'cursor:pointer'}, nodeLayer);
+      const r = mk('rect', {x:x - 34, y:y - 24, width:68, height:48, rx:gt.type && /OR/.test(gt.type) ? 24 : 8}, g);
+      g.appendChild(text(x, y - 7, k, 12)); g.appendChild(text(x, y + 10, gt.type || '?', 11));
+      g.addEventListener('click', () => onPick && onPick({kind:'gate', key:k}));
+      const one = gt.type === 'NOT';
+      nodes[k] = {shape:r, g, out:[x + 34, y], inA:[x - 34, one ? y : y - 11], inB:[x - 34, y + 11]};
+    }));
+    const outs = c.outputs.filter(o => o.src);
+    outs.forEach((o, k) => {
+      const x = (maxL + 1) * DX, y = ys(((outs.length - 1) / 2 - k) * -DY), g = mk('g', {}, nodeLayer);
+      const r = mk('circle', {cx:x, cy:y, r:20}, g); g.appendChild(text(x, y, o.name, 12));
+      nodes['out:' + o.name] = {shape:r, inA:[x - 20, y]};
+    });
+    function wire(from, to, p1){
+      const f = nodes[from]; if (!f || !p1) return; const p0 = f.out, dx = Math.max(20, (p1[0] - p0[0]) / 2);
+      const path = mk('path', {d:`M${p0[0]},${p0[1]} C${p0[0] + dx},${p0[1]} ${p1[0] - dx},${p1[1]} ${p1[0]},${p1[1]}`, fill:'none', 'stroke-width':4, 'stroke-linecap':'round'}, wireLayer);
+      wires.push({from, to, path});
+    }
+    c.gates.forEach((g, i) => { const k = 'G' + (i + 1); if (g.a) wire(g.a, k, nodes[k].inA); if (g.type !== 'NOT' && g.b) wire(g.b, k, nodes[k].inB); });
+    outs.forEach(o => wire(o.src, 'out:' + o.name, nodes['out:' + o.name].inA));
+    const pad = 40, x0 = -22 - pad, x1 = (maxL + 1) * DX + 20 + pad;
+    svg.setAttribute('viewBox', `${x0} ${minY - 30 - pad} ${x1 - x0} ${maxY - minY + 60 + 2 * pad}`);
+    setValues(vals);
+  }
+  const col = v => v === 1 ? ON : (v === 0 ? OFF : IDLE);
+  function setValues(v){
+    Object.keys(nodes).forEach(k => { const s = nodes[k].shape; s.setAttribute('fill', col(v[k])); s.setAttribute('stroke', v[k] === 1 ? '#FFD2D4' : '#94A3B8'); s.setAttribute('stroke-width', 2); });
+    wires.forEach(w => { w.path.setAttribute('stroke', col(v[w.from])); w.path.setAttribute('stroke-width', v[w.from] === 1 ? 6 : 4); });
+  }
+  function flash(key){ const n = nodes[key]; if (n && hasGSAP) gsap.fromTo(n.shape, {opacity:0.4}, {opacity:1, duration:0.5}); }
+  return {build, setValues, pulseFrom(){}, pulseInto(k){ wires.filter(w => w.to === k).forEach(w => { if (hasGSAP) gsap.fromTo(w.path, {opacity:0.3}, {opacity:1, duration:0.6}); }); }, bump:flash, get nodes(){ return nodes; }};
+}
+
+const state = { inputs:['A','B'], vals:{A:1,B:0,C:0}, gates:[{type:'AND',a:'A',b:'B'}], outputs:[{name:'Y1',src:'G1'},{name:'Y2',src:''}] };
+const PRESETS = {
+  and:  {inputs:['A','B'], gates:[{type:'AND',a:'A',b:'B'}], outputs:[{name:'Y1',src:'G1'},{name:'Y2',src:''}], note:'One AND gate: the output is 1 only in the last row, when A and B are both 1.'},
+  half: {inputs:['A','B'], gates:[{type:'XOR',a:'A',b:'B'},{type:'AND',a:'A',b:'B'}], outputs:[{name:'Y1',src:'G1'},{name:'Y2',src:'G2'}], note:'Half adder: Y1 is the sum bit (XOR) and Y2 is the carry bit (AND). Check the last row: 1 + 1 = 10 in binary, so sum 0 and carry 1.'},
+  mux:  {inputs:['A','B','C'], gates:[{type:'NOT',a:'C',b:''},{type:'AND',a:'A',b:'G1'},{type:'AND',a:'B',b:'C'},{type:'OR',a:'G2',b:'G3'}], outputs:[{name:'Y1',src:'G4'},{name:'Y2',src:''}], note:'2-to-1 multiplexer with C as the selector: when C = 0 the output copies A, when C = 1 it copies B. Flip C and watch which input the output follows.'},
+  full: {inputs:['A','B','C'], gates:[{type:'XOR',a:'A',b:'B'},{type:'XOR',a:'G1',b:'C'},{type:'AND',a:'A',b:'B'},{type:'AND',a:'C',b:'G1'},{type:'OR',a:'G3',b:'G4'}], outputs:[{name:'Y1',src:'G2'},{name:'Y2',src:'G5'}], note:'Full adder with C as the carry in: Y1 is the sum and Y2 is the carry out. Count the 1s in each row of inputs: the outputs show that count in binary.'},
+  clear:{inputs:['A','B'], gates:[{type:'',a:'',b:''}], outputs:[{name:'Y1',src:''},{name:'Y2',src:''}], note:'Empty circuit. Pick a gate type and its inputs to start.'}
+};
+const DESC = {AND:'outputs 1 only when both inputs are 1', OR:'outputs 1 when at least one input is 1', NOT:'flips its input', NAND:'is NOT AND: it outputs 0 only when both inputs are 1', NOR:'is NOT OR: it outputs 1 only when both inputs are 0', XOR:'outputs 1 when its inputs are different'};
+const MAXG = 5;
+const art = t => /^(AND|OR|XOR)$/.test(t) ? 'an ' + t : 'a ' + t;
+const $ = id => document.getElementById(id);
+function circuit(){ return {inputs:state.inputs, gates:state.gates, outputs:state.outputs.filter(o=>o.src)}; }
+function sources(i){ return state.inputs.concat(state.gates.slice(0,i).map((g,k)=>'G'+(k+1))); }
+function opt(v, label, sel){ return `<option value="${v}"${v===sel?' selected':''}>${label}</option>`; }
+function fmt(x){ return x === null || x === undefined ? '?' : x; }
+
+function renderInputs(){
+  $('inputs').innerHTML = state.inputs.map(n => `<button class="sw" aria-pressed="${state.vals[n]?'true':'false'}" data-in="${n}">${n} <span class="bit">${state.vals[n]}</span></button>`).join('');
+  $('useC').checked = state.inputs.indexOf('C') >= 0;
+}
+function renderGates(v){
+  $('gates').innerHTML = state.gates.map((g,i) => {
+    const src = sources(i), one = g.type === 'NOT';
+    const a = g.a ? v[g.a] : null, b = g.b ? v[g.b] : null, y = v['G'+(i+1)];
+    return `<div class="gcard" id="card-G${i+1}"><span class="gname">G${i+1}</span>
+      <div class="controls">
+        <label class="small">Type <select data-g="${i}" data-f="type" aria-label="Gate G${i+1} type">${opt('','choose',g.type)}${Object.keys(GATES).map(t=>opt(t,t,g.type)).join('')}</select></label>
+        <label class="small">${one?'Input':'Input 1'} <select data-g="${i}" data-f="a" aria-label="Gate G${i+1} first input">${opt('','choose',g.a)}${src.map(s=>opt(s,s,g.a)).join('')}</select></label>
+        <label class="small"${one?' hidden':''}>Input 2 <select data-g="${i}" data-f="b" aria-label="Gate G${i+1} second input">${opt('','choose',g.b)}${src.map(s=>opt(s,s,g.b)).join('')}</select></label>
+      </div>
+      <div class="vis">${gateSVG(g.type, a===undefined?null:a, one?null:(b===undefined?null:b), y===undefined?null:y, g.type)}<span class="small muted">output</span> <span class="val${y===1?' on':''}">${fmt(y)}</span></div>
+    </div>`;
+  }).join('');
+  $('addGate').disabled = state.gates.length >= MAXG;
+  $('removeGate').disabled = state.gates.length <= 1;
+}
+function renderOutputs(v){
+  const src = sources(state.gates.length).filter(s => /^G/.test(s));
+  $('outputs').innerHTML = state.outputs.map((o,i) => {
+    const y = o.src ? v[o.src] : null;
+    return `<div class="orow" id="orow-${o.name}"><span class="led${y===1?' on':''}" aria-hidden="true"></span><b>${o.name}</b>
+      <label class="small">driven by <select data-o="${i}" aria-label="Output ${o.name} source">${opt('','nothing',o.src)}${src.map(s=>opt(s,s,o.src)).join('')}</select></label>
+      <span class="val${y===1?' on':''}">${fmt(y)}</span></div>`;
+  }).join('');
+}
+function renderTable(){
+  const c = circuit(), gateKeys = state.gates.map((g,i)=>'G'+(i+1));
+  let h = '<tr>' + c.inputs.map(n=>`<th>${n}</th>`).join('') + gateKeys.map(k=>`<th class="gate">${k}</th>`).join('') + c.outputs.map(o=>`<th class="out">${o.name}</th>`).join('') + '</tr>';
+  combos(c.inputs).forEach(r => {
+    const v = evalCircuit(c, r), now = c.inputs.every(n => r[n] === state.vals[n]);
+    const cell = (x, cls) => `<td class="${cls}${x===1?' one':''}">${fmt(x)}</td>`;
+    h += `<tr${now?' class="now"':''}>` + c.inputs.map(n=>cell(r[n],'')).join('') + gateKeys.map(k=>cell(v[k],'gate')).join('') + c.outputs.map(o=>cell(v[o.src],'out')).join('') + '</tr>';
+  });
+  if (!c.outputs.length) h += `<tr><td colspan="${c.inputs.length + gateKeys.length}" class="small muted">Choose a gate for Y1 to see the output column.</td></tr>`;
+  $('tt').innerHTML = h;
+  $('exprs').innerHTML = c.outputs.length ? c.outputs.map(o => `<div><b>${o.name}</b> = ${exprOf(c, o.src)}</div>`).join('') : '<div class="muted">No output connected yet.</div>';
+}
+// ---------- 3D scene and narrated steps ----------
+const stageEl = $('stage');
+const st = make3D(stageEl, {camera:[2, 2, 12]});
+let c3d = null, lastSig = '';
+const onPick = pick => {
+  if (pick.kind === 'input'){ state.vals[pick.key] ^= 1; note = 'You flipped ' + pick.key + ' to ' + state.vals[pick.key] + ' by tapping its pad.'; render(); }
+  else if (pick.kind === 'gate'){ narr.stop(); $('cap').innerHTML = explainGate(+pick.key.slice(1) - 1, evalCircuit(circuit(), state.vals)); c3d.bump(pick.key); }
+  else { const o = state.outputs.find(x => x.name === pick.key); const v = evalCircuit(circuit(), state.vals); narr.stop(); $('cap').innerHTML = `<b>${pick.key}</b> shows the output of ${o.src}, which is ${fmt(v[o.src])} right now.`; }
+};
+c3d = st ? Circuit3D(st, stageEl, onPick) : Circuit2D(stageEl, onPick);
+const ui = narratorUI(document.querySelector('.card3d')); ui.caption.id = 'cap';
+const narr = Narrator(ui);
+function explainGate(i, v){
+  const g = state.gates[i], k = 'G' + (i + 1);
+  if (!g.type) return `<b>${k}</b> has no gate type yet, so it produces no signal. Choose a type in its card.`;
+  if (!g.a || (g.type !== 'NOT' && !g.b)) return `<b>${k}</b> is ${art(g.type)} gate, but one of its inputs is not connected, so its output is unknown.`;
+  const ins = g.type === 'NOT' ? `${g.a} = ${fmt(v[g.a])}` : `${g.a} = ${fmt(v[g.a])} and ${g.b} = ${fmt(v[g.b])}`;
+  return `<b>${k}</b> is ${art(g.type)} gate, which ${DESC[g.type]}. It receives ${ins}, so ${k} = <b>${fmt(v[k])}</b>.`;
+}
+function partial(v, upTo){ const p = {}; state.inputs.forEach(n => p[n] = v[n]); for (let i = 0; i < upTo; i++){ const k = 'G' + (i + 1); p[k] = v[k]; } return p; }
+function withOutputs(p, v){ circuit().outputs.forEach(o => { p['out:' + o.name] = v[o.src]; }); return p; }
+function highlight(id){ document.querySelectorAll('.active-step').forEach(e => e.classList.remove('active-step')); if (id){ const e = $(id); if (e) e.classList.add('active-step'); } }
+function buildSteps(){
+  const c = circuit(), v = evalCircuit(c, state.vals), steps = [];
+  steps.push({text: `<b>Start.</b> The inputs are ${state.inputs.map(n => n + ' = ' + state.vals[n]).join(', ')}. A 1 lights its pad red. No gate has computed anything yet.`,
+    show: anim => { if (c3d){ c3d.setValues(partial(v, 0), anim); } highlight(''); }, dur:2.4});
+  state.gates.forEach((g, i) => {
+    const k = 'G' + (i + 1);
+    steps.push({text: explainGate(i, v), show: anim => { if (c3d){ c3d.setValues(partial(v, i + 1), anim); if (anim){ c3d.pulseInto(k, 0.8); c3d.bump(k); } } highlight('card-' + k); }, dur:2.6});
+  });
+  if (c.outputs.length){
+    steps.push({text: `<b>Outputs.</b> ${c.outputs.map(o => o.name + ' shows ' + o.src + ' = ' + fmt(v[o.src])).join('; ')}. Find the highlighted row in the truth table: it holds exactly these values.`,
+      show: anim => { if (c3d){ c3d.setValues(withOutputs(partial(v, state.gates.length), v), anim); if (anim) c.outputs.forEach(o => c3d.pulseInto('out:' + o.name, 0.8)); } highlight('tt'); }, dur:3});
+  }
+  return steps;
+}
+let note = PRESETS.and.note;
+function render(){
+  const c = circuit(), v = evalCircuit(c, state.vals);
+  renderInputs(); renderGates(v); renderOutputs(v); renderTable();
+  $('explain').textContent = note;
+  const sig = JSON.stringify([c.inputs, c.gates, c.outputs]);
+  if (c3d && sig !== lastSig){ c3d.build(c, withOutputs(Object.assign({}, v), v)); }
+  lastSig = sig;
+  narr.load(buildSteps(), true);
+  if (c3d) c3d.setValues(withOutputs(Object.assign({}, v), v), true);
+}
+document.addEventListener('click', e => {
+  const sw = e.target.closest('[data-in]');
+  if (sw){ const n = sw.dataset.in; state.vals[n] ^= 1; note = 'You set ' + n + ' to ' + state.vals[n] + '. Follow the red wires: every gate that now receives a different input recalculates its output.'; render(); return; }
+  const p = e.target.closest('[data-preset]');
+  if (p){ const P = PRESETS[p.dataset.preset]; state.inputs = P.inputs.slice(); state.gates = P.gates.map(g=>Object.assign({},g)); state.outputs = P.outputs.map(o=>Object.assign({},o)); note = P.note; render(); narr.go(0, false); return; }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.g !== undefined){
+    const g = state.gates[+t.dataset.g]; g[t.dataset.f] = t.value;
+    if (t.dataset.f === 'type' && t.value === 'NOT') g.b = '';
+    note = 'G' + (+t.dataset.g + 1) + ' changed. Compare the truth table with the gate reference below to check that this gate behaves the way its name says.';
+    render();
+  } else if (t.dataset.o !== undefined){ state.outputs[+t.dataset.o].src = t.value; render(); }
+  else if (t.id === 'useC'){
+    if (t.checked && state.inputs.indexOf('C') < 0) state.inputs.push('C');
+    if (!t.checked){ state.inputs = state.inputs.filter(n => n !== 'C'); state.gates.forEach(g => { if (g.a === 'C') g.a = ''; if (g.b === 'C') g.b = ''; }); }
+    note = t.checked ? 'With three inputs the truth table has 2 x 2 x 2 = 8 rows.' : 'With two inputs the truth table has 4 rows.';
+    render();
+  }
+});
+$('addGate').addEventListener('click', () => { if (state.gates.length < MAXG){ state.gates.push({type:'',a:'',b:''}); note = 'New gate added at the bottom. It can use the switches and every gate above it.'; render(); } });
+$('removeGate').addEventListener('click', () => {
+  if (state.gates.length > 1){ const k = 'G' + state.gates.length; state.gates.pop(); state.gates.forEach(g => { if (g.a === k) g.a = ''; if (g.b === k) g.b = ''; }); state.outputs.forEach(o => { if (o.src === k) o.src = ''; }); render(); }
+});
+// ---------- gate reference ----------
+const REFDESC = {AND:'1 only when both inputs are 1.', OR:'1 when at least one input is 1.', NOT:'Flips the input: 0 becomes 1 and 1 becomes 0.', NAND:'NOT AND: 0 only when both inputs are 1. Every other gate can be built from NAND gates alone.', NOR:'NOT OR: 1 only when both inputs are 0.', XOR:'Exclusive OR: 1 when the inputs are different. It is the sum bit of an adder.'};
+function renderRef(sel){
+  $('refgrid').innerHTML = Object.keys(GATES).map(t => `<button class="reftile" aria-pressed="${t===sel}" data-ref="${t}">${gateSVG(t, null, null, null, '')}<div><b>${t}</b></div></button>`).join('');
+  if (!sel){ $('refdetail').innerHTML = ''; return; }
+  const n = GATES[sel].n, ins = n === 1 ? ['A'] : ['A','B'];
+  const rows = combos(ins).map(r => `<tr>${ins.map(k=>`<td>${r[k]}</td>`).join('')}<td class="out">${n===1?GATES[sel].f(r.A):GATES[sel].f(r.A,r.B)}</td></tr>`).join('');
+  $('refdetail').innerHTML = `<div class="feedback info"><b>${sel}</b>: ${REFDESC[sel]}</div><div class="row gap mt"><table class="data tt" style="max-width:260px"><tr>${ins.map(k=>`<th>${k}</th>`).join('')}<th class="out">Out</th></tr>${rows}</table><button class="btn primary" data-use="${sel}">Use in G1</button></div>`;
+}
+document.addEventListener('click', e => {
+  const r = e.target.closest('[data-ref]'); if (r){ renderRef(r.dataset.ref); return; }
+  const u = e.target.closest('[data-use]');
+  if (u){ const t = u.dataset.use, g0 = state.gates[0]; g0.type = t; if (!g0.a) g0.a = 'A'; if (t !== 'NOT' && !g0.b) g0.b = 'B'; if (t === 'NOT') g0.b = ''; if (!state.outputs[0].src) state.outputs[0].src = 'G1'; note = 'G1 is now ' + art(t) + ' gate. Its column in the truth table should match the reference table.'; render(); $('flow-h').scrollIntoView({behavior:'smooth'}); }
+});
+// ---------- self-check ----------
+const QUIZ = [
+  {q:'Which gate outputs 1 only when its two inputs are different?', o:['AND','OR','XOR','NAND'], a:2, why:'XOR (exclusive OR) is 1 for 0,1 and 1,0 and 0 when the inputs match.'},
+  {q:'A circuit has 3 inputs. How many rows does its truth table have?', o:['3','6','8','9'], a:2, why:'Each input doubles the rows: 2 x 2 x 2 = 8.'},
+  {q:'In a half adder, which gate produces the carry bit?', o:['XOR','AND','OR','NOT'], a:1, why:'The carry is 1 only for 1 + 1, which is exactly when both inputs are 1: an AND gate.'},
+  {q:'A NAND gate has inputs A = 1 and B = 1. What is its output?', o:['0','1','It depends on the previous output','It is undefined'], a:0, why:'AND gives 1, and the NOT bubble flips it to 0. Logic gates have no memory, so the output depends only on the current inputs.'},
+  {q:'In the 2-to-1 multiplexer preset, the selector C is 1. Which input reaches the output?', o:['A','B','Both, combined with OR','Neither'], a:1, why:'With C = 1 the AND gate on the B side is open and the AND gate on the A side is closed, so the output copies B.'}
+];
+let answered = 0, correct = 0;
+$('quiz').innerHTML = QUIZ.map((x,i) => `<div class="q"><p>${i+1}. ${x.q}</p><div class="opts">${x.o.map((o,j)=>`<button class="btn opt" data-q="${i}" data-o="${j}">${o}</button>`).join('')}</div><div class="feedback" id="qf${i}" hidden></div></div>`).join('');
+$('quiz').addEventListener('click', e => {
+  const b = e.target.closest('button[data-q]'); if (!b) return;
+  const i = +b.dataset.q, j = +b.dataset.o, x = QUIZ[i], box = b.closest('.q');
+  if (box.dataset.done) return; box.dataset.done = '1';
+  box.querySelectorAll('button').forEach((bt,k) => { bt.disabled = true; if (k === x.a) bt.classList.add('right'); });
+  if (j !== x.a) b.classList.add('wrong'); else correct++;
+  answered++;
+  const f = $('qf'+i); f.hidden = false; f.className = 'feedback ' + (j === x.a ? 'ok' : 'bad'); f.textContent = (j === x.a ? 'Correct. ' : 'Not quite. ') + x.why;
+  if (answered === QUIZ.length){ $('quizScore').hidden = false; $('quizBig').textContent = correct + ' / ' + QUIZ.length; }
+});
+renderRef('');
+render();
+narr.go(0, false);
+
+</script>
+</body>
+</html>

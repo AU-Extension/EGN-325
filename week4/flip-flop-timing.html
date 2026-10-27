@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clock and flip-flop timing visualizer</title>
+<meta name="description" content="EGN 325 Week 4 interactive: Draw a data signal, play the clock, and watch a latch, a flip-flop, and a register of 3D bit cells decide when to store a bit.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{display:block;width:100%!important;height:100%!important}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  .muted{color:var(--muted)} .small{font-size:13px} .mt{margin-top:16px} .row{display:flex;flex-wrap:wrap;align-items:center} .gap{gap:8px}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
+  .tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+  .tab[aria-selected="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+  .presets .btn{padding:6px 10px;font-size:13px}
+  .tsvg{display:block;width:100%;min-width:560px;height:auto}
+  .tsvg .dslot{cursor:pointer}
+  .tsvg .dslot:focus{outline:none;stroke:var(--au-red);stroke-width:2}
+  table.tt td,table.tt th{text-align:center;font-family:var(--mono);font-size:13px;padding:4px 6px}
+  table.tt td.one{color:var(--au-red-dark);font-weight:700}
+  table.tt td.cur,table.tt th.cur{background:var(--au-red-soft)}
+  .regrow{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+  .bits{display:flex;gap:6px}
+  .bits .sw{min-width:52px;justify-content:center}
+  .sw{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#fff;cursor:pointer;font:inherit;font-weight:600}
+  .sw .bit{display:inline-block;min-width:24px;text-align:center;border-radius:6px;padding:2px 6px;font-family:var(--mono);background:#EEF1F5;color:var(--ink-2)}
+  .sw[aria-pressed="true"] .bit{background:var(--au-red);color:#fff}
+  .cells{display:flex;gap:8px;perspective:400px}
+  .cell{width:56px;height:56px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);font-size:22px;font-weight:700;background:#E5E7EB;color:var(--ink-2);border:2px solid #CBD5E1}
+  .cell small{font-size:10px;font-weight:600;opacity:.75}
+  .cell.on{background:var(--au-red);color:#fff;border-color:var(--au-red-dark);box-shadow:0 0 12px rgba(225,20,30,.45)}
+  .cntval{margin-top:10px;font-family:var(--mono);font-size:15px}
+  .q{border-top:1px solid var(--line);padding:12px 0}
+  .q p{margin:0 0 8px;font-weight:600}
+  .opts{display:grid;gap:6px}
+  .opt{text-align:left}
+  .opt.right{border-color:var(--ok);background:var(--ok-soft)}
+  .opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+  .grid>*{min-width:0}
+  .stage3d{position:relative}
+  .stage3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+  .stage3d .label3d.big{font-size:14px;padding:3px 8px}
+  .stage3d .hint3d{position:absolute;left:10px;bottom:8px;font-size:12px;color:#CBD5E1;background:rgba(15,23,34,.6);padding:2px 8px;border-radius:6px;pointer-events:none}
+  .stepper .btn{padding:7px 12px}
+  .stepper .count{font-size:13px;color:var(--muted);margin-left:auto}
+  .caption b{color:var(--au-red-dark)}
+  .card3d{margin-bottom:16px}
+  .active-step{outline:3px solid var(--au-red);outline-offset:2px}
+  @media(max-width:520px){.stage3d{aspect-ratio:4/3}}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 4 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 4 · Explorer</span>
+    <h1>Clock and flip-flop timing visualizer</h1>
+    <p class="lede">Draw a data signal, play the clock, and watch a latch, a flip-flop, and a register of 3D bit cells decide when to store a bit.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Start on the Timing ribbon tab. The clock (CLK) ticks in the top lane, your data signal D is below it, and the bottom two lanes show what a latch and an edge-triggered flip-flop store.</li>
+      <li>Tap any D slot (in the 3D ribbon or in the 2D diagram) to draw your own signal, or load a preset such as a glitch while the clock is high.</li>
+      <li>Press Play to sweep through time one slot at a time. The caption explains what each storage element does at that moment, and every rising clock edge flashes.</li>
+      <li>Open the Register tab: set the D inputs and the load enable (LE), then press Clock tick and watch the bit cells latch.</li>
+      <li>Open the Counter tab: tick the 4-bit counter from 0 to 15 and see which bits flip on each tick, then finish with the self-check.</li>
+    </ol>
+  </details>
+
+  <section class="card card3d" aria-labelledby="flow-h">
+    <h2 id="flow-h">Clocked storage in 3D</h2>
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button class="tab" role="tab" id="tab-timing" aria-selected="true" data-tab="timing">Timing ribbon</button>
+      <button class="tab" role="tab" id="tab-register" aria-selected="false" data-tab="register">4-bit register</button>
+      <button class="tab" role="tab" id="tab-counter" aria-selected="false" data-tab="counter">4-bit counter</button>
+    </div>
+    <p class="small muted" id="stageHelp"></p>
+    <div class="stage3d" id="stage"><span class="hint3d" id="hint3d">Red = 1, gray = 0</span></div>
+    <div class="stepper" role="group" aria-label="Step-by-step explanation">
+      <button class="btn" data-n="restart" aria-label="Restart">&#9198; Restart</button>
+      <button class="btn" data-n="prev" aria-label="Step back">&#9664; Back</button>
+      <button class="btn primary" data-n="play">&#9654; Play</button>
+      <button class="btn primary" data-n="pause" hidden>&#10074;&#10074; Pause</button>
+      <button class="btn" data-n="next" aria-label="Step forward">Next &#9654;</button>
+      <span class="count" data-n="counter"></span>
+    </div>
+    <div class="caption" data-n="caption" aria-live="polite"></div>
+  </section>
+
+  <section class="card" id="panel-timing" aria-labelledby="timing-h">
+    <h2 id="timing-h">Timing diagram</h2>
+    <div class="presets" role="group" aria-label="D signal presets">
+      <span class="muted small">D presets:</span>
+      <button class="btn" data-preset="steady">Slow change</button>
+      <button class="btn" data-preset="glitchHigh">Glitch while CLK = 1</button>
+      <button class="btn" data-preset="glitchLow">Glitch while CLK = 0</button>
+      <button class="btn" data-preset="beforeEdge">Pulse just before an edge</button>
+      <button class="btn" data-preset="clear">Clear D</button>
+    </div>
+    <p class="small muted">Tap a slot in the D row to flip it between 0 and 1. Dashed lines mark rising clock edges, the only moments the flip-flop can change.</p>
+    <div class="scroll-x"><svg id="tsvg" class="tsvg" role="img" aria-label="Timing diagram of CLK, D, latch Q, and flip-flop Q"></svg></div>
+    <div class="grid two mt">
+      <div class="feedback info small" id="timingNote"></div>
+      <div class="scroll-x"><table class="data tt" id="ttiming"></table></div>
+    </div>
+  </section>
+
+  <section class="card" id="panel-register" hidden aria-labelledby="reg-h">
+    <h2 id="reg-h">4-bit register with load enable</h2>
+    <p class="small muted">A register is four D flip-flops that share one clock. Load enable (LE) decides whether a clock tick copies D into Q or keeps the old value.</p>
+    <div class="regrow">
+      <div><div class="small muted">D inputs (b3 to b0)</div><div class="bits" id="regD"></div></div>
+      <div><div class="small muted">Load enable</div><button class="sw" id="regLE" aria-pressed="true">LE <span class="bit">1</span></button></div>
+    </div>
+    <div class="row gap mt"><button class="btn primary" id="regTick">Clock tick</button><button class="btn" id="regClear">Clear Q to 0000</button></div>
+    <div class="mt"><div class="small muted">Stored value Q (b3 to b0)</div><div class="cells" id="regQ"></div></div>
+    <div class="feedback info mt" id="regNote"></div>
+  </section>
+
+  <section class="card" id="panel-counter" hidden aria-labelledby="cnt-h">
+    <h2 id="cnt-h">4-bit counter</h2>
+    <p class="small muted">A counter is a register that loads its own value plus 1 on every tick. Four bits count from 0 to 15, then wrap back to 0.</p>
+    <div class="row gap"><button class="btn primary" id="cntTick">Clock tick</button><button class="btn" id="cntRun">Run 16 ticks</button><button class="btn" id="cntReset">Reset</button></div>
+    <div class="mt"><div class="cells" id="cntQ"></div></div>
+    <div class="cntval" id="cntVal"></div>
+    <div class="feedback info mt" id="cntNote"></div>
+  </section>
+
+  <section class="card mt" aria-labelledby="quiz-h">
+    <h2 id="quiz-h">Self-check</h2>
+    <div id="quiz"></div>
+    <div class="score" id="quizScore" hidden><span>Your score:</span><span class="big" id="quizBig"></span></div>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script>
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---- page code ---- */
+// Shared logic engine for the Week 3 pages (gate circuits) and Week 4 pages (timing, state machines).
+const GATES = {
+  AND:  {n:2, f:(a,b)=>a&b},
+  OR:   {n:2, f:(a,b)=>a|b},
+  NOT:  {n:1, f:(a)=>a^1},
+  NAND: {n:2, f:(a,b)=>(a&b)^1},
+  NOR:  {n:2, f:(a,b)=>(a|b)^1},
+  XOR:  {n:2, f:(a,b)=>a^b}
+};
+// circuit: {inputs:['A','B'], gates:[{type:'AND', a:'A', b:'B'}], outputs:[{name:'Y', src:'G1'}]}
+function evalCircuit(c, vals){
+  const v = Object.assign({}, vals);
+  c.gates.forEach((g, i) => {
+    const key = 'G' + (i + 1);
+    if (!g.type || !GATES[g.type]) { v[key] = null; return; }
+    const ga = v[g.a], gb = v[g.b];
+    if (ga === undefined || ga === null) { v[key] = null; return; }
+    if (GATES[g.type].n === 2 && (gb === undefined || gb === null)) { v[key] = null; return; }
+    v[key] = GATES[g.type].n === 1 ? GATES[g.type].f(ga) : GATES[g.type].f(ga, gb);
+  });
+  return v;
+}
+function combos(inputs){
+  const rows = [];
+  for (let i = 0; i < (1 << inputs.length); i++){
+    const r = {};
+    inputs.forEach((name, k) => { r[name] = (i >> (inputs.length - 1 - k)) & 1; });
+    rows.push(r);
+  }
+  return rows;
+}
+function truthTable(c){
+  return combos(c.inputs).map(r => {
+    const v = evalCircuit(c, r);
+    const out = {};
+    c.outputs.forEach(o => { out[o.name] = (o.src && v[o.src] !== undefined) ? v[o.src] : null; });
+    return {inputs: r, outputs: out};
+  });
+}
+function exprOf(c, key, depth){
+  depth = depth || 0;
+  if (c.inputs.indexOf(key) >= 0) return key;
+  const m = /^G(\d+)$/.exec(key || '');
+  if (!m || depth > 8) return '?';
+  const g = c.gates[+m[1] - 1];
+  if (!g || !g.type) return '?';
+  const A = exprOf(c, g.a, depth + 1), B = exprOf(c, g.b, depth + 1);
+  const wrap = s => / /.test(s) && !/^NOT \w+$/.test(s) ? '(' + s + ')' : s;
+  if (g.type === 'NOT') return 'NOT ' + wrap(A);
+  return wrap(A) + ' ' + g.type + ' ' + wrap(B);
+}
+function matches(c, target){
+  // target: {inputs:[...], outputs:{Y:[bits in combo order]}}
+  const tt = truthTable(c);
+  let wrongRows = [];
+  tt.forEach((row, i) => {
+    Object.keys(target.outputs).forEach(name => {
+      if (row.outputs[name] !== target.outputs[name][i]) wrongRows.push(i);
+    });
+  });
+  wrongRows = Array.from(new Set(wrongRows));
+  return {ok: wrongRows.length === 0, wrongRows};
+}
+// ---------- Week 4: timing ----------
+// clk, d: arrays of 0/1 per time slot. Returns q arrays for a gated D latch and a rising-edge D flip-flop.
+function latchQ(clk, d, q0){ const q = []; let s = q0 || 0; for (let t = 0; t < clk.length; t++){ if (clk[t]) s = d[t]; q.push(s); } return q; }
+function flipFlopQ(clk, d, q0){ const q = []; let s = q0 || 0; for (let t = 0; t < clk.length; t++){ if (t > 0 && clk[t] === 1 && clk[t-1] === 0) s = d[t-1]; q.push(s); } return q; }
+// Register with load enable: on a clock tick, Q takes D only when LE = 1. Bits are [b3, b2, b1, b0].
+function registerStep(q, d, le){ return le ? d.slice() : q.slice(); }
+// 4-bit counter: counts 0..15 and wraps to 0; reset forces 0.
+function counterStep(n, reset){ return reset ? 0 : (n + 1) & 15; }
+function toBits(n){ return [3, 2, 1, 0].map(i => (n >> i) & 1); }
+// ---------- Week 4: state machines ----------
+function runFSM(fsm, start, inputs){ let s = start; const trace = [s]; const outs = []; for (const x of inputs){ const tr = fsm[s][x]; if (!tr) return {error:'no transition from ' + s + ' on ' + x}; if (tr.out) outs.push(tr.out); s = tr.next; trace.push(s); } return {state:s, trace, outs}; }
+
+// ---------- Helpers on top of the skeleton's make3D (Three.js r147) ----------
+const COL = {on:0xFF3B44, off:0x475569, idle:0x2B3546, ink:0x0F1722, white:0xF8FAFC, ok:0x22C55E, bad:0xEF4444, amber:0xF59E0B, blue:0x60A5FA};
+// Fit the camera to a box, looking along `view` (a direction from the target to the camera). Refits on resize.
+function fitter(st, el, view){
+  const T = THREE; let box = null; const dir = new T.Vector3(...(view || [0.2, 0.35, 1])).normalize();
+  function fit(){
+    if (!box) return;
+    const size = new T.Vector3(), c = new T.Vector3(); box.getSize(size); box.getCenter(c);
+    const aspect = Math.max(0.5, (el.clientWidth || 320) / (el.clientHeight || 200));
+    const fov = st.camera.fov * Math.PI / 180, t = 2 * Math.tan(fov / 2);
+    const d = Math.max((size.y + 1.2) / t, (size.x + 1.2) / (t * aspect)) + size.z * 0.5;
+    st.camera.position.copy(c).add(dir.clone().multiplyScalar(d)); st.camera.lookAt(c);
+    if (st.controls){ st.controls.target.copy(c); st.controls.minDistance = d * 0.45; st.controls.maxDistance = d * 2.2; st.controls.update(); }
+  }
+  if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(fit)).observe(el);
+  function goal(){
+    const size = new T.Vector3(), c = new T.Vector3(); box.getSize(size); box.getCenter(c);
+    const aspect = Math.max(0.5, (el.clientWidth || 320) / (el.clientHeight || 200));
+    const fov = st.camera.fov * Math.PI / 180, t = 2 * Math.tan(fov / 2);
+    const d = Math.max((size.y + 1.2) / t, (size.x + 1.2) / (t * aspect)) + size.z * 0.5;
+    return {c, d, p:c.clone().add(dir.clone().multiplyScalar(d))};
+  }
+  function fly(){
+    if (!box || !hasGSAP){ fit(); return; }
+    const g = goal();
+    if (st.controls){ st.controls.minDistance = g.d * 0.45; st.controls.maxDistance = g.d * 2.2; gsap.to(st.controls.target, {x:g.c.x, y:g.c.y, z:g.c.z, duration:0.9, ease:'power2.inOut'}); }
+    gsap.to(st.camera.position, {x:g.p.x, y:g.p.y, z:g.p.z, duration:0.9, ease:'power2.inOut', onUpdate:() => { if (!st.controls) st.camera.lookAt(g.c); }});
+  }
+  return {set(b, animate, view2){ box = b; if (view2) dir.set(...view2).normalize(); if (animate) fly(); else fit(); }, fit};
+}
+// HTML labels that can be cleared when a scene is rebuilt.
+function labelLayer(st, el){
+  const items = []; const v = new THREE.Vector3();
+  st.onFrame(() => { items.forEach(({obj, d}) => { obj.getWorldPosition(v); v.project(st.camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; let vis = true; for (let o = obj; o; o = o.parent) if (!o.visible){ vis = false; break; } d.style.display = (vis && v.z < 1 && v.x > -1.1 && v.x < 1.1) ? '' : 'none'; }); });
+  return {
+    add(obj, text, cls){ const d = document.createElement('div'); d.className = 'label3d' + (cls ? ' ' + cls : ''); d.textContent = text; el.appendChild(d); items.push({obj, d}); return d; },
+    clear(){ items.splice(0).forEach(({d}) => d.remove()); }
+  };
+}
+function disposeGroup(g){ while (g.children.length){ const c = g.children.pop(); c.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); }); } }
+function glowMat(color, on){ return new THREE.MeshStandardMaterial({color, emissive: on ? color : 0x000000, emissiveIntensity: on ? 0.75 : 0, roughness: 0.45, metalness: 0.1}); }
+function setGlow(mat, color, on, animate){
+  const target = new THREE.Color(color), em = on ? new THREE.Color(color) : new THREE.Color(0x000000), ei = on ? 0.8 : 0;
+  if (animate && hasGSAP){ gsap.to(mat.color, {r:target.r, g:target.g, b:target.b, duration:0.35}); gsap.to(mat.emissive, {r:em.r, g:em.g, b:em.b, duration:0.35}); gsap.to(mat, {emissiveIntensity:ei, duration:0.35}); }
+  else { mat.color.copy(target); mat.emissive.copy(em); mat.emissiveIntensity = ei; }
+}
+// Click picking that ignores orbit drags.
+function picker(st, objectsFn, onPick){
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement; let down = null;
+  el.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  el.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
+    const r = el.getBoundingClientRect(); m.x = ((e.clientX - r.left) / r.width) * 2 - 1; m.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(m, st.camera); const hit = ray.intersectObjects(objectsFn(), true)[0];
+    if (hit){ let o = hit.object; while (o && !o.userData.pick) o = o.parent; if (o) onPick(o.userData.pick); }
+  });
+}
+// ---------- Step-by-step narrator driven by a GSAP timeline (manual fallback without GSAP) ----------
+function Narrator(ui){
+  // ui: {caption, counter, play, pause, prev, next, restart}; steps: [{text, show(animate), dur}]
+  let steps = [], i = -1, tl = null, timer = null;
+  function go(k, animate){ if (!steps.length) return; i = Math.max(0, Math.min(steps.length - 1, k)); ui.caption.innerHTML = steps[i].text; steps[i].show(animate); ui.counter.textContent = 'Step ' + (i + 1) + ' of ' + steps.length; ui.prev.disabled = i <= 0; ui.next.disabled = i >= steps.length - 1; }
+  function stop(){ if (tl){ tl.kill(); tl = null; } if (timer){ clearTimeout(timer); timer = null; } ui.play.hidden = false; ui.pause.hidden = true; }
+  function play(){
+    stop(); if (i >= steps.length - 1) go(0, true);
+    ui.play.hidden = true; ui.pause.hidden = false;
+    if (hasGSAP){
+      tl = gsap.timeline({onComplete: stop});
+      tl.to({}, {duration: steps[i].dur || 2.2});
+      for (let k = i + 1; k < steps.length; k++){ tl.add('step' + k); tl.call(() => go(k, true)); tl.to({}, {duration: steps[k].dur || 2.2}); }
+    } else {
+      const tick = () => { if (i >= steps.length - 1){ stop(); return; } go(i + 1, true); timer = setTimeout(tick, (steps[i].dur || 2.2) * 1000); };
+      timer = setTimeout(tick, (steps[i].dur || 2.2) * 1000);
+    }
+  }
+  ui.play.addEventListener('click', play);
+  ui.pause.addEventListener('click', stop);
+  ui.prev.addEventListener('click', () => { stop(); go(i - 1, false); });
+  ui.next.addEventListener('click', () => { stop(); go(i + 1, true); });
+  ui.restart.addEventListener('click', () => { stop(); go(0, true); });
+  return { load(s, atEnd){ stop(); steps = s; go(atEnd ? s.length - 1 : 0, false); }, go, stop, play, get index(){ return i; } };
+}
+function narratorUI(root){ const q = n => root.querySelector('[data-n="' + n + '"]'); return {caption:q('caption'), counter:q('counter'), play:q('play'), pause:q('pause'), prev:q('prev'), next:q('next'), restart:q('restart')}; }
+
+const $ = id => document.getElementById(id);
+const N = 16, CLK = Array.from({length:N}, (x, t) => (t % 4) >= 2 ? 1 : 0);
+const PRESETS = {
+  steady:{d:[0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0], note:'D changes slowly. Both storage elements end up with the same values, but the latch can change any time CLK = 1 while the flip-flop changes only at a rising edge.'},
+  glitchHigh:{d:[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0], note:'A short glitch on D while CLK = 1 (slot 11). The latch is open, so it copies the glitch and keeps it after the clock falls. The flip-flop never sees it, because D is back to 0 before the next rising edge.'},
+  glitchLow:{d:[0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], note:'A glitch while CLK = 0 (slot 8). The latch is closed and the flip-flop waits for an edge, so neither one stores it.'},
+  beforeEdge:{d:[0,0,0,0,0,1,0,0,0,1,1,1,1,0,0,0], note:'A one-slot pulse just before the rising edge at slot 6. The flip-flop samples D right before the edge and catches it. The latch misses it, because D is already 0 again while the latch is open.'},
+  clear:{d:Array(N).fill(0), note:'D is all 0. Tap D slots to draw your own signal and predict the two Q rows before you look.'}
+};
+const S = {d:PRESETS.glitchHigh.d.slice(), cur:-1, tab:'timing', regD:[1,0,1,1], le:1, regQ:[0,0,0,0], cnt:0};
+let note = PRESETS.glitchHigh.note;
+const isEdge = t => t > 0 && CLK[t] === 1 && CLK[t - 1] === 0;
+function waves(){ return {clk:CLK, d:S.d, lq:latchQ(CLK, S.d), fq:flipFlopQ(CLK, S.d)}; }
+const LANES = [['clk', 'CLK'], ['d', 'D'], ['lq', 'Latch Q'], ['fq', 'Flip-flop Q']];
+
+// ---------- 2D timing diagram (always shown; it is also the fallback) ----------
+function drawSVG(){
+  const W = waves(), X0 = 92, SW = 36, LH = 46, H = LANES.length * LH + 26, svg = $('tsvg');
+  svg.setAttribute('viewBox', `0 0 ${X0 + N * SW + 10} ${H}`);
+  let h = '';
+  for (let t = 0; t < N; t++){ if (isEdge(t)) h += `<line x1="${X0 + t * SW}" y1="4" x2="${X0 + t * SW}" y2="${H - 22}" stroke="#F59E0B" stroke-dasharray="4 4"/>`; h += `<text x="${X0 + t * SW + SW / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="#6B7280" font-family="IBM Plex Mono, monospace">${t}</text>`; }
+  if (S.cur >= 0) h += `<rect x="${X0 + S.cur * SW}" y="2" width="${SW}" height="${H - 22}" fill="rgba(225,20,30,.10)" stroke="#E1141E" stroke-width="1.5"/>`;
+  LANES.forEach(([k, name], li) => {
+    const y0 = li * LH + 10, hi = y0 + 6, lo = y0 + 30, v = W[k];
+    h += `<text x="4" y="${y0 + 22}" font-size="13" font-weight="600" fill="#1F2937" font-family="IBM Plex Sans, sans-serif">${name}</text>`;
+    let d = `M${X0},${v[0] ? hi : lo}`;
+    for (let t = 0; t < N; t++){ const y = v[t] ? hi : lo; if (t > 0 && v[t] !== v[t - 1]) d += ` L${X0 + t * SW},${y}`; d += ` L${X0 + (t + 1) * SW},${y}`; }
+    for (let t = 0; t < N; t++) if (v[t]) h += `<rect x="${X0 + t * SW}" y="${hi}" width="${SW}" height="${lo - hi}" fill="${k === 'clk' ? 'rgba(100,116,139,.12)' : 'rgba(225,20,30,.10)'}"/>`;
+    h += `<path d="${d}" fill="none" stroke="${k === 'clk' ? '#475569' : '#E1141E'}" stroke-width="2.5"/>`;
+    if (k === 'd') for (let t = 0; t < N; t++) h += `<rect class="dslot" data-slot="${t}" tabindex="0" role="button" aria-label="D at slot ${t} is ${v[t]}, tap to flip" x="${X0 + t * SW + 1}" y="${y0}" width="${SW - 2}" height="${LH - 8}" fill="transparent" stroke="#CBD5E1" stroke-dasharray="2 3" rx="4"/>`;
+  });
+  svg.innerHTML = h;
+}
+function drawTable(){
+  const W = waves();
+  let h = '<tr><th>t</th>' + Array.from({length:N}, (x, t) => `<th class="${t === S.cur ? 'cur' : ''}">${t}</th>`).join('') + '</tr>';
+  LANES.forEach(([k, name]) => { h += `<tr><th>${name}</th>` + W[k].map((v, t) => `<td class="${(v ? 'one ' : '') + (t === S.cur ? 'cur' : '')}">${v}</td>`).join('') + '</tr>'; });
+  $('ttiming').innerHTML = h;
+}
+function explainSlot(t){
+  const W = waves(), c = W.clk[t], d = W.d[t], lq = W.lq[t], fq = W.fq[t];
+  let s = `<b>Slot ${t}.</b> `;
+  if (isEdge(t)) s += `CLK rises from 0 to 1: a rising edge. The flip-flop copies the value D had just before the edge (D = ${W.d[t - 1]}), so flip-flop Q = ${fq}. The latch opens and follows D (now ${d}), so latch Q = ${lq}.`;
+  else if (c === 1) s += `CLK is still 1, so the latch stays open: latch Q follows D (${d}) and is ${lq}. The flip-flop already sampled at the edge and holds ${fq} until the next rising edge.`;
+  else s += `CLK = 0. The latch is closed and holds ${lq}. The flip-flop holds ${fq}. D (${d}) can change freely without affecting either one.`;
+  if (lq !== fq) s += ' The two outputs differ here.';
+  return s;
+}
+
+// ---------- 3D scene: timing ribbon, register, counter ----------
+const stageEl = $('stage'), st = make3D(stageEl, {camera:[0, 3, 18]});
+let R = null;
+if (st) R = (function(){
+  const T = THREE, fit = fitter(st, stageEl, [0.25, 0.45, 1]), labels = labelLayer(st, stageEl);
+  const gT = new T.Group(), gR = new T.Group(), gC = new T.Group(); st.scene.add(gT, gR, gC);
+  gR.position.x = 40; gC.position.x = 70;
+  const LY = k => -k * 2.1, slabs = {}, ribbon = new T.Group(); gT.add(ribbon);
+  LANES.forEach(([k, name], li) => { const m = new T.Mesh(new T.BoxGeometry(0.1, 0.1, 0.1), new T.MeshBasicMaterial({visible:false})); m.position.set(-1.2, LY(li) + 0.45, 0); gT.add(m); labels.add(m, name, 'big'); });
+  const floor = new T.GridHelper(N + 4, N + 4, 0x334155, 0x1E293B); floor.position.set(N / 2, LY(3) - 1, 0); gT.add(floor);
+  const head = new T.Mesh(new T.BoxGeometry(1, 4 * 2.1 + 0.6, 1.3), new T.MeshBasicMaterial({color:0xF59E0B, transparent:true, opacity:0.16, depthWrite:false}));
+  head.position.set(-5, LY(1.5) + 0.4, 0); gT.add(head);
+  const beam = new T.Mesh(new T.CylinderGeometry(0.09, 0.09, 1, 12), new T.MeshBasicMaterial({color:0xFFF4B0, transparent:true, opacity:0})); gT.add(beam);
+  const ring = new T.Mesh(new T.TorusGeometry(0.6, 0.07, 10, 40), new T.MeshBasicMaterial({color:0xF59E0B, transparent:true, opacity:0})); gT.add(ring);
+  function buildRibbon(){
+    disposeGroup(ribbon); const W = waves();
+    LANES.forEach(([k], li) => {
+      slabs[k] = [];
+      for (let t = 0; t < N; t++){
+        const v = W[k][t], mat = glowMat(v ? COL.on : COL.off, v === 1 && k !== 'clk');
+        if (k === 'clk' && v) mat.color.set(0x94A3B8);
+        const m = new T.Mesh(new T.BoxGeometry(0.98, 0.16, 0.9), mat); m.position.set(t + 0.5, LY(li) + (v ? 0.9 : 0), 0);
+        if (k === 'd') m.userData.pick = {kind:'d', t};
+        ribbon.add(m); slabs[k].push({m, mat, v});
+        if (t > 0 && W[k][t] !== W[k][t - 1]){ const r = new T.Mesh(new T.BoxGeometry(0.08, 1.06, 0.9), new T.MeshStandardMaterial({color:0xCBD5E1})); r.position.set(t, LY(li) + 0.45, 0); ribbon.add(r); }
+        if (k === 'clk' && isEdge(t)){ const c = new T.Mesh(new T.ConeGeometry(0.22, 0.45, 16), new T.MeshStandardMaterial({color:0xF59E0B, emissive:0xF59E0B, emissiveIntensity:0.5})); c.position.set(t, LY(0) + 1.55, 0); ribbon.add(c); }
+      }
+    });
+    reveal(S.cur, false);
+  }
+  function reveal(cur, animate){
+    ['lq', 'fq'].forEach(k => (slabs[k] || []).forEach((s, t) => { const shown = cur < 0 || t <= cur; setGlow(s.mat, shown ? (s.v ? COL.on : COL.off) : COL.idle, shown && s.v === 1, animate); }));
+    if (cur < 0){ head.visible = false; return; }
+    head.visible = true;
+    if (animate && hasGSAP) gsap.to(head.position, {x:cur + 0.5, duration:0.45, ease:'power2.out'}); else head.position.x = cur + 0.5;
+    if (animate && isEdge(cur) && hasGSAP){
+      ring.position.set(cur, LY(0) + 0.45, 0.5); ring.material.opacity = 1; ring.scale.set(0.3, 0.3, 0.3);
+      gsap.to(ring.scale, {x:1.6, y:1.6, z:1.6, duration:0.7}); gsap.to(ring.material, {opacity:0, duration:0.7});
+      const a = new T.Vector3(cur - 0.5, LY(1) + 0.9, 0.5), b = new T.Vector3(cur + 0.5, LY(3) + 0.9, 0.5), mid = a.clone().add(b).multiplyScalar(0.5), len = a.distanceTo(b);
+      beam.position.copy(mid); beam.scale.set(1, len, 1); beam.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+      gsap.fromTo(beam.material, {opacity:0.95}, {opacity:0, duration:1.1, delay:0.2});
+    }
+  }
+  // register and counter: rows of bit cells on a chip
+  function bitRow(g, title, withPins){
+    const base = new T.Mesh(new T.BoxGeometry(7, 0.3, 3), new T.MeshStandardMaterial({color:0x1F2937})); base.position.y = -0.2; g.add(base);
+    const tag = new T.Mesh(new T.BoxGeometry(0.1, 0.1, 0.1), new T.MeshBasicMaterial({visible:false})); tag.position.set(0, 2.9, 0); g.add(tag); const tagEl = labels.add(tag, title, 'big');
+    const cells = [0, 1, 2, 3].map(i => {
+      const mat = glowMat(COL.off, false), m = new T.Mesh(new T.BoxGeometry(1.15, 1.15, 1.15), mat); m.position.set((i - 1.5) * 1.6, 0.6, 0); g.add(m);
+      const lab = new T.Object3D(); lab.position.set((i - 1.5) * 1.6, 1.75, 0); g.add(lab); labels.add(lab, 'Q' + (3 - i));
+      let pin = null;
+      if (withPins){ const pm = glowMat(COL.off, false); pin = {mat:pm, m:new T.Mesh(new T.CylinderGeometry(0.16, 0.16, 1.2, 12), pm)}; pin.m.rotation.x = Math.PI / 2; pin.m.position.set((i - 1.5) * 1.6, 0.3, 2.0); g.add(pin.m); const pl = new T.Object3D(); pl.position.set((i - 1.5) * 1.6, 0.3, 2.8); g.add(pl); labels.add(pl, 'D' + (3 - i)); pin.m.userData.pick = {kind:'regD', i}; }
+      m.userData.pick = {kind:g === gR ? 'regQ' : 'cnt', i};
+      return {m, mat, v:0, pin};
+    });
+    const cm = glowMat(COL.off, false), clk = new T.Mesh(new T.BoxGeometry(0.5, 0.5, 2.4), cm); clk.position.set(-4.0, 0.3, 0); g.add(clk);
+    const cl = new T.Object3D(); cl.position.set(-4.0, 1.0, 0); g.add(cl); labels.add(cl, 'CLK');
+    return {cells, clk:cm, tagEl};
+  }
+  const reg = bitRow(gR, 'Register', true), cnt = bitRow(gC, 'Counter: 0', false);
+  const lem = glowMat(COL.on, true), le = new T.Mesh(new T.BoxGeometry(0.5, 0.5, 2.4), lem); le.position.set(4.0, 0.3, 0); le.userData.pick = {kind:'le'}; gR.add(le);
+  const lel = new T.Object3D(); lel.position.set(4.0, 1.0, 0); gR.add(lel); labels.add(lel, 'LE');
+  function setCells(row, bits, animate){
+    row.cells.forEach((c, i) => { const v = bits[i];
+      if (animate && hasGSAP && v !== c.v) gsap.fromTo(c.m.rotation, {x:0}, {x:Math.PI, duration:0.5, delay:i * 0.04, ease:'power2.inOut', onComplete:() => { c.m.rotation.x = 0; }});
+      setGlow(c.mat, v ? COL.on : COL.off, v === 1, animate); c.v = v; });
+  }
+  function flashClk(row){ setGlow(row.clk, COL.amber, true, false); if (hasGSAP) gsap.delayedCall(0.35, () => setGlow(row.clk, COL.off, false, true)); else setGlow(row.clk, COL.off, false, false); }
+  function regView(animate){ setCells(reg, S.regQ, animate); reg.cells.forEach((c, i) => setGlow(c.pin.mat, S.regD[i] ? COL.on : COL.off, S.regD[i] === 1, animate)); setGlow(lem, S.le ? COL.on : COL.off, S.le === 1, animate); }
+  function regTick(loaded){ flashClk(reg); if (!loaded && hasGSAP) reg.cells.forEach(c => gsap.fromTo(c.m.position, {y:0.6}, {y:0.75, duration:0.12, yoyo:true, repeat:1})); regView(true); }
+  function cntView(animate){ setCells(cnt, toBits(S.cnt), animate); cnt.tagEl.textContent = 'Counter: ' + S.cnt; }
+  function cntTick(){ flashClk(cnt); cntView(true); }
+  picker(st, () => [ribbon, gR], p => onPick(p));
+  const groups = {timing:gT, register:gR, counter:gC};
+  function show(tab, animate){ Object.keys(groups).forEach(k => groups[k].visible = k === tab); const g = groups[tab]; g.updateMatrixWorld(true); const box = new T.Box3().setFromObject(g); if (tab !== 'timing') box.expandByScalar(0.8); fit.set(box, animate, tab === 'timing' ? [0.12, 0.22, 1] : [0.2, 0.55, 1]); }
+  return {buildRibbon, reveal, regView, regTick, cntView, cntTick, show};
+})();
+if (!st) { stageEl.hidden = true; $('stageHelp').textContent = '3D is not available on this device. The diagrams and bit cells below show the same steps.'; }
+
+// ---------- HTML panels ----------
+function cellsHTML(bits, labelFn){ return bits.map((v, i) => `<div class="cell${v ? ' on' : ''}" data-i="${i}">${v}<small>${labelFn(i)}</small></div>`).join(''); }
+function flipCells(id, before, after){ if (!hasGSAP) return; document.querySelectorAll('#' + id + ' .cell').forEach((c, i) => { if (before[i] !== after[i]) gsap.fromTo(c, {rotateX:-90}, {rotateX:0, duration:0.45, delay:i * 0.04}); }); }
+function renderTiming(){ drawSVG(); drawTable(); $('timingNote').textContent = note; }
+function renderReg(){
+  $('regD').innerHTML = S.regD.map((v, i) => `<button class="sw" data-regd="${i}" aria-pressed="${v ? 'true' : 'false'}" aria-label="D${3 - i}">D${3 - i} <span class="bit">${v}</span></button>`).join('');
+  $('regLE').setAttribute('aria-pressed', S.le ? 'true' : 'false'); $('regLE').querySelector('.bit').textContent = S.le;
+  $('regQ').innerHTML = cellsHTML(S.regQ, i => 'Q' + (3 - i));
+}
+function renderCnt(){ const b = toBits(S.cnt); $('cntQ').innerHTML = cellsHTML(b, i => 'Q' + (3 - i)); $('cntVal').textContent = 'Binary ' + b.join('') + ' = decimal ' + S.cnt + ' = hex ' + S.cnt.toString(16).toUpperCase(); }
+function doRegTick(){
+  const before = S.regQ.slice(); S.regQ = registerStep(S.regQ, S.regD, S.le); renderReg(); flipCells('regQ', before, S.regQ);
+  const msg = S.le ? `Tick with LE = 1: every flip-flop copied its D input, so Q = ${S.regQ.join('')}.` + (before.join('') === S.regQ.join('') ? ' (Q already had that value, so nothing visibly changed.)' : '') : `Tick with LE = 0: the register ignored D (${S.regD.join('')}) and kept Q = ${S.regQ.join('')}. This is how a CPU keeps a value in a register until an instruction writes a new one.`;
+  $('regNote').textContent = msg; if (R) R.regTick(S.le === 1); return msg;
+}
+function flipsText(from){ const a = toBits(from), b = toBits(counterStep(from)); const f = [0, 1, 2, 3].filter(i => a[3 - i] !== b[3 - i]); return f.length === 1 ? 'only bit 0 flips' : 'bits ' + f.join(', ') + ' flip'; }
+function doCntTick(){
+  const from = S.cnt, before = toBits(from); S.cnt = counterStep(S.cnt); renderCnt(); flipCells('cntQ', before, toBits(S.cnt));
+  const msg = `Tick: ${before.join('')} (${from}) becomes ${toBits(S.cnt).join('')} (${S.cnt}). Here ${flipsText(from)}: bit 0 flips on every tick, and each higher bit flips only when all the bits below it were 1.` + (from === 15 ? ' After 15 the 4 bits run out, so the counter wraps around to 0.' : '');
+  $('cntNote').textContent = msg; if (R) R.cntTick(); return msg;
+}
+
+// ---------- narrated steps per tab ----------
+const ui = narratorUI(document.querySelector('.card3d')); const narr = Narrator(ui);
+function timingSteps(){
+  const steps = [{text:'<b>Before we start.</b> The clock repeats 0, 0, 1, 1. Amber markers show its rising edges (slots 2, 6, 10, and 14). Press Play or Next to sweep through time and watch the two Q lanes fill in.', show:a => { S.cur = -1; renderTiming(); if (R) R.reveal(-1, a); }, dur:3}];
+  for (let t = 0; t < N; t++) steps.push({text:explainSlot(t), show:a => { S.cur = t; renderTiming(); if (R) R.reveal(t, a); }, dur:isEdge(t) ? 2.8 : 1.8});
+  steps.push({text:'<b>Summary.</b> The latch is level-sensitive: it follows D the whole time CLK = 1. The flip-flop is edge-triggered: it changes only at a rising edge, using the value D had just before it. That is why CPUs build registers from flip-flops.', show:a => { S.cur = -1; renderTiming(); if (R) R.reveal(-1, a); }, dur:3});
+  return steps;
+}
+function regSteps(){
+  const set = (d, le, q) => a => { S.regD = d; S.le = le; if (q) S.regQ = q; renderReg(); if (R) R.regView(a); };
+  return [
+    {text:'<b>Start.</b> The register holds Q = 0000. The D inputs show 1011 and load enable LE = 1.', show:set([1,0,1,1], 1, [0,0,0,0]), dur:2.6},
+    {text:'<b>Clock tick with LE = 1.</b> All four flip-flops sample D at the same rising edge, so Q becomes 1011 in one step.', show:a => { S.regD = [1,0,1,1]; S.le = 1; S.regQ = [0,0,0,0]; renderReg(); doRegTick(); }, dur:2.8},
+    {text:'<b>New data, LE = 0.</b> D changes to 0110, but load enable is now 0. Nothing happens yet: flip-flops only act on a clock edge.', show:set([0,1,1,0], 0, [1,0,1,1]), dur:2.8},
+    {text:'<b>Clock tick with LE = 0.</b> The register ignores D and keeps 1011. Load enable lets the CPU choose which registers change on a given tick.', show:a => { S.regD = [0,1,1,0]; S.le = 0; S.regQ = [1,0,1,1]; renderReg(); doRegTick(); }, dur:2.8},
+    {text:'<b>LE back to 1, tick again.</b> Now the register loads 0110. This is the same pattern you will build from D flip-flops in Assignment 4.1.', show:a => { S.regD = [0,1,1,0]; S.le = 1; S.regQ = [1,0,1,1]; renderReg(); doRegTick(); }, dur:2.8}
+  ];
+}
+function cntSteps(){
+  const steps = [{text:'<b>Start.</b> The counter is reset to 0000. Each step below is one clock tick.', show:a => { S.cnt = 0; renderCnt(); if (R) R.cntView(a); $('cntNote').textContent = 'Reset: Q = 0000.'; }, dur:2}];
+  for (let k = 1; k <= 16; k++) steps.push({text:'', show:a => { S.cnt = k - 1; doCntTick(); }, dur:1.4});
+  steps.forEach((s, k) => { if (k > 0){ const from = k - 1; s.text = `<b>Tick ${k}.</b> ${toBits(from).join('')} (${from}) becomes ${toBits(counterStep(from)).join('')} (${counterStep(from)}): ${flipsText(from)}.`; } });
+  return steps;
+}
+const HELP = {timing:'Drag to orbit, pinch or scroll to zoom. Tap a D slab to flip it. The amber band is the current moment in time.', register:'Tap a D pin or the LE block to change it, then press Clock tick below. Four bit cells share one clock.', counter:'Press Clock tick or Run 16 ticks below and watch which bit cells flip.'};
+function setTab(tab, animate){
+  S.tab = tab;
+  document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+  ['timing', 'register', 'counter'].forEach(k => $('panel-' + k).hidden = k !== tab);
+  if (st) $('stageHelp').textContent = HELP[tab];
+  if (R) R.show(tab, animate);
+  narr.load(tab === 'timing' ? timingSteps() : tab === 'register' ? regSteps() : cntSteps(), false);
+  if (tab !== 'timing'){ ui.caption.innerHTML = tab === 'register' ? '<b>Register.</b> Press Play for a guided demo, or use the controls below.' : '<b>Counter.</b> Press Play to tick through all 16 values, or use the controls below.'; }
+}
+function onPick(p){
+  if (p.kind === 'd'){ flipD(p.t); }
+  else if (p.kind === 'regD'){ S.regD[p.i] ^= 1; renderReg(); if (R) R.regView(true); }
+  else if (p.kind === 'le'){ S.le ^= 1; renderReg(); if (R) R.regView(true); }
+}
+function flipD(t){
+  S.d[t] ^= 1; note = `You set D at slot ${t} to ${S.d[t]}. ` + (CLK[t] ? 'CLK is 1 there, so the latch will copy it.' : 'CLK is 0 there, so the latch ignores it.') + (isEdge(t + 1) ? ' This slot is right before a rising edge, so the flip-flop samples it.' : ' The flip-flop only samples the slot right before a rising edge (1, 5, 9, 13).');
+  if (R) R.buildRibbon(); renderTiming(); narr.load(timingSteps(), false);
+}
+document.addEventListener('click', e => {
+  const tb = e.target.closest('[data-tab]'); if (tb){ setTab(tb.dataset.tab, true); return; }
+  const ds = e.target.closest('[data-slot]'); if (ds){ flipD(+ds.dataset.slot); return; }
+  const pr = e.target.closest('[data-preset]'); if (pr){ const P = PRESETS[pr.dataset.preset]; S.d = P.d.slice(); note = P.note; S.cur = -1; if (R) R.buildRibbon(); renderTiming(); narr.load(timingSteps(), false); return; }
+  const rd = e.target.closest('[data-regd]'); if (rd){ S.regD[+rd.dataset.regd] ^= 1; renderReg(); if (R) R.regView(true); return; }
+});
+$('tsvg').addEventListener('keydown', e => { const ds = e.target.closest('[data-slot]'); if (ds && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); const t = +ds.dataset.slot; flipD(t); const again = document.querySelector(`[data-slot="${t}"]`); if (again) again.focus(); } });
+$('regLE').addEventListener('click', () => { S.le ^= 1; renderReg(); if (R) R.regView(true); });
+$('regTick').addEventListener('click', () => { narr.stop(); ui.caption.innerHTML = doRegTick(); });
+$('regClear').addEventListener('click', () => { S.regQ = [0,0,0,0]; renderReg(); if (R) R.regView(true); $('regNote').textContent = 'Q cleared to 0000.'; });
+$('cntTick').addEventListener('click', () => { narr.stop(); ui.caption.innerHTML = doCntTick(); });
+$('cntReset').addEventListener('click', () => { narr.stop(); S.cnt = 0; renderCnt(); if (R) R.cntView(true); $('cntNote').textContent = 'Reset forces every bit to 0, whatever the count was.'; });
+$('cntRun').addEventListener('click', () => { narr.load(cntSteps(), false); narr.play(); });
+
+// ---------- self-check ----------
+const QUIZ = [
+  {q:'A gated D latch has CLK = 1. D changes from 0 to 1. What does Q do?', o:['Q changes to 1 right away','Q waits for the next rising edge','Q stays 0 until CLK falls','Q becomes undefined'], a:0, why:'While CLK = 1 the latch is transparent: Q follows D immediately.'},
+  {q:'When can an edge-triggered D flip-flop change its output?', o:['Any time CLK = 1','Only at a rising clock edge','Any time D changes','Only when CLK = 0'], a:1, why:'It samples D at the rising edge and holds that value until the next rising edge.'},
+  {q:'D has a short glitch while CLK = 1 and is back to normal before the next edge. Which element stores the glitch?', o:['Only the flip-flop','Only the latch','Both','Neither'], a:1, why:'The open latch copies the glitch. The flip-flop only looks at D right before a rising edge, when the glitch is already gone.'},
+  {q:'A 4-bit register has LE = 0 and D = 1111. Q is 0101. What is Q after one clock tick?', o:['1111','0101','0000','1010'], a:1, why:'With load enable off, the register ignores D and keeps its value.'},
+  {q:'A 4-bit counter shows 0111 (7). Which bits flip on the next tick?', o:['Only bit 0','Bits 0 and 1','All four bits','Only bit 3'], a:2, why:'0111 + 1 = 1000. Bits 0, 1, and 2 were all 1, so bits 0 to 3 all flip.'},
+  {q:'A 4-bit counter shows 1111. What does it show after one more tick?', o:['10000','1111','0000','1110'], a:2, why:'Four bits cannot hold 16, so the counter wraps around to 0000.'}
+];
+let answered = 0, correct = 0;
+$('quiz').innerHTML = QUIZ.map((x, i) => `<div class="q"><p>${i + 1}. ${x.q}</p><div class="opts">${x.o.map((o, j) => `<button class="btn opt" data-q="${i}" data-o="${j}">${o}</button>`).join('')}</div><div class="feedback" id="qf${i}" hidden></div></div>`).join('');
+$('quiz').addEventListener('click', e => {
+  const b = e.target.closest('button[data-q]'); if (!b) return;
+  const i = +b.dataset.q, j = +b.dataset.o, x = QUIZ[i], box = b.closest('.q');
+  if (box.dataset.done) return; box.dataset.done = '1';
+  box.querySelectorAll('button').forEach((bt, k) => { bt.disabled = true; if (k === x.a) bt.classList.add('right'); });
+  if (j !== x.a) b.classList.add('wrong'); else correct++;
+  answered++;
+  const f = $('qf' + i); f.hidden = false; f.className = 'feedback ' + (j === x.a ? 'ok' : 'bad'); f.textContent = (j === x.a ? 'Correct. ' : 'Not quite. ') + x.why;
+  if (answered === QUIZ.length){ $('quizScore').hidden = false; $('quizBig').textContent = correct + ' / ' + QUIZ.length; }
+});
+if (R){ R.buildRibbon(); R.regView(false); R.cntView(false); }
+renderTiming(); renderReg(); renderCnt();
+$('regNote').textContent = 'Set D and LE, then press Clock tick.'; $('cntNote').textContent = 'Press Clock tick to count up by one.';
+setTab('timing', false);
+
+</script>
+</body>
+</html>
