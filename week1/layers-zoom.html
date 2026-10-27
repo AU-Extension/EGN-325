@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Computer layers zoom</title>
+<meta name="description" content="EGN 325 Week 1 interactive: Pick an everyday action and zoom from the app all the way down to transistors switching, one layer of the computer at a time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .grid>*{min-width:0}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+  .actions .btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .zoom{display:grid;gap:16px}
+  @media(min-width:900px){.zoom{grid-template-columns:300px 1fr}}
+  .ladder{display:flex;flex-direction:column;gap:6px}
+  .rung{display:flex;align-items:center;gap:10px;text-align:left;width:100%;font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;transition:transform .15s,background .15s,border-color .15s}
+  .rung .num{flex:none;width:26px;height:26px;border-radius:50%;background:#EEF1F5;color:var(--ink-2);font-weight:700;font-size:13px;display:grid;place-items:center}
+  .rung .nm{font-weight:600}
+  .rung .wk{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+  .rung[aria-current="true"]{background:var(--au-red-soft);border-color:var(--au-red)}
+  .rung[aria-current="true"] .num{background:var(--au-red);color:#fff}
+  .rung:hover{border-color:#C9CED6}
+  .depth{height:8px;border-radius:99px;background:#EEF1F5;overflow:hidden;margin:4px 0 12px}
+  .depth > i{display:block;height:100%;background:linear-gradient(90deg,var(--net-blue),var(--au-red));width:16%;transition:width .35s}
+  .view h3{font-size:18px;margin:0 0 4px}
+  .view .sub{color:var(--muted);font-size:14px;margin:0 0 12px}
+  .view .cli{margin:10px 0;white-space:pre-wrap}
+  .note{background:#F5F6F8;border-left:4px solid var(--net-blue);border-radius:8px;padding:10px 12px;font-size:14px;margin-top:12px}
+  .navrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .gates svg{width:100%;height:auto;max-width:520px;display:block}
+  .quiz-q{border-top:1px solid var(--line);padding:12px 0}
+  .quiz-q p{margin:0 0 8px;font-weight:500}
+  .opts{display:flex;flex-wrap:wrap;gap:6px}
+  .opts .btn{font-weight:500}
+  .opts .btn.right{background:var(--ok-soft);border-color:#BBE5C8;color:#14532D}
+  .opts .btn.wrong{background:var(--bad-soft);border-color:#F5C2C2;color:#7F1D1D}
+
+  .stagewrap{display:grid;gap:14px}
+  #stage.stage3d{max-height:min(560px,75vh)}
+  .hint3d{font-size:13px;color:var(--muted);margin:8px 0 0}
+  .fallback2d{position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;padding:8px}
+  .fallback2d svg{width:100%;height:100%}
+
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 1 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 1 · Explorer</span>
+    <h1>Computer layers zoom</h1>
+    <p class="lede">Pick an everyday action and zoom from the app all the way down to transistors switching, one layer of the computer at a time.</p>
+  </section>
+
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Choose an everyday action at the top, such as adding two numbers in a spreadsheet.</li>
+      <li>Press Play to follow that action from the app down to the transistors, or use Step forward and Step back to go at your own pace.</li>
+      <li>Orbit the 3D stack and click any layer, or use the ladder in part 2, to jump to a layer.</li>
+      <li>Read what the same action looks like at that layer and which week of the course covers it.</li>
+      <li>Try every action, then answer the six "Which layer?" questions at the bottom.</li>
+    </ol>
+  </details>
+
+  <section class="card" aria-labelledby="pick">
+    <h2 id="pick">1. Pick an everyday action and follow it down</h2>
+    <div class="actions" id="actions" role="group" aria-label="Everyday actions"></div>
+    <div class="stage3d" id="stage" aria-label="3D stack of the six layers of a computer"></div>
+    <p class="hint3d">Drag to orbit, scroll or pinch to zoom, click a layer to select it. The yellow ball is your request traveling down the stack.</p>
+    <div id="player" style="margin-top:12px"></div>
+  </section>
+
+  <section class="card" style="margin-top:16px" aria-labelledby="lad">
+    <h2 id="lad">2. Read each layer</h2>
+    <div class="zoom">
+      <div>
+        <div class="depth" aria-hidden="true"><i id="depthbar"></i></div>
+        <div class="ladder" id="ladder" role="list"></div>
+        <p style="font-size:13px;color:var(--muted);margin:10px 0 0">Top: what you see. Bottom: what physically happens.</p>
+      </div>
+      <div class="view card" id="view" aria-live="polite" style="box-shadow:none"></div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px" aria-labelledby="qz">
+    <h2 id="qz">3. Which layer?</h2>
+    <p style="margin:0 0 6px;color:var(--ink-2)">Each sentence describes something happening at one layer. Pick the layer.</p>
+    <div id="quiz"></div>
+    <div class="score" id="qscore" style="margin-top:10px"></div>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script>
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---------------- page logic ---------------- */
+
+const LAYERS = [
+  {k:'app', name:'Application', week:'Weeks 1 and 6'},
+  {k:'os', name:'Operating system', week:'Week 1'},
+  {k:'isa', name:'Instruction set', week:'Week 6'},
+  {k:'micro', name:'Microarchitecture', week:'Weeks 5, 7, 8'},
+  {k:'logic', name:'Digital logic', week:'Weeks 3 and 4'},
+  {k:'trans', name:'Transistors', week:'Week 3'}
+];
+const ACTIONS = {
+  sheet: {label:'Add two numbers in a spreadsheet',
+    app:{t:'You type =A1+B1 in a cell', d:'The spreadsheet reads the formula, finds the values in A1 and B1 (say 7 and 5), and asks for their sum. You only see the answer, 12.', code:'Cell C1:  =A1+B1\nA1 = 7   B1 = 5   ->  C1 shows 12'},
+    os:{t:'The operating system keeps the app running', d:'The spreadsheet is a process. The operating system gives it time on a processor core and memory to hold the workbook. When you type, it delivers the keystrokes to the app.', code:'Process: spreadsheet.exe\nCore 2 assigned for the next few milliseconds\nMemory pages for the workbook loaded in RAM'},
+    isa:{t:'The sum becomes one add instruction', d:'Deep inside the app, the addition is a single machine instruction. In RISC-V, the instruction set you will use in Week 6, it looks like this:', code:'lw   t0, 0(a0)    # load A1 (7) into register t0\nlw   t1, 4(a0)    # load B1 (5) into register t1\nadd  t2, t0, t1   # t2 = 7 + 5 = 12\nsw   t2, 8(a0)    # store 12 for cell C1'},
+    micro:{t:'Registers and the ALU do the work', d:'The processor reads two registers, sends both values to the arithmetic logic unit (ALU), and writes the result back into a register on the next tick of the clock.', code:'Register t0 = 0111 (7)\nRegister t1 = 0101 (5)\nALU operation: ADD\nResult written to t2 = 1100 (12)'},
+    logic:{t:'A chain of full adders adds the bits', d:'The ALU adds with full adder circuits, one per bit. Each one adds two bits plus a carry from the bit to its right. You will build exactly this in Logisim-evolution in Week 3.', code:'   carry  1 1 1\n          0 1 1 1   (7)\n        + 0 1 0 1   (5)\n        ---------\n          1 1 0 0   (12)', gates:true},
+    trans:{t:'Transistors switch on and off', d:'Every gate in those adders is built from a few transistors acting as tiny switches. A modern processor has billions of them, switching billions of times per second. A 1 is a higher voltage, a 0 is a lower voltage.', code:'NAND gate = 4 transistors\nOne full adder = about 28 transistors\nA simple 64-bit adder = about 1,800 transistors'}
+  },
+  photo: {label:'Send a photo in a chat app',
+    app:{t:'You tap Send', d:'The chat app shrinks the photo so it travels faster (compression), adds your contact as the receiver, and hands the data to the phone to send.', code:'photo.jpg  4.1 MB  ->  compressed to 380 KB\nSend to: Maria (Hialeah)'},
+    os:{t:'The operating system talks to the network', d:'The app cannot touch the Wi-Fi hardware itself. It asks the operating system through a system call, and the operating system passes the data to the network driver.', code:'App -> system call: send(socket, data, 380 KB)\nOS -> Wi-Fi driver -> radio'},
+    isa:{t:'Compression is millions of simple instructions', d:'Shrinking the photo means running loops over the pixels. Each step of each loop is a simple instruction: load a value, multiply, add, store, branch back.', code:'loop:\n  lw   t0, 0(a1)     # load a pixel value\n  mul  t1, t0, t2    # scale it\n  add  t3, t3, t1    # add to a running total\n  addi a1, a1, 4     # move to the next pixel\n  bne  a1, a2, loop  # repeat until done'},
+    micro:{t:'Cache and pipeline keep the data flowing', d:'Pixels come from memory into the cache, a small fast memory next to the core. The core works on several instructions at once in a pipeline, so the loop runs fast. You will see both ideas in Weeks 7 and 8.', code:'Pixel data: RAM -> L2 cache -> L1 cache -> registers\nPipeline: fetch | decode | execute | memory | write back'},
+    logic:{t:'Multiplexers choose which data moves', d:'Inside the core, multiplexers act like railroad switches: control signals decide which register value goes to the ALU and where the result goes.', code:'MUX select = 1  ->  pass the pixel value\nMUX select = 0  ->  pass the running total'},
+    trans:{t:'Transistors and radio waves', d:'The same tiny switches flip to run every gate. At the very end, other transistors in the Wi-Fi chip turn the bits into radio waves.', code:'Bits 1 0 1 1 ...  ->  voltage levels  ->  radio signal'}
+  },
+  game: {label:'Press a key in a game',
+    app:{t:'Your character jumps', d:'The game checks the keyboard many times per second. When it sees the space bar pressed, it starts the jump animation.', code:'if key_pressed("SPACE"):\n    player.jump()'},
+    os:{t:'An interrupt reports the key', d:'The keyboard sends a signal called an interrupt. The operating system pauses briefly, its keyboard driver reads which key it was, and it delivers a "key down" event to the game.', code:'Interrupt from keyboard\nDriver: scan code 0x39 = SPACE\nEvent delivered to game.exe'},
+    isa:{t:'A compare and a branch decide', d:'The if statement becomes a load, a compare, and a branch: if the key is not pressed, jump over the jump code.', code:'lw   t0, 0(a0)      # load the key state\nli   t1, 1\nbne  t0, t1, skip   # not pressed? skip\njal  ra, jump       # call the jump routine\nskip:'},
+    micro:{t:'The program counter changes', d:'The program counter (PC) holds the address of the next instruction. A taken branch loads a new address into the PC, so the processor continues somewhere else in the program.', code:'PC = 0x1008  bne taken?  no\nPC = 0x100C  jal jump    ->  PC = 0x2040'},
+    logic:{t:'A comparator compares the bits', d:'To decide the branch, a comparator circuit checks whether two values are equal. Equal bits give 0 through XOR gates, and the results are combined.', code:'t0 = 0001\nt1 = 0001\nXOR bit by bit = 0000  ->  equal'},
+    trans:{t:'Switches flip in under a nanosecond', d:'The whole chain, from key press to the new PC value, is transistors switching. Each switch takes far less than a billionth of a second.', code:'Clock 4 GHz  ->  one tick every 0.25 nanoseconds'}
+  }
+};
+let action = 'sheet', layer = 0;
+let selected = -1;
+const $ = s => document.querySelector(s);
+
+function renderActions(){
+  const box = $('#actions'); box.innerHTML = '';
+  Object.entries(ACTIONS).forEach(([k,a]) => {
+    const b = document.createElement('button');
+    b.className = 'btn'; b.textContent = a.label; b.setAttribute('aria-pressed', k===action);
+    b.onclick = () => { action = k; renderActions(); player.reset(journeySteps()); setLayer(0, true); };
+    box.appendChild(b);
+  });
+}
+function gatesSVG(){
+  // 4-bit ripple-carry adder for 7 + 5, bit 3 on the left, bit 0 on the right
+  const A=[0,1,1,1], B=[0,1,0,1]; let c=0; const S=[], C=[];
+  for (let i=3;i>=0;i--){ const t=A[i]+B[i]+c; S[i]=t%2; c=t>>1; C[i]=c; }
+  let g='';
+  for (let i=0;i<4;i++){
+    const x=40+i*115;
+    g+='<text x="'+(x+18)+'" y="22" font-size="13" fill="#2563EB">A='+A[i]+'</text><text x="'+(x+58)+'" y="22" font-size="13" fill="#7C3AED">B='+B[i]+'</text>';
+    g+='<path d="M'+(x+30)+' 28 V52 M'+(x+70)+' 28 V52" stroke="#3B4250" stroke-width="2"/>';
+    g+='<rect x="'+x+'" y="52" width="100" height="56" rx="8" fill="#fff" stroke="#16181D" stroke-width="2"/>';
+    g+='<text x="'+(x+50)+'" y="85" font-size="13" text-anchor="middle" fill="#16181D">Full adder</text>';
+    g+='<path d="M'+(x+50)+' 108 V132" stroke="#E1141E" stroke-width="2"/><text x="'+(x+50)+'" y="150" font-size="14" font-weight="700" text-anchor="middle" fill="#A3282B">'+S[i]+'</text>';
+    if (i>0) g+='<path d="M'+x+' 80 H'+(x-15)+'" stroke="#B45309" stroke-width="2"/><text x="'+(x-8)+'" y="72" font-size="11" text-anchor="middle" fill="#B45309">'+C[i]+'</text>';
+  }
+  g+='<text x="40" y="178" font-size="12" fill="#6B7280">Each box adds two bits and a carry (orange) from the box to its right. Result: 1100 = 12.</text>';
+  return '<div class="gates" aria-label="Four full adders in a chain adding 0111 and 0101 to give 1100"><svg viewBox="0 0 500 190" role="img">'+g+'</svg></div>';
+}
+function render(){
+  const lad = $('#ladder'); lad.innerHTML = '';
+  LAYERS.forEach((L,i) => {
+    const b = document.createElement('button');
+    b.className = 'rung'; b.setAttribute('role','listitem');
+    if (i===selected) b.setAttribute('aria-current','true');
+    b.innerHTML = '<span class="num">'+(i+1)+'</span><span class="nm">'+L.name+'</span><span class="wk">'+L.week+'</span>';
+    b.onclick = () => setLayer(i, true);
+    lad.appendChild(b);
+  });
+  $('#depthbar').style.width = (selected<0 ? 0 : (layer+1)/LAYERS.length*100)+'%';
+  const L = LAYERS[layer], v = ACTIONS[action][L.k];
+  const view = $('#view');
+  view.innerHTML = '<h3>'+L.name+': '+v.t+'</h3><p class="sub">Layer '+(layer+1)+' of 6 · Covered in '+L.week+'</p>'+
+    '<p style="margin:0">'+v.d+'</p><div class="cli">'+v.code.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>'+
+    (v.gates ? gatesSVG() : '')+
+    (layer===5 ? '<div class="note">That is the whole journey. Every action you take on a computer ends up here, which is why architects think in layers: each layer hides the details of the one below it.</div>' : '')+
+    '<div class="navrow"><button class="btn" id="up" '+(layer===0?'disabled':'')+'>Zoom out</button><button class="btn primary" id="down" '+(layer===5?'disabled':'')+'>Zoom in one layer</button></div>';
+  $('#up').onclick = () => { if(layer>0) setLayer(layer-1, true); };
+  $('#down').onclick = () => { if(layer<5) setLayer(layer+1, true); };
+  if (hasGSAP) gsap.from(view, {opacity:0, y:8, duration:.25});
+}
+const QUIZ = [
+  {q:'A NAND gate made of four tiny switches changes its output from 1 to 0.', a:5, why:'Tiny switches are transistors, the bottom layer. The gate itself is digital logic, but the switching is physical.'},
+  {q:'The program counter is loaded with a new address after a branch.', a:3, why:'The program counter is a register inside the processor, so this is the microarchitecture layer.'},
+  {q:'A chat app asks to send data, and the request is passed to the Wi-Fi driver.', a:1, why:'Apps cannot touch hardware directly. The operating system and its drivers do that for them.'},
+  {q:'add t2, t0, t1', a:2, why:'This is one RISC-V machine instruction. Instructions are the contract between software and hardware: the instruction set layer.'},
+  {q:'Two full adders pass a carry bit from one to the next.', a:4, why:'Full adders are circuits made of logic gates, the digital logic layer you build in Logisim-evolution.'},
+  {q:'You type a formula into a cell and see the result.', a:0, why:'This is what the user sees and does: the application layer.'}
+];
+let qDone = {};
+function renderQuiz(){
+  const box = $('#quiz'); box.innerHTML = '';
+  QUIZ.forEach((item,qi) => {
+    const d = document.createElement('div'); d.className = 'quiz-q';
+    d.innerHTML = '<p>'+(qi+1)+'. '+item.q.replace(/</g,'&lt;')+'</p>';
+    const o = document.createElement('div'); o.className = 'opts';
+    LAYERS.forEach((L,li) => {
+      const b = document.createElement('button'); b.className = 'btn'; b.textContent = L.name;
+      if (qDone[qi] !== undefined){
+        b.disabled = true;
+        if (li===item.a) b.classList.add('right');
+        else if (li===qDone[qi]) b.classList.add('wrong');
+      }
+      b.onclick = () => { qDone[qi] = li; renderQuiz(); };
+      o.appendChild(b);
+    });
+    if (qDone[qi] !== undefined){ const f = document.createElement('div'); f.className = 'feedback '+(qDone[qi]===item.a?'ok':'bad'); f.style.marginTop = '8px'; f.textContent = (qDone[qi]===item.a ? 'Correct. ' : 'Not quite: the answer is '+LAYERS[item.a].name+'. ')+item.why; d.appendChild(o); d.appendChild(f); box.appendChild(d); return; }
+    d.appendChild(o); box.appendChild(d);
+  });
+  const n = Object.keys(qDone).length, right = Object.entries(qDone).filter(([qi,li]) => QUIZ[qi].a===li).length;
+  $('#qscore').innerHTML = n ? '<span>Score</span><span class="big">'+right+' / '+QUIZ.length+'</span>'+(n===QUIZ.length?'<button class="btn" id="qreset">Try again</button>':'') : '';
+  const r = document.getElementById('qreset'); if (r) r.onclick = () => { qDone = {}; renderQuiz(); };
+}
+
+/* Step player: Play / Pause / Step back / Step forward with a narrated caption. GSAP drives autoplay when present. */
+function makePlayer(root, steps, apply){
+  root.innerHTML = '<div class="stepper"><button class="btn" data-a="back">Step back</button><button class="btn primary" data-a="play">Play</button><button class="btn" data-a="next">Step forward</button><span class="pill" data-a="count"></span></div><div class="caption" aria-live="polite"></div>';
+  let i = -1, timer = null;
+  const cap = root.querySelector('.caption'), cnt = root.querySelector('[data-a=count]'), play = root.querySelector('[data-a=play]');
+  function go(k){ if (!steps.length) return; i = Math.max(0, Math.min(steps.length-1, k)); cap.innerHTML = steps[i].text; cnt.textContent = 'Step '+(i+1)+' of '+steps.length; apply(i, steps[i]); }
+  function stop(){ if (timer){ hasGSAP ? timer.kill() : clearTimeout(timer); timer = null; } play.textContent = 'Play'; }
+  function tick(){ if (i >= steps.length-1){ stop(); return; } go(i+1); timer = hasGSAP ? gsap.delayedCall(3.4, tick) : setTimeout(tick, 3400); }
+  play.onclick = () => { if (timer){ stop(); return; } if (i >= steps.length-1) i = -1; play.textContent = 'Pause'; tick(); };
+  root.querySelector('[data-a=next]').onclick = () => { stop(); go(i+1); };
+  root.querySelector('[data-a=back]').onclick = () => { stop(); go(i-1); };
+  const api = { go, stop, get index(){ return i; }, reset(ns, intro){ stop(); steps = ns; i = -1; cap.innerHTML = intro || 'Press Play, or Step forward to go one step at a time.'; cnt.textContent = 'Step 0 of '+steps.length; } };
+  api.reset(steps);
+  return api;
+}
+/* Tween helper: animate with GSAP when available, otherwise jump to the end state. */
+function tw(target, vars){ if (hasGSAP) return gsap.to(target, Object.assign({duration:.6, ease:'power2.out'}, vars)); Object.keys(vars).forEach(k => { if (!['duration','ease','delay','onComplete','overwrite'].includes(k)) target[k] = vars[k]; }); if (vars.onComplete) vars.onComplete(); }
+/* Keep a set of points in view: move the camera along its current direction so the given width fits. */
+function fitCamera(st, width, height, center){
+  const cam = st.camera, el = st.renderer.domElement.parentElement;
+  const aspect = (el.clientWidth || 1) / (el.clientHeight || 1);
+  const vfov = cam.fov * Math.PI / 180, need = Math.max(height / 2 / Math.tan(vfov/2), width / 2 / (Math.tan(vfov/2) * aspect)) * 1.18;
+  const c = new THREE.Vector3(...(center || [0,0,0]));
+  const dir = cam.position.clone().sub(st.controls ? st.controls.target : c).normalize();
+  return { pos: c.clone().add(dir.multiplyScalar(need + 1)), target: c };
+}
+function moveCamera(st, pos, target, dur){
+  if (st.controls){ tw(st.controls.target, {x:target.x, y:target.y, z:target.z, duration:dur||.9}); }
+  tw(st.camera.position, {x:pos.x, y:pos.y, z:pos.z, duration:dur||.9});
+}
+/* Click picking for 3D meshes. */
+function onPick(st, meshes, fn){
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement;
+  let down = null;
+  el.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  el.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX-down[0], e.clientY-down[1]) > 6) return;   // ignore drags (orbiting)
+    const r = el.getBoundingClientRect();
+    m.x = (e.clientX - r.left) / r.width * 2 - 1; m.y = -(e.clientY - r.top) / r.height * 2 + 1;
+    ray.setFromCamera(m, st.camera);
+    const hit = ray.intersectObjects(meshes(), false)[0];
+    if (hit) fn(hit.object);
+  });
+}
+
+// ---------- 3D stack of layers ----------
+const LCOL = [0xE1141E, 0xF59E0B, 0x10B981, 0x2563EB, 0x7C3AED, 0x475569];
+const LHEX = ['#E1141E','#F59E0B','#10B981','#2563EB','#7C3AED','#475569'];
+const GAP = 1.3;
+function layerY(i){ return (2.5 - i) * GAP; }
+const st = make3D(document.getElementById('stage'), {camera:[7.5, 5.5, 10], target:[0, 0, 0]});
+const slabs = [], groups = [], pickables = [], blinkers = [];
+let packet = null;
+function mat(color, extra){ return new THREE.MeshStandardMaterial(Object.assign({color, roughness:.55, metalness:.1, transparent:true, opacity:1}, extra || {})); }
+function addBox(g, w, h, d, x, y, z, color, li){ const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color)); m.position.set(x, y, z); m.userData.layer = li; g.add(m); pickables.push(m); return m; }
+if (st){
+  LAYERS.forEach((L, i) => {
+    const g = new THREE.Group(); g.position.y = layerY(i); st.scene.add(g); groups.push(g);
+    const slab = addBox(g, 6.4, .28, 4, 0, 0, 0, LCOL[i], i); slabs.push(slab);
+    const top = .14;
+    if (i === 0){ // a window with spreadsheet cells
+      addBox(g, 4.2, .06, 2.8, 0, top+.03, 0, 0xF8FAFC, i);
+      for (let r=0;r<3;r++) for (let c=0;c<3;c++){ const hot = (r===0 && c===2); addBox(g, 1.1, hot?.22:.1, .62, -1.3+c*1.3, top+.1, -0.8+r*.8, hot ? 0xFDE68A : 0xE2E8F0, i); }
+    } else if (i === 1){ // processes and the kernel
+      [[-2,0.5],[-0.7,.9],[0.6,.6],[1.9,.4]].forEach(([x,h],k) => addBox(g, .9, h, .9, x, top+h/2, -.6, k===1 ? 0xFFFFFF : 0xFCD34D, i));
+      addBox(g, 5, .14, .8, 0, top+.07, 1.1, 0x92400E, i);
+    } else if (i === 2){ // instructions as a stack of bars
+      for (let k=0;k<4;k++) addBox(g, 4.4 - (k===2?0:.6), .12, .45, 0, top+.06, -1.2+k*.75, k===2 ? 0xFFFFFF : 0xA7F3D0, i);
+    } else if (i === 3){ // registers, ALU, result
+      addBox(g, 1.1, .5, .8, -2, top+.25, -.8, 0xBFDBFE, i); addBox(g, 1.1, .5, .8, -2, top+.25, .8, 0xBFDBFE, i);
+      addBox(g, 1.4, .7, 1.8, 0, top+.35, 0, 0xFFFFFF, i);
+      addBox(g, 1.1, .5, .8, 2.1, top+.25, 0, 0x93C5FD, i);
+      addBox(g, 1, .05, .12, -1, top+.03, -.5, 0x1E3A8A, i); addBox(g, 1, .05, .12, -1, top+.03, .5, 0x1E3A8A, i); addBox(g, .9, .05, .12, 1.15, top+.03, 0, 0x1E3A8A, i);
+    } else if (i === 4){ // four full adders in a chain
+      for (let k=0;k<4;k++){ addBox(g, .95, .5, 1.2, -2.1+k*1.4, top+.25, 0, 0xEDE9FE, i); if (k<3) addBox(g, .45, .06, .1, -1.4+k*1.4, top+.3, 0, 0xF59E0B, i); }
+    } else { // transistors that blink
+      for (let r=0;r<4;r++) for (let c=0;c<8;c++){
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .3, 12), mat(0xCBD5E1, {emissive:0x000000}));
+        m.position.set(-2.45+c*.7, top+.15, -1.2+r*.8); m.userData.layer = i; m.userData.k = r*8+c; g.add(m); pickables.push(m); blinkers.push(m);
+      }
+    }
+    const a = new THREE.Object3D(); a.position.set(3.6, .35, 1.6); g.add(a); st.label(a, (i+1)+'. '+L.name);
+  });
+  // brackets: software above, inside the chip below
+  const box = (h, cy, color, text, lx) => {
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(7.2, h, 4.6)), new THREE.LineBasicMaterial({color, transparent:true, opacity:.7}));
+    e.position.y = cy; st.scene.add(e); const a = new THREE.Object3D(); a.position.set(lx, cy + h/2 + .05, 2.3); st.scene.add(a); st.label(a, text);
+  };
+  box(GAP*2 + 1, layerY(1), 0xFCA5A5, 'Software', -2.6);
+  box(GAP*2 + 1, layerY(4), 0x93C5FD, 'Hardware: inside the processor chip', -1.2);
+  packet = new THREE.Mesh(new THREE.SphereGeometry(.22, 20, 16), new THREE.MeshStandardMaterial({color:0xFDE047, emissive:0xF59E0B, emissiveIntensity:.9}));
+  packet.position.set(0, layerY(0) + .9, 0); packet.visible = false; st.scene.add(packet);
+  st.onFrame(t => {
+    blinkers.forEach(m => { const on = Math.sin(t*.006 + m.userData.k*1.7) > 0.2; const s = selected === 5 ? 1 : .35;
+      m.material.emissive.setRGB(on ? .95*s : 0, on ? .7*s : 0, on ? .1*s : 0); });
+  });
+  onPick(st, () => pickables, o => { setLayer(o.userData.layer, true); });
+} else {
+  const fb = document.createElement('div'); fb.className = 'fallback2d';
+  fb.innerHTML = '<svg viewBox="0 0 560 330" id="fbsvg" role="img" aria-label="The six layers of a computer as a stack. Click a layer to select it."></svg>';
+  document.getElementById('stage').appendChild(fb);
+}
+function fitStack(){ if (!st) return; const f = fitCamera(st, 10.5, GAP*6 + 2.5, [0.3, 0, 0]); moveCamera(st, f.pos, f.target); }
+function update3D(prev){
+  if (st){
+    groups.forEach((g, i) => {
+      const on = selected < 0 || i === selected;
+      g.traverse(o => { if (o.material) tw(o.material, {opacity: on ? 1 : .18, duration:.45}); });
+      tw(g.position, {z: (selected >= 0 && i === selected) ? .8 : 0, duration:.5});
+      slabs[i].material.emissive && slabs[i].material.emissive.setHex(i === selected ? 0x220000 : 0x000000);
+    });
+    if (selected < 0){ fitStack(); packet.visible = false; return; }
+    const f = fitCamera(st, 10.5, 5.5, [0.3, layerY(selected), .8]); moveCamera(st, f.pos, f.target);
+    // the request travels down from the layer above
+    packet.visible = true;
+    const fromY = (prev === undefined || prev < 0 || prev >= selected) ? layerY(selected) + 1 : layerY(prev);
+    packet.position.set(-3.6, fromY, .8);
+    if (hasGSAP) gsap.fromTo(packet.position, {y: fromY}, {y: layerY(selected) + .55, duration:.9, ease:'power2.inOut'});
+    else packet.position.y = layerY(selected) + .55;
+  } else {
+    const svg = document.getElementById('fbsvg'); if (!svg) return;
+    let s = '';
+    LAYERS.forEach((L, i) => { const y = 20 + i*50, on = selected < 0 || selected === i;
+      s += '<g data-l="'+i+'" style="cursor:pointer" opacity="'+(on?1:.3)+'"><polygon points="90,'+(y+18)+' 160,'+y+' 430,'+y+' 360,'+(y+18)+'" fill="'+LHEX[i]+'" opacity=".35"/><polygon points="90,'+(y+18)+' 360,'+(y+18)+' 360,'+(y+40)+' 90,'+(y+40)+'" fill="'+LHEX[i]+'"/>'+
+        '<text x="225" y="'+(y+34)+'" text-anchor="middle" font-size="15" font-weight="600" fill="#fff">'+(i+1)+'. '+L.name+'</text></g>'; });
+    s += '<text x="440" y="70" font-size="13" fill="#A3282B">Software</text><text x="440" y="230" font-size="13" fill="#1D4ED8">Inside the chip</text>';
+    if (selected >= 0) s += '<circle cx="70" cy="'+(20+selected*50+29)+'" r="10" fill="#F59E0B"/>';
+    svg.innerHTML = s;
+    svg.querySelectorAll('g[data-l]').forEach(g => g.onclick = () => setLayer(+g.dataset.l, true));
+  }
+}
+// ---------- journey player ----------
+function journeySteps(){
+  const A = ACTIONS[action];
+  return [{text:'<strong>The whole stack.</strong> Six layers, from what you see on the screen (top) to transistors switching (bottom). We will follow one action, "'+A.label.toLowerCase()+'", all the way down.', l:-1}]
+    .concat(LAYERS.map((L, i) => ({text:'<strong>Layer '+(i+1)+', '+L.name.toLowerCase()+'.</strong> '+A[L.k].t+'. '+A[L.k].d, l:i})));
+}
+const player = makePlayer(document.getElementById('player'), journeySteps(), (i, s) => { setLayer(s.l, false); });
+function setLayer(l, fromUser){
+  const prev = selected; selected = l;
+  if (l >= 0) layer = l;
+  if (fromUser) player.stop();
+  render(); update3D(prev);
+}
+
+renderActions(); renderQuiz(); render(); update3D();
+
+</script>
+</body>
+</html>

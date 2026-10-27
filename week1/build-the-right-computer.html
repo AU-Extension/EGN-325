@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build the right computer challenge</title>
+<meta name="description" content="EGN 325 Week 1 interactive: Match South Florida buyers to the machine that fits their work, and see in 3D which component makes the difference.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .grid>*{min-width:0}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+
+  .meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .buyer{display:flex;gap:14px;align-items:flex-start}
+  .avatar{flex:none;width:52px;height:52px;border-radius:50%;background:var(--au-red-soft);color:var(--au-red-dark);display:grid;place-items:center;font-weight:700;font-size:18px}
+  .buyer h3{margin:0 0 4px;font-size:18px}
+  .buyer p{margin:0;color:var(--ink-2)}
+  .machines{display:grid;gap:12px;margin:16px 0}
+  @media(min-width:860px){.machines{grid-template-columns:repeat(3,1fr)}}
+  .mc{display:block;text-align:left;font:inherit;background:#fff;border:2px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;width:100%;color:var(--ink)}
+  .mc:hover{border-color:#C9CED6}
+  .mc[aria-pressed="true"]{border-color:var(--au-red);background:var(--au-red-soft)}
+  .mc.best{border-color:var(--ok);background:var(--ok-soft)}
+  .mc h4{margin:0 0 8px;font-size:16px}
+  .mc dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:14px}
+  .mc dt{color:var(--muted)}
+  .mc dd{margin:0}
+  .price{font-weight:700;font-size:18px;margin-top:8px}
+  .reasonrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .reasonrow select{max-width:100%}
+  .progress{height:6px;background:#EEF1F5;border-radius:99px;overflow:hidden;flex:1;min-width:120px}
+  .progress i{display:block;height:100%;background:var(--au-red);transition:width .3s}
+
+  .stagewrap{display:grid;gap:14px}
+  #stage.stage3d{max-height:min(560px,75vh)}
+  .hint3d{font-size:13px;color:var(--muted);margin:8px 0 0}
+  .fallback2d{position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;padding:8px}
+  .fallback2d svg{width:100%;height:100%}
+
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 1 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 1 · Challenge</span>
+    <h1>Build the right computer challenge</h1>
+    <p class="lede">Match South Florida buyers to the machine that fits their work, and see in 3D which component makes the difference.</p>
+  </section>
+
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Read what the buyer does with a computer every day.</li>
+      <li>Compare the three machines on the 3D boards and the spec cards. Click a part of a board to read its spec.</li>
+      <li>Click the machine that fits that work best. The most expensive one is not always right.</li>
+      <li>Choose the component or reason that decides it (that part lights up on all three boards), then press Check.</li>
+      <li>Press Play for a step-by-step explanation of the answer.</li>
+      <li>Go to the next buyer and see your final score after ten buyers.</li>
+    </ol>
+  </details>
+
+  <section class="card" id="game">
+    <div class="meta">
+      <span class="pill" id="round">Buyer 1 of 10</span>
+      <div class="progress" aria-hidden="true"><i id="bar" style="width:0%"></i></div>
+      <span class="score"><span>Score</span><span class="big" id="pts">0</span></span>
+    </div>
+    <div class="buyer"><div class="avatar" id="av"></div><div><h3 id="who"></h3><p id="need"></p></div></div>
+    <div class="stage3d" id="stage" style="margin-top:16px" aria-label="3D circuit boards of the three machines"></div>
+    <p class="hint3d" id="partinfo"></p>
+    <p class="hint3d" style="margin-top:2px">Each blue square on a processor is one core, and it blinks faster when the clock speed is higher. Green sticks are RAM (one per 8 GB). The gold column is the price. Drag to orbit, click a board to pick it.</p>
+    <div class="machines" id="machines" role="group" aria-label="Machines"></div>
+    <div class="reasonrow">
+      <label for="reason" style="font-weight:600">The deciding factor:</label>
+      <select id="reason"><option value="">Choose a reason</option></select>
+      <button class="btn primary" id="check">Check</button>
+      <button class="btn" id="next" hidden>Next buyer</button>
+    </div>
+    <div id="fb" aria-live="polite"></div>
+    <div id="player" hidden style="margin-top:12px"></div>
+  </section>
+
+  <section class="card" id="final" hidden style="margin-top:16px">
+    <h2>Your result</h2>
+    <p class="score"><span>Final score</span><span class="big" id="finalpts"></span><span>/ 100</span></p>
+    <p id="finalmsg" style="color:var(--ink-2)"></p>
+    <button class="btn primary" id="again">Play again</button>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script>
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---------------- page logic ---------------- */
+
+const REASONS = ['More processor cores','Higher single-core speed','More RAM','Solid-state drive (SSD)','Dedicated graphics card (GPU)','Long battery life and low power use','More storage capacity','Lower price for the same job'];
+const M = (name,cpu,ram,storage,gpu,battery,weight,price) => ({name,cpu,ram,storage,gpu,battery,weight,price});
+const BUYERS = [
+ {who:'Valeria, video editor in Wynwood', need:'Edits 4K videos for local brands every day and exports several finished videos per week. Long exports cost her money.',
+  m:[M('Studio 16','12 cores, up to 5.0 GHz','32 GB','1 TB SSD','Dedicated GPU, 8 GB','6 hours','2.1 kg',1899),
+     M('Office 14','8 cores, up to 4.4 GHz','16 GB','512 GB SSD','Integrated','10 hours','1.4 kg',1099),
+     M('Value 15','6 cores, up to 3.8 GHz','8 GB','1 TB hard drive','Integrated','7 hours','1.9 kg',649)],
+  best:0, ok:[4], why:'4K editing and exporting lean heavily on a dedicated graphics card for effects and video encoding, and 32 GB of RAM keeps long timelines smooth. The Office 14 would work, but every export would take much longer.'},
+ {who:'Jorge, bookkeeper in Doral', need:'Uses a web-based accounting system, email, and spreadsheets all day. Wants the computer to feel quick when he opens files.',
+  m:[M('Desk Pro','12 cores, up to 5.0 GHz','32 GB','1 TB SSD','Dedicated GPU, 8 GB','Desktop','8 kg',1899),
+     M('Basic 15 HDD','4 cores, up to 4.0 GHz','8 GB','1 TB hard drive','Integrated','8 hours','1.9 kg',499),
+     M('Basic 15 SSD','4 cores, up to 4.0 GHz','8 GB','256 GB SSD','Integrated','8 hours','1.7 kg',549)],
+  best:2, ok:[3], why:'The two Basic models are identical except the drive. A solid-state drive opens programs and files many times faster than a spinning hard drive, and that is what makes daily office work feel quick. The Desk Pro is far more power than he will ever use.'},
+ {who:'Ana, AU student on a budget', need:'Carries her laptop to classes from 8 AM to 6 PM with few outlets. Takes notes, browses, and runs small Python homework.',
+  m:[M('Power 16','8 cores, up to 4.8 GHz (45 W chip)','16 GB','512 GB SSD','Integrated','5 hours','2.4 kg',999),
+     M('Air 13','8 cores, efficient ARM chip','16 GB','512 GB SSD','Integrated','18 hours','1.3 kg',899),
+     M('Value 15','4 cores, up to 3.6 GHz','8 GB','1 TB hard drive','Integrated','6 hours','1.9 kg',449)],
+  best:1, ok:[5], why:'Her real problem is a ten-hour day away from outlets. An efficient ARM processor gives 18 hours of battery and a light machine, with plenty of speed for notes and homework. The Value 15 is cheaper but would die by lunchtime.'},
+ {who:'Dr. Rivera’s clinic in Coral Gables', need:'Needs a small file server to keep six years of patient scans that twelve staff members open from their desks.',
+  m:[M('Tower NAS','8 cores, up to 3.8 GHz','32 GB','Two 8 TB drives (mirrored)','None','Plugged in','9 kg',2100),
+     M('Gamer X','8 cores, up to 5.2 GHz','32 GB','1 TB SSD','Dedicated GPU, 12 GB','Plugged in','12 kg',2000),
+     M('Office 14','8 cores, up to 4.4 GHz','16 GB','512 GB SSD','Integrated','10 hours','1.4 kg',1099)],
+  best:0, ok:[6], why:'A file server lives or dies by storage. Two 8 TB drives that mirror each other hold years of scans and keep a copy if one drive fails. A gaming graphics card does nothing for a file server.'},
+ {who:'Kevin, gamer in Kendall', need:'Plays new 3D games at high settings and streams them to friends.',
+  m:[M('Workstation 64','16 cores, up to 4.6 GHz','64 GB','2 TB SSD','Integrated','Plugged in','10 kg',1899),
+     M('Gamer 15','8 cores, up to 5.0 GHz','16 GB','1 TB SSD','Dedicated GPU, 12 GB','4 hours','2.3 kg',1399),
+     M('Value 15','6 cores, up to 3.8 GHz','8 GB','512 GB SSD','Integrated','7 hours','1.9 kg',649)],
+  best:1, ok:[4], why:'Games draw every frame on the graphics processor. The Gamer 15 has a strong dedicated GPU; the Workstation 64 has more cores and RAM but only integrated graphics, so new games would be slow on it despite the higher price.'},
+ {who:'Priya, data analyst in Brickell', need:'Opens spreadsheets with two million rows and runs data analysis that loads whole datasets into memory.',
+  m:[M('Analyst 8','8 cores, up to 4.6 GHz','8 GB','1 TB SSD','Integrated','9 hours','1.6 kg',899),
+     M('Analyst 32','8 cores, up to 4.6 GHz','32 GB','1 TB SSD','Integrated','9 hours','1.6 kg',1199),
+     M('Value 16','4 cores, up to 3.6 GHz','16 GB','1 TB hard drive','Integrated','6 hours','2.0 kg',699)],
+  best:1, ok:[2], why:'The two Analyst models are the same except memory. When a dataset does not fit in RAM, the computer swaps to the drive and slows to a crawl. 32 GB keeps her data in memory.'},
+ {who:'Marco, software developer in Aventura', need:'Rebuilds a large software project many times a day. The build tool splits the work across all processor cores.',
+  m:[M('Code 6','6 cores, up to 4.9 GHz','16 GB','1 TB SSD','Integrated','10 hours','1.5 kg',1099),
+     M('Code 16','16 cores, up to 4.5 GHz','32 GB','1 TB SSD','Integrated','7 hours','1.9 kg',1599),
+     M('Basic 4','4 cores, up to 3.0 GHz','16 GB','512 GB SSD','Integrated','8 hours','1.6 kg',799)],
+  best:1, ok:[0], why:'A build that splits across cores runs roughly in proportion to the number of cores. Sixteen slightly slower cores finish a parallel build much sooner than six faster ones.'},
+ {who:'Rosa, tax preparer in Hialeah', need:'Runs an older tax program every day that can only use one processor core at a time.',
+  m:[M('Many 16','16 cores, up to 3.2 GHz','32 GB','1 TB SSD','Integrated','Plugged in','8 kg',1400),
+     M('Swift 6','6 cores, up to 5.0 GHz','16 GB','512 GB SSD','Integrated','9 hours','1.5 kg',899),
+     M('Slow 8','8 cores, up to 2.4 GHz','16 GB','512 GB SSD','Integrated','12 hours','1.4 kg',899)],
+  best:1, ok:[1], why:'A program that uses one core only cares how fast that one core is. Swift 6 reaches 5.0 GHz, so it runs her program fastest, and it costs less than Many 16, whose extra cores would sit idle.'},
+ {who:'Front desk kiosk at a Doral gym', need:'A screen where members check in. It only runs one web page all day.',
+  m:[M('Mini 4','4 cores, up to 3.4 GHz','8 GB','256 GB SSD','Integrated','Plugged in','0.5 kg',399),
+     M('Desk Pro','12 cores, up to 5.0 GHz','32 GB','1 TB SSD','Dedicated GPU, 8 GB','Plugged in','8 kg',1899),
+     M('Office 14','8 cores, up to 4.4 GHz','16 GB','512 GB SSD','Integrated','10 hours','1.4 kg',1099)],
+  best:0, ok:[7], why:'A single web page needs very little. The Mini 4 does the job completely, and the extra $700 to $1,500 for the others buys power the kiosk will never use.'},
+ {who:'Luis, solar installer in Homestead', need:'Works on rooftops all day: photos, forms, and checklists, far from any outlet, in the sun.',
+  m:[M('Field Tab','8 cores, efficient ARM chip','8 GB','256 GB storage','Integrated','12 hours','0.6 kg',649),
+     M('Workstation 17','16 cores, up to 5.0 GHz','64 GB','2 TB SSD','Dedicated GPU, 16 GB','3 hours','2.8 kg',2200),
+     M('Value 15','6 cores, up to 3.8 GHz','8 GB','1 TB hard drive','Integrated','6 hours','1.9 kg',649)],
+  best:0, ok:[5], why:'On a roof, battery life and weight matter more than raw power. The Field Tab lasts the whole day with an efficient chip. The workstation would be dead before lunch and is heavy to carry up a ladder.'}
+];
+let order = [], idx = 0, pts = 0, picked = null, perm = [];
+const $ = s => document.querySelector(s);
+const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const sel = $('#reason'); REASONS.forEach((r,i) => { const o = document.createElement('option'); o.value = i; o.textContent = r; sel.appendChild(o); });
+
+function start(){ order = shuffle(BUYERS.map((_,i)=>i)); idx = 0; pts = 0; $('#final').hidden = true; $('#game').hidden = false; show(); }
+function show(){
+  const b = BUYERS[order[idx]]; picked = null; perm = shuffle([0,1,2]);
+  $('#round').textContent = 'Buyer '+(idx+1)+' of '+BUYERS.length;
+  $('#bar').style.width = (idx/BUYERS.length*100)+'%';
+  $('#pts').textContent = pts;
+  $('#av').textContent = b.who.trim()[0];
+  $('#who').textContent = b.who; $('#need').textContent = b.need;
+  const box = $('#machines'); box.innerHTML = '';
+  perm.forEach((mi,pos) => {
+    const m = b.m[mi];
+    const btn = document.createElement('button');
+    btn.className = 'mc'; btn.dataset.mi = mi; btn.setAttribute('aria-pressed','false');
+    btn.innerHTML = '<h4>'+String.fromCharCode(65+pos)+'. '+m.name+'</h4><dl><dt>Processor</dt><dd>'+m.cpu+'</dd><dt>RAM</dt><dd>'+m.ram+'</dd><dt>Storage</dt><dd>'+m.storage+'</dd><dt>Graphics</dt><dd>'+m.gpu+'</dd><dt>Battery</dt><dd>'+m.battery+'</dd><dt>Weight</dt><dd>'+m.weight+'</dd></dl><div class="price">$'+m.price.toLocaleString('en-US')+'</div>';
+    btn.onclick = () => { if (!$('#next').hidden) return; picked = mi; box.querySelectorAll('.mc').forEach(x => x.setAttribute('aria-pressed', x===btn)); pickBoard(pos); };
+    box.appendChild(btn);
+  });
+  sel.value = ''; sel.disabled = false;
+  build3D(b, perm); player.reset([]); $('#player').hidden = true;
+  $('#check').hidden = false; $('#next').hidden = true; $('#fb').innerHTML = '';
+  if (hasGSAP) gsap.from('#game .buyer, #machines .mc', {opacity:0, y:10, stagger:.05, duration:.25});
+}
+$('#check').onclick = () => {
+  const b = BUYERS[order[idx]];
+  if (picked === null || sel.value === ''){ $('#fb').innerHTML = '<div class="feedback info">Pick a machine and a deciding factor first.</div>'; return; }
+  const mOk = picked === b.best, rOk = b.ok.includes(+sel.value);
+  const gained = (mOk?6:0) + (rOk?4:0); pts += gained;
+  $('#pts').textContent = pts;
+  document.querySelectorAll('.mc').forEach(x => { if (+x.dataset.mi === b.best) x.classList.add('best'); });
+  sel.disabled = true;
+  const head = mOk && rOk ? 'Exactly right (+10).' : mOk ? 'Right machine (+6), but the deciding factor is "'+REASONS[b.ok[0]]+'".' : rOk ? 'Right reason (+4), but the best machine is '+b.m[b.best].name+'.' : 'Not this time. The best choice is '+b.m[b.best].name+', decided by "'+REASONS[b.ok[0]]+'".';
+  $('#fb').innerHTML = '<div class="feedback '+(mOk&&rOk?'ok':(mOk||rOk)?'info':'bad')+'"><strong>'+head+'</strong> '+b.why+'</div>';
+  $('#check').hidden = true; $('#next').hidden = false;
+  $('#player').hidden = false; player.reset(explainSteps(b, perm), 'Press Play for a step-by-step explanation of this buyer, or Step forward to go one step at a time.');
+  $('#next').textContent = idx === BUYERS.length-1 ? 'See my score' : 'Next buyer';
+  $('#next').focus();
+};
+$('#next').onclick = () => {
+  idx++;
+  if (idx >= BUYERS.length){
+    $('#game').hidden = true; $('#final').hidden = false; $('#finalpts').textContent = pts;
+    $('#finalmsg').textContent = pts >= 90 ? 'Excellent. You match the machine to the work, not to the price tag.' : pts >= 70 ? 'Good. Review the buyers you missed: the deciding factor is usually the one thing the work depends on most.' : 'Keep practicing. Ask first: what does this person do all day, and which part of the computer does that work?';
+    $('#again').focus(); return;
+  }
+  show();
+};
+$('#again').onclick = start;
+sel.onchange = () => highlightPart(sel.value === '' ? null : PART_OF_REASON[+sel.value]);
+
+/* Step player: Play / Pause / Step back / Step forward with a narrated caption. GSAP drives autoplay when present. */
+function makePlayer(root, steps, apply){
+  root.innerHTML = '<div class="stepper"><button class="btn" data-a="back">Step back</button><button class="btn primary" data-a="play">Play</button><button class="btn" data-a="next">Step forward</button><span class="pill" data-a="count"></span></div><div class="caption" aria-live="polite"></div>';
+  let i = -1, timer = null;
+  const cap = root.querySelector('.caption'), cnt = root.querySelector('[data-a=count]'), play = root.querySelector('[data-a=play]');
+  function go(k){ if (!steps.length) return; i = Math.max(0, Math.min(steps.length-1, k)); cap.innerHTML = steps[i].text; cnt.textContent = 'Step '+(i+1)+' of '+steps.length; apply(i, steps[i]); }
+  function stop(){ if (timer){ hasGSAP ? timer.kill() : clearTimeout(timer); timer = null; } play.textContent = 'Play'; }
+  function tick(){ if (i >= steps.length-1){ stop(); return; } go(i+1); timer = hasGSAP ? gsap.delayedCall(3.4, tick) : setTimeout(tick, 3400); }
+  play.onclick = () => { if (timer){ stop(); return; } if (i >= steps.length-1) i = -1; play.textContent = 'Pause'; tick(); };
+  root.querySelector('[data-a=next]').onclick = () => { stop(); go(i+1); };
+  root.querySelector('[data-a=back]').onclick = () => { stop(); go(i-1); };
+  const api = { go, stop, get index(){ return i; }, reset(ns, intro){ stop(); steps = ns; i = -1; cap.innerHTML = intro || 'Press Play, or Step forward to go one step at a time.'; cnt.textContent = 'Step 0 of '+steps.length; } };
+  api.reset(steps);
+  return api;
+}
+/* Tween helper: animate with GSAP when available, otherwise jump to the end state. */
+function tw(target, vars){ if (hasGSAP) return gsap.to(target, Object.assign({duration:.6, ease:'power2.out'}, vars)); Object.keys(vars).forEach(k => { if (!['duration','ease','delay','onComplete','overwrite'].includes(k)) target[k] = vars[k]; }); if (vars.onComplete) vars.onComplete(); }
+/* Keep a set of points in view: move the camera along its current direction so the given width fits. */
+function fitCamera(st, width, height, center){
+  const cam = st.camera, el = st.renderer.domElement.parentElement;
+  const aspect = (el.clientWidth || 1) / (el.clientHeight || 1);
+  const vfov = cam.fov * Math.PI / 180, need = Math.max(height / 2 / Math.tan(vfov/2), width / 2 / (Math.tan(vfov/2) * aspect)) * 1.18;
+  const c = new THREE.Vector3(...(center || [0,0,0]));
+  const dir = cam.position.clone().sub(st.controls ? st.controls.target : c).normalize();
+  return { pos: c.clone().add(dir.multiplyScalar(need + 1)), target: c };
+}
+function moveCamera(st, pos, target, dur){
+  if (st.controls){ tw(st.controls.target, {x:target.x, y:target.y, z:target.z, duration:dur||.9}); }
+  tw(st.camera.position, {x:pos.x, y:pos.y, z:pos.z, duration:dur||.9});
+}
+/* Click picking for 3D meshes. */
+function onPick(st, meshes, fn){
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement;
+  let down = null;
+  el.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  el.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX-down[0], e.clientY-down[1]) > 6) return;   // ignore drags (orbiting)
+    const r = el.getBoundingClientRect();
+    m.x = (e.clientX - r.left) / r.width * 2 - 1; m.y = -(e.clientY - r.top) / r.height * 2 + 1;
+    ray.setFromCamera(m, st.camera);
+    const hit = ray.intersectObjects(meshes(), false)[0];
+    if (hit) fn(hit.object);
+  });
+}
+
+// ---------- spec parsing (tested in node) ----------
+function parseSpec(m){
+  const cores = +((m.cpu.match(/(\d+) cores/) || [0, 4])[1]);
+  const gm = m.cpu.match(/up to ([\d.]+) GHz/);
+  const st8 = m.storage;
+  const hdd = /hard drive|drives \(mirrored\)/.test(st8);
+  const nDrives = /^Two /.test(st8) ? 2 : 1;
+  const cap = st8.match(/([\d.]+) (TB|GB)/); const tb = cap ? (+cap[1]) * (cap[2] === 'TB' ? 1 : 1/1000) * nDrives : 0;
+  const gg = m.gpu.match(/Dedicated GPU, (\d+) GB/);
+  const bh = m.battery.match(/(\d+) hours/);
+  return { cores, ghz: gm ? +gm[1] : null, arm: /ARM/.test(m.cpu), ram: +m.ram.match(/(\d+) GB/)[1], hdd, nDrives, tb, gpu: gg ? +gg[1] : 0, battery: bh ? +bh[1] : null, price: m.price };
+}
+// which part of the board each deciding factor points to
+const PART_OF_REASON = ['cpu','cpu','ram','storage','gpu','battery','storage','price'];
+const PART_NAME = {cpu:'the processor (CPU)', ram:'the memory (RAM)', storage:'the storage drive', gpu:'the graphics card (GPU)', battery:'the battery', price:'the price'};
+function partValue(m, part, reason){
+  if (part === 'cpu') return m.cpu;
+  if (part === 'ram') return m.ram + ' RAM';
+  if (part === 'storage') return m.storage;
+  if (part === 'gpu') return m.gpu === 'Integrated' ? 'integrated graphics only' : m.gpu === 'None' ? 'no graphics card' : m.gpu;
+  if (part === 'battery') return /hours/.test(m.battery) ? m.battery + ' of battery' : 'runs plugged in';
+  return '$' + m.price.toLocaleString('en-US');
+}
+
+
+// ---------- 3D: three motherboards side by side ----------
+const st = make3D(document.getElementById('stage'), {camera:[0, 8, 10], target:[0, 0, 0]});
+const BX = 5.2;              // distance between boards
+let boards = [], spinners = [], pulsers = [], hiPart = null, pickedPos = -1, bestPos = -1, focusPos = -1;
+const PCOL = {board:0x166534, cpu:0x94A3B8, core:0x93C5FD, ram:0x22C55E, ssd:0x1F2937, hdd:0x9CA3AF, gpu:0x111827, fan:0x64748B, bat:0x334155, batfill:0x84CC16, plug:0x0F172A, price:0xEAB308};
+function smat(c, ex){ return new THREE.MeshStandardMaterial(Object.assign({color:c, roughness:.5, metalness:.15, transparent:true, opacity:1, emissive:0x000000}, ex || {})); }
+function clear3D(){ if (!st) return; boards.forEach(b => st.scene.remove(b.g)); boards = []; spinners = []; pulsers = []; document.querySelectorAll('#stage .label3d').forEach(d => d.remove()); }
+function partMesh(bd, part, mesh){ mesh.userData.pos = bd.pos; mesh.userData.part = part; bd.parts[part] = bd.parts[part] || []; bd.parts[part].push(mesh); bd.g.add(mesh); return mesh; }
+function box(w, h, d, c){ return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), smat(c)); }
+function buildBoard(m, pos){
+  const p = parseSpec(m), g = new THREE.Group(), bd = {g, pos, parts:{}, all:[]};
+  g.position.x = (pos - 1) * BX; st.scene.add(g);
+  const base = partMesh(bd, 'board', box(4.4, .14, 3.2, PCOL.board)); base.position.y = 0;
+  // CPU with one small cube per core; cubes blink faster for a higher clock
+  const cpu = partMesh(bd, 'cpu', box(1.5, .16, 1.5, PCOL.cpu)); cpu.position.set(-1.1, .15, -.55);
+  const n = Math.ceil(Math.sqrt(p.cores)), s = 1.25 / n;
+  for (let k = 0; k < p.cores; k++){ const c = partMesh(bd, 'cpu', box(s*.78, .12, s*.78, p.arm ? 0xA7F3D0 : PCOL.core)); c.position.set(-1.1 - .625 + s/2 + (k % n) * s, .29, -.55 - .625 + s/2 + Math.floor(k / n) * s); c.userData.rate = p.ghz || 3.2; c.userData.k = k; pulsers.push(c); }
+  // RAM: one stick per 8 GB
+  const sticks = Math.max(1, Math.round(p.ram / 8));
+  for (let k = 0; k < sticks; k++){ const r = partMesh(bd, 'ram', box(.13, .42, 1.45, PCOL.ram)); r.position.set(.35 + k * .22, .3, -.55); }
+  // storage: flat SSD stick or a hard drive box with a spinning platter
+  for (let k = 0; k < p.nDrives; k++){
+    if (p.hdd){ const h = partMesh(bd, 'storage', box(1.05, .34, .85, PCOL.hdd)); h.position.set(-1.35 + k * 1.15, .25, 1.0);
+      const plat = partMesh(bd, 'storage', new THREE.Mesh(new THREE.CylinderGeometry(.33, .33, .04, 24), smat(0xE5E7EB, {metalness:.7})));
+      plat.position.set(-1.35 + k * 1.15, .44, 1.0); spinners.push({m:plat, speed:.08});
+      const arm = partMesh(bd, 'storage', box(.42, .03, .06, 0x374151)); arm.position.set(-1.25 + k * 1.15, .47, 1.15); arm.rotation.y = .5; }
+    else { const sd = partMesh(bd, 'storage', box(1.3, .07, .36, PCOL.ssd)); sd.position.set(-1.25, .12, 1.0);
+      for (let c = 0; c < 3; c++){ const chip = partMesh(bd, 'storage', box(.28, .05, .26, 0x475569)); chip.position.set(-1.65 + c * .38, .17, 1.0); } }
+  }
+  // dedicated graphics card with fans, or nothing
+  if (p.gpu){ const gc = partMesh(bd, 'gpu', box(1.9, .3, .9, PCOL.gpu)); gc.position.set(1.0, .25, 1.0);
+    for (let f = 0; f < 2; f++){ const fan = partMesh(bd, 'gpu', new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .05, 6), smat(PCOL.fan))); fan.position.set(.55 + f * .9, .42, 1.0); spinners.push({m:fan, speed:.15}); }
+    const mem = Math.min(p.gpu, 16) / 16; const gm = partMesh(bd, 'gpu', box(1.6 * mem, .05, .12, 0xF97316)); gm.position.set(1.0 - .8 + .8 * mem, .42, .6); }
+  // battery: fill shows hours (18 hours fills the bar); plugged-in machines get a power cord
+  if (p.battery){ const shell = partMesh(bd, 'battery', box(3.9, .16, .4, PCOL.bat)); shell.position.set(0, .15, -1.45);
+    const f = Math.min(p.battery, 18) / 18, fill = partMesh(bd, 'battery', box(3.8 * f, .18, .32, f > .5 ? PCOL.batfill : f > .3 ? 0xFACC15 : 0xEF4444)); fill.position.set(-1.9 + 1.9 * f, .16, -1.45); }
+  else { const cord = partMesh(bd, 'battery', new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .45, 8), smat(PCOL.plug))); cord.rotation.z = Math.PI / 2; cord.position.set(-2.4, .12, -1.3);
+    const plug = partMesh(bd, 'battery', box(.2, .2, .25, PCOL.plug)); plug.position.set(-2.7, .12, -1.3); }
+  // price as a gold column (2,200 dollars = 2.6 units tall)
+  const ph = Math.max(.15, m.price / 2200 * 2.6), col = partMesh(bd, 'price', box(.42, ph, .42, PCOL.price)); col.position.set(1.95, .07 + ph / 2, -.55);
+  bd.g.traverse(o => { if (o.isMesh) bd.all.push(o); });
+  const a = new THREE.Object3D(); a.position.set(0, .2, 2.05); g.add(a); st.label(a, String.fromCharCode(65 + pos) + '. ' + m.name);
+  const pa = new THREE.Object3D(); pa.position.set(1.95, ph + .35, -.55); g.add(pa); st.label(pa, '$' + m.price.toLocaleString('en-US'));
+  return bd;
+}
+if (st){
+  st.onFrame(t => {
+    spinners.forEach(s => s.m.rotation.y += s.speed);
+    pulsers.forEach(c => { const on = Math.sin(t * .0016 * c.userData.rate + c.userData.k * 1.3) > .3; c.material.emissive.setRGB(on ? .25 : 0, on ? .45 : 0, on ? .8 : 0); });
+    if (hiPart) { const k = .5 + .5 * Math.sin(t * .006); boards.forEach(bd => (bd.parts[hiPart] || []).forEach(o => { if (!pulsers.includes(o)) o.material.emissive.setRGB(.9 * k, .55 * k, 0); })); }
+  });
+  onPick(st, () => boards.flatMap(b => b.all), o => { const btn = document.querySelectorAll('#machines .mc')[o.userData.pos]; if (btn) btn.click(); showPartInfo(o.userData.pos, o.userData.part); });
+} else {
+  const fb = document.createElement('div'); fb.className = 'fallback2d';
+  fb.innerHTML = '<svg viewBox="0 0 600 260" id="fbsvg" role="img" aria-label="The three machines drawn as circuit boards"></svg>';
+  document.getElementById('stage').appendChild(fb);
+}
+let cur = null;   // {b, perm}
+function showPartInfo(pos, part){
+  if (!cur || !part) return;
+  const m = cur.b.m[cur.perm[pos]];
+  if (part === 'board'){ document.getElementById('partinfo').innerHTML = 'You picked <strong>' + String.fromCharCode(65 + pos) + '. ' + m.name + '</strong>. Click a part of a board to read its spec.'; return; }
+  document.getElementById('partinfo').innerHTML = '<strong>' + String.fromCharCode(65 + pos) + '. ' + m.name + ', ' + PART_NAME[part] + ':</strong> ' + partValue(m, part) + '.';
+}
+function draw2D(){
+  const svg = document.getElementById('fbsvg'); if (!svg || !cur) return;
+  let s = '';
+  cur.perm.forEach((mi, pos) => {
+    const m = cur.b.m[mi], p = parseSpec(m), x = 10 + pos * 200, dim = (focusPos >= 0 && pos !== focusPos) ? .3 : 1;
+    const hl = part => hiPart === part ? ' stroke="#F59E0B" stroke-width="4"' : '';
+    s += '<g data-pos="' + pos + '" style="cursor:pointer" opacity="' + dim + '">';
+    s += '<rect x="' + x + '" y="20" width="180" height="180" rx="10" fill="#166534"' + (pos === pickedPos ? ' stroke="#E1141E" stroke-width="4"' : '') + '/>';
+    s += '<rect x="' + (x+12) + '" y="34" width="70" height="70" rx="4" fill="#94A3B8"' + hl('cpu') + '/>';
+    const n = Math.ceil(Math.sqrt(p.cores)), cs = 60 / n;
+    for (let k = 0; k < p.cores; k++) s += '<rect x="' + (x + 17 + (k % n) * cs) + '" y="' + (39 + Math.floor(k / n) * cs) + '" width="' + (cs * .75) + '" height="' + (cs * .75) + '" fill="#93C5FD"/>';
+    const sticks = Math.max(1, Math.round(p.ram / 8));
+    for (let k = 0; k < sticks; k++) s += '<rect x="' + (x + 92 + k * 9) + '" y="34" width="6" height="70" fill="#22C55E"' + (hiPart === 'ram' ? ' stroke="#F59E0B" stroke-width="2"' : '') + '/>';
+    s += '<rect x="' + (x+12) + '" y="116" width="70" height="30" rx="4" fill="' + (p.hdd ? '#9CA3AF' : '#1F2937') + '"' + hl('storage') + '/><text x="' + (x+47) + '" y="136" font-size="12" text-anchor="middle" fill="#fff">' + (p.hdd ? (p.nDrives > 1 ? '2 HDD' : 'HDD') : 'SSD') + '</text>';
+    if (p.gpu) s += '<rect x="' + (x+92) + '" y="116" width="76" height="30" rx="4" fill="#111827"' + hl('gpu') + '/><text x="' + (x+130) + '" y="136" font-size="12" text-anchor="middle" fill="#fff">GPU ' + p.gpu + ' GB</text>';
+    const bw = p.battery ? 156 * Math.min(p.battery, 18) / 18 : 0;
+    s += '<rect x="' + (x+12) + '" y="158" width="156" height="14" rx="3" fill="#334155"' + hl('battery') + '/>' + (p.battery ? '<rect x="' + (x+12) + '" y="158" width="' + bw + '" height="14" rx="3" fill="#84CC16"/>' : '<text x="' + (x+90) + '" y="169" font-size="11" text-anchor="middle" fill="#fff">plugged in</text>');
+    s += '<text x="' + (x+90) + '" y="192" font-size="13" text-anchor="middle" fill="#fff"' + (hiPart === 'price' ? ' font-weight="700"' : '') + '>$' + m.price.toLocaleString('en-US') + '</text>';
+    s += '<text x="' + (x+90) + '" y="222" font-size="14" font-weight="600" text-anchor="middle" fill="#16181D">' + String.fromCharCode(65 + pos) + '. ' + m.name + '</text></g>';
+  });
+  svg.innerHTML = s;
+  svg.querySelectorAll('g[data-pos]').forEach(g => g.onclick = () => { const btn = document.querySelectorAll('#machines .mc')[+g.dataset.pos]; if (btn) btn.click(); });
+}
+function fitBoards(){ if (!st) return; const f = fitCamera(st, BX * 2 + 5.2, 4.2, [0, .3, 0]); moveCamera(st, f.pos, f.target); }
+function update3D(){
+  if (!st){ draw2D(); return; }
+  boards.forEach(bd => {
+    const dim = focusPos >= 0 && bd.pos !== focusPos;
+    bd.all.forEach(o => { tw(o.material, {opacity: dim ? .2 : 1, duration:.4}); if (!pulsers.includes(o) && (!hiPart || o.userData.part !== hiPart)) o.material.emissive.setRGB(0, 0, 0); });
+    tw(bd.g.position, {y: bd.pos === pickedPos || bd.pos === focusPos ? .35 : 0, duration:.4});
+  });
+  if (focusPos >= 0){ const f = fitCamera(st, 6.2, 4.5, [(focusPos - 1) * BX, .3, 0]); moveCamera(st, f.pos, f.target); } else fitBoards();
+}
+function build3D(b, perm){
+  cur = {b, perm}; hiPart = null; pickedPos = -1; focusPos = -1;
+  document.getElementById('partinfo').textContent = 'Click a part of any board to read its spec. Choosing a deciding factor highlights that part on all three boards.';
+  if (st){ clear3D(); perm.forEach((mi, pos) => boards.push(buildBoard(b.m[mi], pos)));
+    if (hasGSAP) boards.forEach((bd, i) => gsap.from(bd.g.scale, {x:.01, y:.01, z:.01, duration:.5, delay:i * .08, ease:'back.out(1.6)'})); }
+  update3D();
+}
+function highlightPart(part){ hiPart = part; update3D(); }
+function pickBoard(pos){ pickedPos = pos; update3D(); }
+// ---------- explanation steps after Check ----------
+function explainSteps(b, perm){
+  const part = PART_OF_REASON[b.ok[0]], bestPos = perm.indexOf(b.best), best = b.m[b.best];
+  const cmp = perm.map((mi, pos) => String.fromCharCode(65 + pos) + ' has ' + partValue(b.m[mi], part)).join('; ');
+  const prices = perm.map((mi, pos) => String.fromCharCode(65 + pos) + ' $' + b.m[mi].price.toLocaleString('en-US')).join(', ');
+  const cheapest = Math.min(...b.m.map(m => m.price)) === best.price;
+  return [
+    {text:'<strong>Step 1, the work.</strong> ' + b.need + ' Start every choice here: what does this person do all day?', part:null, focus:-1},
+    {text:'<strong>Step 2, the part that does that work.</strong> For this buyer the deciding factor is "' + REASONS[b.ok[0]].toLowerCase() + '", which lives in ' + PART_NAME[part] + '. It glows on all three boards.', part, focus:-1},
+    {text:'<strong>Step 3, compare that one part.</strong> ' + cmp + '.', part, focus:-1},
+    {text:'<strong>Step 4, the best fit is ' + String.fromCharCode(65 + bestPos) + ', ' + best.name + '.</strong> ' + b.why, part, focus:bestPos},
+    {text:'<strong>Step 5, check the price.</strong> ' + prices + '. ' + (cheapest ? 'The best fit is also the cheapest one, because the extra power in the others is not used for this work.' : 'The best fit is not the cheapest, but the extra money buys exactly the part this work depends on.'), part:'price', focus:-1}
+  ];
+}
+const player = makePlayer(document.getElementById('player'), [], (i, s) => { hiPart = s.part; focusPos = s.focus; update3D(); });
+
+start();
+
+</script>
+</body>
+</html>

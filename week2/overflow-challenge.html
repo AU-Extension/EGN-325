@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overflow and conversion challenge</title>
+<meta name="description" content="EGN 325 Week 2 interactive: Convert between bases, negate with two&#x27;s complement, predict overflow, and read floating point patterns, then watch a step-by-step 3D solution.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .grid>*{min-width:0}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+
+  .meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .progress{height:6px;background:#EEF1F5;border-radius:99px;overflow:hidden;flex:1;min-width:120px}
+  .progress i{display:block;height:100%;background:var(--au-red);transition:width .3s}
+  .qtype{margin:0 0 4px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--au-red-dark)}
+  .prompt{font-size:18px;margin:0 0 6px}
+  .showline{font:600 20px var(--mono);margin:4px 0 0;letter-spacing:.04em;overflow-wrap:anywhere}
+  .answer{display:grid;gap:12px;margin:14px 0 4px}
+  @media(min-width:760px){.answer{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .field label{display:block;font-weight:600;font-size:14px;margin-bottom:4px}
+  .field input{width:100%;font:500 18px var(--mono);padding:9px 11px;border:1px solid #CBD2DA;border-radius:8px}
+  .yn{display:flex;gap:8px}
+  .yn .btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .actrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  table.data td.mono{font-family:var(--mono)}
+
+  .stagewrap{display:grid;gap:14px}
+  #stage.stage3d{max-height:min(560px,75vh)}
+  .hint3d{font-size:13px;color:var(--muted);margin:8px 0 0}
+  .fallback2d{position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;padding:8px}
+  .fallback2d svg{width:100%;height:100%}
+
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 2 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 2 · Challenge</span>
+    <h1>Overflow and conversion challenge</h1>
+    <p class="lede">Convert between bases, negate with two&#x27;s complement, predict overflow, and read floating point patterns, then watch a step-by-step 3D solution.</p>
+  </section>
+
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Each of the ten rounds asks one question about how a computer stores numbers or text. The numbers change every time you play.</li>
+      <li>Type your answer. When the answer is a bit pattern, you can also click the gray "?" cubes in the 3D register to set each bit.</li>
+      <li>Press Check. You get up to 10 points per round, with partial credit where it is fair.</li>
+      <li>Press Play (or Step forward) to watch the worked solution in the 3D register, one step at a time.</li>
+      <li>After round 10, review the table of your answers and try again with new numbers.</li>
+    </ol>
+  </details>
+
+  <section class="card" id="game" aria-labelledby="qhead">
+    <div class="meta">
+      <span class="pill" id="round">Round 1 of 10</span>
+      <div class="progress" aria-hidden="true"><i id="bar" style="width:0%"></i></div>
+      <span class="score"><span>Score</span><span class="big" id="pts">0</span></span>
+    </div>
+    <p class="qtype" id="qtype"></p>
+    <h2 class="prompt" id="qhead"></h2>
+    <p class="showline" id="showline"></p>
+    <div class="stage3d" id="stage" style="margin-top:12px" aria-label="3D register of bit cubes for this round"></div>
+    <p class="hint3d" id="hint">Drag to orbit, scroll or pinch to zoom.</p>
+    <form id="ansform" autocomplete="off">
+      <div class="answer" id="fields"></div>
+      <div class="actrow">
+        <button class="btn primary" id="check" type="submit">Check</button>
+        <button class="btn" id="next" type="button" hidden>Next round</button>
+      </div>
+    </form>
+    <div id="fb" aria-live="polite" style="margin-top:12px"></div>
+    <div id="player" hidden style="margin-top:12px"></div>
+  </section>
+
+  <section class="card" id="final" hidden style="margin-top:16px" aria-labelledby="fh">
+    <h2 id="fh">Your result</h2>
+    <p class="score"><span>Final score</span><span class="big" id="finalpts"></span><span>/ 100</span></p>
+    <p id="finalmsg" style="color:var(--ink-2)"></p>
+    <div class="scroll-x"><table class="data" id="summary"><thead><tr><th>Round</th><th>Topic</th><th>Your answer</th><th>Correct answer</th><th>Points</th></tr></thead><tbody></tbody></table></div>
+    <button class="btn primary" id="again" style="margin-top:12px">Try again with new numbers</button>
+  </section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script>
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---------------- page logic ---------------- */
+// ---------- pure functions for the overflow challenge (tested in node and checked against Python) ----------
+function bitsOf(v, n){ const b = []; for (let i = n-1; i >= 0; i--) b.push(Math.floor(v / 2**i) % 2); return b; }
+function valOf(b){ return b.reduce((a, x) => a*2 + x, 0); }
+function bstr(b){ return b.length === 8 ? b.slice(0,4).join('') + ' ' + b.slice(4).join('') : b.join(''); }
+function hx(v, w){ return '0x' + v.toString(16).toUpperCase().padStart(w || 2, '0'); }
+function f32u(x){ const dv = new DataView(new ArrayBuffer(4)); dv.setFloat32(0, x); return dv.getUint32(0); }
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const ri = (R, lo, hi) => lo + Math.floor(R() * (hi - lo + 1));
+const pick = (R, arr) => arr[Math.floor(R() * arr.length)];
+const W8 = [128, 64, 32, 16, 8, 4, 2, 1];
+const MINUS = '−';
+const sgn = v => v < 0 ? MINUS + (-v) : String(v);
+
+// add two 8-bit patterns column by column; carry[i] = carry out of column i (column 0 is the leftmost bit)
+function add8(a, b){
+  const A = bitsOf(a, 8), B = bitsOf(b, 8), S = new Array(8), C = new Array(8); let c = 0;
+  for (let i = 7; i >= 0; i--){ const t = A[i] + B[i] + c; S[i] = t % 2; c = t >> 1; C[i] = c; }
+  return {A, B, S, C, carryOut: C[0], sum: valOf(S)};
+}
+const signed8 = u => u >= 128 ? u - 256 : u;
+const TYPES = ['bin2dec','dec2bin','hex','negate','signed','uadd','sadd','float','ascii','range'];
+const TYPE_NAME = {bin2dec:'Binary to decimal', dec2bin:'Decimal to binary', hex:'Binary and hexadecimal', negate:'Two’s complement negation', signed:'Reading a signed byte', uadd:'Unsigned 8-bit overflow', sadd:'Signed 8-bit overflow', float:'Reading an IEEE 754 pattern', ascii:'ASCII codes', range:'Range of n bits'};
+
+function gen(type, R){
+  const q = {type, name: TYPE_NAME[type]};
+  if (type === 'bin2dec'){ q.v = ri(R, 20, 250); q.prompt = 'This byte is an unsigned number. What is it in decimal?'; q.fields = [{id:'a', kind:'num', label:'Decimal value', pts:10}]; q.want = {a:q.v}; q.qrows = [{label:'byte', bits:bitsOf(q.v, 8)}]; q.show = bstr(bitsOf(q.v, 8)); }
+  if (type === 'dec2bin'){ q.v = ri(R, 20, 250); q.prompt = 'Write the decimal number <strong>' + q.v + '</strong> as an 8-bit binary number.'; q.fields = [{id:'a', kind:'bin', label:'8 bits', pts:10}]; q.want = {a:q.v}; q.qrows = [{label:'byte', bits:new Array(8).fill(null)}]; }
+  if (type === 'hex'){ q.v = ri(R, 26, 255); q.dir = R() < .5 ? 'b2h' : 'h2b';
+    if (q.dir === 'b2h'){ q.prompt = 'Write this byte in hexadecimal.'; q.fields = [{id:'a', kind:'hex', label:'Hex, e.g. 0x3F', pts:10}]; q.qrows = [{label:'byte', bits:bitsOf(q.v, 8)}]; q.show = bstr(bitsOf(q.v, 8)); }
+    else { q.prompt = 'Write <strong class="mono">' + hx(q.v) + '</strong> as 8 bits.'; q.fields = [{id:'a', kind:'bin', label:'8 bits', pts:10}]; q.qrows = [{label:'byte', bits:new Array(8).fill(null)}]; }
+    q.want = {a:q.v}; }
+  if (type === 'negate'){ q.n = ri(R, 5, 120); q.v = 256 - q.n; q.prompt = 'Write <strong>' + sgn(-q.n) + '</strong> as an 8-bit two’s complement pattern.'; q.fields = [{id:'a', kind:'bin8', label:'8 bits', pts:10}]; q.want = {a:q.v}; q.qrows = [{label:'+' + q.n, bits:bitsOf(q.n, 8)}, {label:sgn(-q.n), bits:new Array(8).fill(null)}]; }
+  if (type === 'signed'){ q.u = ri(R, 129, 254); q.v = q.u - 256; q.prompt = 'This byte is a signed number in two’s complement. What is it in decimal?'; q.fields = [{id:'a', kind:'num', label:'Decimal value (with sign)', pts:10}]; q.want = {a:q.v}; q.qrows = [{label:'byte', bits:bitsOf(q.u, 8)}]; q.show = bstr(bitsOf(q.u, 8)); }
+  if (type === 'uadd'){ const over = R() < .5; let a, b;
+    do { a = ri(R, 40, 240); b = ri(R, 20, 240); } while ((a + b > 255) !== over);
+    Object.assign(q, {a, b, ad: add8(a, b)}); q.prompt = 'An 8-bit register adds two unsigned numbers: <strong>' + a + ' + ' + b + '</strong>. What does the register hold afterward, and did unsigned overflow happen?';
+    q.fields = [{id:'a', kind:'num', label:'Register value (unsigned decimal)', pts:5}, {id:'b', kind:'yn', label:'Unsigned overflow (carry out)?', pts:5}]; q.want = {a:(a + b) % 256, b:a + b > 255};
+    q.qrows = [{label:'carries', bits:new Array(8).fill(null), offset:-1, small:true}, {label:'A = ' + a, bits:bitsOf(a, 8)}, {label:'B = ' + b, bits:bitsOf(b, 8)}, {label:'result', bits:new Array(8).fill(null)}]; }
+  if (type === 'sadd'){ const over = R() < .5; let a, b;
+    do { const neg = R() < .5; if (over){ a = neg ? ri(R, -120, -40) : ri(R, 40, 120); b = neg ? ri(R, -120, -40) : ri(R, 40, 120); } else { a = ri(R, -120, 120); b = ri(R, -120, 120); } } while (((a + b > 127) || (a + b < -128)) !== over || a === 0 || b === 0);
+    const ua = (a + 256) % 256, ub = (b + 256) % 256; Object.assign(q, {a, b, ua, ub, ad: add8(ua, ub)});
+    q.prompt = 'An 8-bit register adds two signed (two’s complement) numbers: <strong>' + sgn(a) + ' + ' + (b < 0 ? '(' + sgn(b) + ')' : b) + '</strong>. Read the result as a signed number. What is it, and did signed overflow happen?';
+    q.fields = [{id:'a', kind:'num', label:'Result as a signed decimal', pts:5}, {id:'b', kind:'yn', label:'Signed overflow?', pts:5}]; q.want = {a:signed8((ua + ub) % 256), b:a + b > 127 || a + b < -128};
+    q.qrows = [{label:'carries', bits:new Array(8).fill(null), offset:-1, small:true}, {label:'A = ' + sgn(a), bits:bitsOf(ua, 8)}, {label:'B = ' + sgn(b), bits:bitsOf(ub, 8)}, {label:'result', bits:new Array(8).fill(null)}]; }
+  if (type === 'float'){ const m = pick(R, [1, 1.25, 1.5, 1.75, 1.125, 1.375, 1.625, 1.875]), k = ri(R, -3, 4), s = R() < .5 ? -1 : 1;
+    q.v = s * m * 2**k; q.u = f32u(q.v); q.bits = bitsOf(q.u, 32); q.prompt = 'This 32-bit pattern, <strong class="mono">' + hx(q.u, 8) + '</strong>, is an IEEE 754 single precision float. What decimal number does it store?';
+    q.fields = [{id:'a', kind:'dec', label:'Decimal value, e.g. -6.5', pts:10}]; q.want = {a:q.v};
+    q.qrows = [0,1,2,3].map(r => ({label:'bits ' + (31 - r*8) + '-' + (24 - r*8), bits:q.bits.slice(r*8, r*8 + 8), fields:q.bits.slice(r*8, r*8+8).map((_, c) => { const i = r*8 + c; return i === 0 ? 's' : i < 9 ? 'e' : 'm'; })})); }
+  if (type === 'ascii'){ const grp = pick(R, ['upper','lower','digit']); const base = {upper:65, lower:97, digit:48}[grp], span = grp === 'digit' ? 10 : 26;
+    q.code = base + ri(R, 0, span - 1); q.ch = String.fromCharCode(q.code); q.grp = grp; q.dir = R() < .5 ? 'c2h' : 'h2c';
+    if (q.dir === 'c2h'){ q.prompt = 'What is the ASCII code of the character <strong class="mono">' + q.ch + '</strong>, in hexadecimal?'; q.fields = [{id:'a', kind:'hex', label:'Hex, e.g. 0x41', pts:10}]; q.want = {a:q.code}; q.qrows = [{label:'’' + q.ch + '’', bits:new Array(8).fill(null)}]; }
+    else { q.prompt = 'This byte holds one ASCII character. Which character is it?'; q.fields = [{id:'a', kind:'char', label:'One character', pts:10}]; q.want = {a:q.ch}; q.qrows = [{label:hx(q.code), bits:bitsOf(q.code, 8)}]; q.show = bstr(bitsOf(q.code, 8)) + ' (' + hx(q.code) + ')'; } }
+  if (type === 'range'){ q.n = pick(R, [4, 6, 10, 12, 16]); q.kind = pick(R, ['umax','smax','smin']);
+    q.v = q.kind === 'umax' ? 2**q.n - 1 : q.kind === 'smax' ? 2**(q.n-1) - 1 : -(2**(q.n-1));
+    q.prompt = 'What is the ' + {umax:'largest unsigned', smax:'largest signed (two’s complement)', smin:'smallest (most negative) signed (two’s complement)'}[q.kind] + ' number that fits in <strong>' + q.n + ' bits</strong>?';
+    q.fields = [{id:'a', kind:'num', label:'Decimal value', pts:10}]; q.want = {a:q.v}; q.qrows = [{label:q.n + ' bits', bits:new Array(q.n).fill(null)}]; }
+  return q;
+}
+function makeGame(R){ return TYPES.map(t => gen(t, R || Math.random)); }
+
+// ---------- answer parsing and grading ----------
+function clean(s){ return String(s == null ? '' : s).trim().replace(/[−–]/g, '-').replace(/[,_\s]/g, ''); }
+function parseAns(kind, raw){
+  const s = clean(raw);
+  if (kind === 'yn') return raw === true || raw === 'yes' ? true : raw === false || raw === 'no' ? false : null;
+  if (kind === 'char') return String(raw == null ? '' : raw).trim();
+  if (s === '') return null;
+  if (kind === 'num') return /^-?\d+$/.test(s) ? parseInt(s, 10) : NaN;
+  if (kind === 'dec') return /^-?(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : NaN;
+  if (kind === 'hex'){ const h = s.replace(/^0x/i, '').replace(/h$/i, ''); return /^[0-9a-f]{1,2}$/i.test(h) ? parseInt(h, 16) : NaN; }
+  if (kind === 'bin'){ const b = s.replace(/^0b/i, ''); return /^[01]{1,8}$/.test(b) ? parseInt(b, 2) : NaN; }
+  if (kind === 'bin8'){ const b = s.replace(/^0b/i, ''); return /^[01]{8}$/.test(b) ? parseInt(b, 2) : NaN; }
+  return NaN;
+}
+function grade(q, inputs){
+  let pts = 0; const notes = [];
+  q.fields.forEach(f => {
+    const got = parseAns(f.kind, inputs[f.id]), want = q.want[f.id];
+    if (got === want){ pts += f.pts; return; }
+    if (q.type === 'float' && typeof got === 'number' && got === -want){ pts += 5; notes.push('The size is right but the sign is wrong (+5): check the leftmost bit.'); return; }
+    if (q.type === 'ascii' && f.kind === 'hex' && parseInt(clean(inputs[f.id]), 10) === want){ pts += 5; notes.push('That is the code in decimal (+5). The question asks for hexadecimal.'); return; }
+    if (f.kind === 'bin8' && parseAns('bin', inputs[f.id]) === want){ pts += 10; return; }
+    if (f.kind === 'bin8' && /^[01]{1,7}$/.test(clean(inputs[f.id]))) notes.push('Write all 8 bits: in two’s complement the leftmost bit matters.');
+  });
+  return {pts, notes};
+}
+
+// ---------- worked solutions: each step has a caption, the register rows to show, and highlighted cells [row, col] ----------
+function steps(q){
+  const S = [], st = (text, rows, hl, extra) => S.push(Object.assign({text, rows, hl: hl || []}, extra || {}));
+  const B = v => '<span class="mono">' + bstr(bitsOf(v, 8)) + '</span>';
+  const byte = (bits, label) => [{label: label || 'byte', bits}];
+  if (q.type === 'bin2dec' || q.type === 'dec2bin' || (q.type === 'hex')){
+    const b = bitsOf(q.v, 8);
+    if (q.type === 'bin2dec'){
+      st('<strong>Step 1, the weights.</strong> Each position is worth a power of two. From left to right: 128, 64, 32, 16, 8, 4, 2, 1.', byte(b), []);
+      let tot = 0; const ones = [];
+      b.forEach((x, i) => { if (x){ tot += W8[i]; ones.push(W8[i]); st('<strong>Bit ' + (7 - i) + ' is 1.</strong> Add its weight, ' + W8[i] + '. Running total: <strong>' + tot + '</strong>.', byte(b), [[0, i]]); } });
+      st('<strong>Answer.</strong> ' + ones.join(' + ') + ' = <strong>' + q.v + '</strong>.', byte(b), b.map((x, i) => x ? [0, i] : null).filter(Boolean));
+    } else if (q.type === 'dec2bin'){
+      st('<strong>Step 1, the plan.</strong> Go through the weights 128, 64, 32, 16, 8, 4, 2, 1. When a weight fits in what is left, write 1 and subtract it. Otherwise write 0.', byte(new Array(8).fill(null)), []);
+      let rest = q.v, skipped = []; const cur = new Array(8).fill(null);
+      W8.forEach((w, i) => {
+        if (w <= rest){ cur[i] = 1; const pre = skipped.length ? skipped.join(' and ') + (skipped.length > 1 ? ' do' : ' does') + ' not fit in ' + rest + ' (0). ' : '';
+          st('<strong>' + pre + w + ' fits in ' + rest + '.</strong> Bit ' + (7 - i) + ' is 1, and ' + rest + ' ' + MINUS + ' ' + w + ' = ' + (rest - w) + '.', byte(cur.slice()), [[0, i]]); rest -= w; skipped = []; }
+        else { cur[i] = 0; skipped.push(w); }
+      });
+      st('<strong>Answer.</strong> ' + (skipped.length ? 'The remaining weights (' + skipped.join(', ') + ') get 0. ' : '') + q.v + ' = ' + B(q.v) + '. Check: ' + b.map((x, i) => x ? W8[i] : null).filter(Boolean).join(' + ') + ' = ' + q.v + '.', byte(b), b.map((x, i) => x ? [0, i] : null).filter(Boolean));
+    } else {
+      const hi = q.v >> 4, lo = q.v & 15, d = n => n.toString(16).toUpperCase();
+      const nib = n => bitsOf(n, 4).join(''), sum = n => [8,4,2,1].filter(w => n & w).join(' + ') || '0';
+      if (q.dir === 'b2h'){
+        st('<strong>Step 1, split the byte.</strong> One hex digit stands for exactly 4 bits, so split ' + B(q.v) + ' into a left half and a right half.', byte(b), []);
+        st('<strong>Step 2, the left half.</strong> ' + nib(hi) + ' = ' + sum(hi) + ' = ' + hi + ', which is the hex digit <strong>' + d(hi) + '</strong>.', byte(b), [[0,0],[0,1],[0,2],[0,3]]);
+        st('<strong>Step 3, the right half.</strong> ' + nib(lo) + ' = ' + sum(lo) + ' = ' + lo + ', which is the hex digit <strong>' + d(lo) + '</strong>.' + (lo > 9 ? ' (A = 10, B = 11, C = 12, D = 13, E = 14, F = 15.)' : ''), byte(b), [[0,4],[0,5],[0,6],[0,7]]);
+        st('<strong>Answer.</strong> Put the digits together: ' + B(q.v) + ' = <strong>' + hx(q.v) + '</strong>.', byte(b), []);
+      } else {
+        const half = new Array(8).fill(null); bitsOf(hi, 4).forEach((x, i) => half[i] = x);
+        st('<strong>Step 1, one digit, four bits.</strong> Each hex digit becomes exactly 4 bits. ' + hx(q.v) + ' has the digits ' + d(hi) + ' and ' + d(lo) + '.', byte(new Array(8).fill(null)), []);
+        st('<strong>Step 2, the first digit.</strong> ' + d(hi) + ' = ' + hi + ' = ' + sum(hi) + ', so the left half is <strong>' + nib(hi) + '</strong>.', byte(half), [[0,0],[0,1],[0,2],[0,3]]);
+        st('<strong>Step 3, the second digit.</strong> ' + d(lo) + ' = ' + lo + ' = ' + sum(lo) + ', so the right half is <strong>' + nib(lo) + '</strong>.', byte(b), [[0,4],[0,5],[0,6],[0,7]]);
+        st('<strong>Answer.</strong> ' + hx(q.v) + ' = ' + B(q.v) + ' (' + q.v + ' in decimal).', byte(b), []);
+      }
+    }
+  }
+  if (q.type === 'negate'){
+    const p = bitsOf(q.n, 8), f = p.map(x => 1 - x), r = bitsOf(q.v, 8);
+    const changed = r.map((x, i) => x !== f[i] ? [1, i] : null).filter(Boolean);
+    st('<strong>Step 1, start from the positive number.</strong> +' + q.n + ' in 8 bits is ' + B(q.n) + '.', [{label:'+' + q.n, bits:p}, {label:sgn(-q.n), bits:new Array(8).fill(null)}], [[0,0],[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7]]);
+    st('<strong>Step 2, flip every bit.</strong> Each 0 becomes 1 and each 1 becomes 0: <span class="mono">' + bstr(f) + '</span>.', [{label:'+' + q.n, bits:p}, {label:'flipped', bits:f}], [[1,0],[1,1],[1,2],[1,3],[1,4],[1,5],[1,6],[1,7]]);
+    st('<strong>Step 3, add 1.</strong> The 1 lands on the rightmost bit. Every 1 it meets becomes 0 and passes the carry left, until it reaches a 0. Result: ' + B(q.v) + '.', [{label:'+' + q.n, bits:p}, {label:sgn(-q.n), bits:r}], changed);
+    st('<strong>Check.</strong> The leftmost bit is 1, so the number is negative. Its weight is ' + MINUS + '128, and the other bits add up to ' + (q.v - 128) + ': ' + MINUS + '128 + ' + (q.v - 128) + ' = <strong>' + sgn(-q.n) + '</strong>. Also, ' + B(q.n) + ' + ' + B(q.v) + ' = 1 0000 0000, and the 9th bit falls off, leaving 0.', [{label:'+' + q.n, bits:p}, {label:sgn(-q.n), bits:r}], [[1,0]]);
+  }
+  if (q.type === 'signed'){
+    const b = bitsOf(q.u, 8), rest = q.u - 128, ones = b.map((x, i) => i && x ? W8[i] : null).filter(Boolean);
+    st('<strong>Step 1, the sign bit.</strong> In two’s complement the leftmost bit is worth ' + MINUS + '128 instead of +128. Here it is 1, so the number is negative.', byte(b), [[0,0]]);
+    st('<strong>Step 2, the other bits.</strong> They keep their normal weights: ' + (ones.length ? ones.join(' + ') + ' = ' + rest : '0') + '.', byte(b), b.map((x, i) => i && x ? [0, i] : null).filter(Boolean));
+    st('<strong>Step 3, add them up.</strong> ' + MINUS + '128 + ' + rest + ' = <strong>' + sgn(q.v) + '</strong>.', byte(b), []);
+    const fl = b.map(x => 1 - x), mag = -q.v;
+    st('<strong>Another way to check.</strong> Flip the bits (<span class="mono">' + bstr(fl) + '</span>) and add 1 to get ' + B(mag) + ' = ' + mag + '. So the pattern means ' + MINUS + mag + '.', [{label:'byte', bits:b}, {label:'size', bits:bitsOf(mag, 8)}], []);
+  }
+  if (q.type === 'uadd' || q.type === 'sadd'){
+    const ad = q.ad, ua = q.type === 'uadd' ? q.a : q.ua, ub = q.type === 'uadd' ? q.b : q.ub;
+    const la = q.type === 'uadd' ? 'A = ' + q.a : 'A = ' + sgn(q.a), lb = q.type === 'uadd' ? 'B = ' + q.b : 'B = ' + sgn(q.b);
+    const carryRow = upto => { const c = new Array(8).fill(null); for (let i = 7; i >= upto; i--) c[i] = ad.C[i]; return c; };   // cell i sits above column i - 1
+    const sumRow = upto => { const s = new Array(8).fill(null); for (let i = 7; i >= upto; i--) s[i] = ad.S[i]; return s; };
+    const rows = (upto, label) => [{label:'carries', bits:carryRow(upto), offset:-1, small:true}, {label:la, bits:ad.A}, {label:lb, bits:ad.B}, {label:label || 'result', bits:sumRow(upto)}];
+    const trueSum = q.type === 'uadd' ? q.a + q.b : q.a + q.b;
+    st('<strong>Step 1, the inputs.</strong> ' + la + ' is ' + B(ua) + ' and ' + lb + ' is ' + B(ub) + '. The true sum is ' + sgn(trueSum) + '.', rows(8), []);
+    st('<strong>Step 2, add the right half (bits 3 to 0).</strong> Add column by column from the right, as in decimal: 1 + 1 = 10 in binary, so write 0 and carry 1 to the next column.', rows(4), [[3,4],[3,5],[3,6],[3,7]]);
+    st('<strong>Step 3, add the left half (bits 7 to 4).</strong> The 8-bit result is ' + B(ad.sum) + '.', rows(0), [[3,0],[3,1],[3,2],[3,3]]);
+    if (q.type === 'uadd'){
+      st(ad.carryOut ? '<strong>Step 4, the carry out.</strong> A carry of 1 comes out of bit 7, but the register has only 8 bits, so that carry is lost. Losing it is <strong>unsigned overflow</strong>: the register holds ' + trueSum + ' ' + MINUS + ' 256 = <strong>' + ad.sum + '</strong>.' : '<strong>Step 4, the carry out.</strong> No carry comes out of bit 7, so nothing is lost: <strong>no overflow</strong>. The register holds <strong>' + ad.sum + '</strong>, the true sum.', rows(0), [[0,0]], {drop:ad.carryOut === 1});
+      st('<strong>Rule.</strong> For unsigned numbers, overflow means the true sum is above 255, the largest 8-bit unsigned value. The carry out of the leftmost bit signals it.', rows(0), []);
+    } else {
+      const res = signed8(ad.sum), over = trueSum > 127 || trueSum < -128, same = (q.a < 0) === (q.b < 0);
+      st('<strong>Step 4, read the result as signed.</strong> ' + B(ad.sum) + ' starts with ' + ad.S[0] + ', so it means <strong>' + sgn(res) + '</strong>.', rows(0, 'result = ' + sgn(res)), [[3,0]]);
+      st('<strong>Step 5, check for signed overflow.</strong> ' + (same ? 'Both inputs are ' + (q.a < 0 ? 'negative' : 'positive') + ' and the result is ' + (res < 0 ? 'negative' : 'positive') + '. ' + (over ? 'The sign flipped, so this is <strong>signed overflow</strong>: ' + sgn(trueSum) + ' does not fit between ' + MINUS + '128 and 127.' : 'The sign stayed the same, so there is <strong>no overflow</strong>.') : 'The inputs have different signs, and adding a positive and a negative number can never overflow: <strong>no overflow</strong>.') + ' The carry out of bit 7 is ' + ad.carryOut + ', but for signed numbers the carry does not decide overflow.', rows(0, 'result = ' + sgn(res)), [[1,0],[2,0],[3,0]]);
+    }
+  }
+  if (q.type === 'float'){
+    const b = q.bits, eRaw = valOf(b.slice(1, 9)), E = eRaw - 127, fr = b.slice(9), rows = q.qrows;
+    const fparts = fr.map((x, i) => x ? '1/' + 2**(i + 1) : null).filter(Boolean), m = Math.abs(q.v) / 2**E;
+    const all = (from, to) => { const h = []; for (let i = from; i < to; i++) h.push([Math.floor(i / 8), i % 8]); return h; };
+    st('<strong>Step 1, the fields.</strong> Single precision splits 32 bits into a sign (1 bit, red), an exponent (8 bits, blue), and a fraction (23 bits, purple). In binary, ' + hx(q.u, 8) + ' is <span class="mono">' + b.join('').replace(/(.{8})(?=.)/g, '$1 ') + '</span>.', rows, []);
+    st('<strong>Step 2, the sign.</strong> Bit 31 is ' + b[0] + ', so the number is ' + (b[0] ? 'negative' : 'positive') + '.', rows, [[0,0]]);
+    st('<strong>Step 3, the exponent.</strong> The exponent bits <span class="mono">' + b.slice(1, 9).join('') + '</span> are ' + eRaw + '. Subtract the bias, 127: ' + eRaw + ' ' + MINUS + ' 127 = <strong>' + sgn(E) + '</strong>.', rows, all(1, 9));
+    st('<strong>Step 4, the fraction.</strong> A normal float has a hidden 1 before the point. ' + (fparts.length ? 'Each fraction bit adds a half, a quarter, an eighth, and so on, so the significand is 1 + ' + fparts.join(' + ') + ' = <strong>' + m + '</strong>.' : 'All 23 fraction bits are 0, so the significand is just the hidden 1: <strong>1</strong>.'), rows, all(9, 32));
+    st('<strong>Answer.</strong> ' + (b[0] ? MINUS : '+') + m + ' × 2<sup>' + sgn(E) + '</sup> = <strong>' + sgn(q.v) + '</strong>. This value is stored exactly because it is a sum of powers of two, unlike 0.1.', rows, []);
+  }
+  if (q.type === 'ascii'){
+    const base = {upper:65, lower:97, digit:48}[q.grp], first = {upper:'A', lower:'a', digit:'0'}[q.grp], k = q.code - base, b = bitsOf(q.code, 8);
+    st('<strong>Step 1, the table.</strong> ASCII gives each character a number. Capital letters start at ’A’ = 65 = 0x41, small letters at ’a’ = 97 = 0x61, and digits at ’0’ = 48 = 0x30.', byte(q.dir === 'c2h' ? new Array(8).fill(null) : b, q.qrows[0].label), []);
+    st('<strong>Step 2, count from the start.</strong> ’' + q.ch + '’ is ' + k + ' place' + (k === 1 ? '' : 's') + ' after ’' + first + '’, so its code is ' + base + ' + ' + k + ' = ' + q.code + '.', byte(b, q.qrows[0].label), []);
+    st('<strong>Step 3, write it in hex and binary.</strong> ' + q.code + ' = <strong>' + hx(q.code) + '</strong> = ' + B(q.code) + '.', byte(b, q.qrows[0].label), []);
+    st(q.grp === 'digit' ? '<strong>Pattern.</strong> For digits, the right 4 bits hold the digit’s value: ’' + q.ch + '’ ends in <span class="mono">' + bitsOf(q.code & 15, 4).join('') + '</span> = ' + (q.code & 15) + '.' : '<strong>Pattern.</strong> Capital and small letters differ only in bit 5 (worth 32): ’' + q.ch.toUpperCase() + '’ is ' + hx(q.code & ~32) + ' and ’' + q.ch.toLowerCase() + '’ is ' + hx(q.code | 32) + '.', byte(b, q.qrows[0].label), q.grp === 'digit' ? [[0,4],[0,5],[0,6],[0,7]] : [[0,2]]);
+  }
+  if (q.type === 'range'){
+    const n = q.n, P = 2**n, ones = new Array(n).fill(1), umax = P - 1, smax = P/2 - 1;
+    const lab = n + ' bits';
+    st('<strong>Step 1, count the patterns.</strong> Each bit doubles the count, so ' + n + ' bits give 2<sup>' + n + '</sup> = ' + P.toLocaleString('en-US') + ' different patterns.', [{label:lab, bits:new Array(n).fill(null)}], []);
+    if (q.kind === 'umax') st('<strong>Answer.</strong> Unsigned numbers use all the patterns for 0 up to 2<sup>' + n + '</sup> ' + MINUS + ' 1. The largest is all ones: <strong>' + umax.toLocaleString('en-US') + '</strong>.', [{label:lab, bits:ones}], ones.map((_, i) => [0, i]));
+    else if (q.kind === 'smax') st('<strong>Answer.</strong> Two’s complement gives half the patterns to negative numbers, so the range is ' + MINUS + (P/2).toLocaleString('en-US') + ' to ' + smax.toLocaleString('en-US') + '. The largest is 0 followed by all ones: <strong>' + smax.toLocaleString('en-US') + '</strong>.', [{label:lab, bits:[0].concat(new Array(n - 1).fill(1))}], [[0,0]]);
+    else st('<strong>Answer.</strong> Two’s complement gives half the patterns to negative numbers, so the range is ' + MINUS + (P/2).toLocaleString('en-US') + ' to ' + smax.toLocaleString('en-US') + '. The smallest is 1 followed by all zeros: <strong>' + MINUS + (P/2).toLocaleString('en-US') + '</strong>.', [{label:lab, bits:[1].concat(new Array(n - 1).fill(0))}], [[0,0]]);
+    st('<strong>Why the extra negative number?</strong> Zero takes one of the non-negative patterns, so there is one more negative value than positive. With 8 bits: ' + MINUS + '128 to 127.', [{label:lab, bits:q.kind === 'umax' ? ones : q.kind === 'smax' ? [0].concat(new Array(n - 1).fill(1)) : [1].concat(new Array(n - 1).fill(0))}], []);
+  }
+  return S;
+}
+function answerText(q){
+  const a = q.want.a;
+  if (q.type === 'dec2bin' || (q.type === 'hex' && q.dir === 'h2b') || q.type === 'negate') return bstr(bitsOf(a, 8));
+  if ((q.type === 'hex' && q.dir === 'b2h') || (q.type === 'ascii' && q.dir === 'c2h')) return hx(a);
+  if (q.type === 'ascii') return '’' + a + '’';
+  if (q.type === 'uadd') return a + ', ' + (q.want.b ? 'overflow' : 'no overflow');
+  if (q.type === 'sadd') return sgn(a) + ', ' + (q.want.b ? 'overflow' : 'no overflow');
+  return sgn(a);
+}
+
+
+/* Step player: Play / Pause / Step back / Step forward with a narrated caption. GSAP drives autoplay when present. */
+function makePlayer(root, steps, apply){
+  root.innerHTML = '<div class="stepper"><button class="btn" data-a="back">Step back</button><button class="btn primary" data-a="play">Play</button><button class="btn" data-a="next">Step forward</button><span class="pill" data-a="count"></span></div><div class="caption" aria-live="polite"></div>';
+  let i = -1, timer = null;
+  const cap = root.querySelector('.caption'), cnt = root.querySelector('[data-a=count]'), play = root.querySelector('[data-a=play]');
+  function go(k){ if (!steps.length) return; i = Math.max(0, Math.min(steps.length-1, k)); cap.innerHTML = steps[i].text; cnt.textContent = 'Step '+(i+1)+' of '+steps.length; apply(i, steps[i]); }
+  function stop(){ if (timer){ hasGSAP ? timer.kill() : clearTimeout(timer); timer = null; } play.textContent = 'Play'; }
+  function tick(){ if (i >= steps.length-1){ stop(); return; } go(i+1); timer = hasGSAP ? gsap.delayedCall(3.4, tick) : setTimeout(tick, 3400); }
+  play.onclick = () => { if (timer){ stop(); return; } if (i >= steps.length-1) i = -1; play.textContent = 'Pause'; tick(); };
+  root.querySelector('[data-a=next]').onclick = () => { stop(); go(i+1); };
+  root.querySelector('[data-a=back]').onclick = () => { stop(); go(i-1); };
+  const api = { go, stop, get index(){ return i; }, reset(ns, intro){ stop(); steps = ns; i = -1; cap.innerHTML = intro || 'Press Play, or Step forward to go one step at a time.'; cnt.textContent = 'Step 0 of '+steps.length; } };
+  api.reset(steps);
+  return api;
+}
+/* Tween helper: animate with GSAP when available, otherwise jump to the end state. */
+function tw(target, vars){ if (hasGSAP) return gsap.to(target, Object.assign({duration:.6, ease:'power2.out'}, vars)); Object.keys(vars).forEach(k => { if (!['duration','ease','delay','onComplete','overwrite'].includes(k)) target[k] = vars[k]; }); if (vars.onComplete) vars.onComplete(); }
+/* Keep a set of points in view: move the camera along its current direction so the given width fits. */
+function fitCamera(st, width, height, center){
+  const cam = st.camera, el = st.renderer.domElement.parentElement;
+  const aspect = (el.clientWidth || 1) / (el.clientHeight || 1);
+  const vfov = cam.fov * Math.PI / 180, need = Math.max(height / 2 / Math.tan(vfov/2), width / 2 / (Math.tan(vfov/2) * aspect)) * 1.18;
+  const c = new THREE.Vector3(...(center || [0,0,0]));
+  const dir = cam.position.clone().sub(st.controls ? st.controls.target : c).normalize();
+  return { pos: c.clone().add(dir.multiplyScalar(need + 1)), target: c };
+}
+function moveCamera(st, pos, target, dur){
+  if (st.controls){ tw(st.controls.target, {x:target.x, y:target.y, z:target.z, duration:dur||.9}); }
+  tw(st.camera.position, {x:pos.x, y:pos.y, z:pos.z, duration:dur||.9});
+}
+/* Click picking for 3D meshes. */
+function onPick(st, meshes, fn){
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement;
+  let down = null;
+  el.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  el.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX-down[0], e.clientY-down[1]) > 6) return;   // ignore drags (orbiting)
+    const r = el.getBoundingClientRect();
+    m.x = (e.clientX - r.left) / r.width * 2 - 1; m.y = -(e.clientY - r.top) / r.height * 2 + 1;
+    ray.setFromCamera(m, st.camera);
+    const hit = ray.intersectObjects(meshes(), false)[0];
+    if (hit) fn(hit.object);
+  });
+}
+
+// ---------- 3D registers made of bit cubes ----------
+const st = make3D(document.getElementById('stage'), {camera:[0, 1.5, 12], target:[0, 0, 0]});
+const FIELDC = {s:['#E1141E','#FDE2E2'], e:['#2563EB','#DBEAFE'], m:['#7C3AED','#EDE9FE']};
+const texCache = {};
+function cubeTex(ch, bg, fg){
+  const key = ch + bg + fg; if (texCache[key]) return texCache[key];
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  x.fillStyle = bg; x.fillRect(0, 0, 128, 128); x.strokeStyle = 'rgba(0,0,0,.18)'; x.lineWidth = 6; x.strokeRect(3, 3, 122, 122);
+  x.fillStyle = fg; x.font = '700 78px "IBM Plex Mono", monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(ch, 64, 70);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; texCache[key] = t; return t;
+}
+function look(bit, row, col, dropRed){
+  if (dropRed) return ['1', '#E1141E', '#FFFFFF'];
+  if (row.small) return bit === null ? null : bit ? ['1', '#F59E0B', '#16181D'] : ['0', '#FEF3C7', '#92400E'];
+  if (bit === null) return ['?', '#64748B', '#F8FAFC'];
+  if (row.fields){ const f = FIELDC[row.fields[col]]; return bit ? ['1', f[0], '#FFFFFF'] : ['0', f[1], '#16181D']; }
+  return bit ? ['1', '#16181D', '#FFFFFF'] : ['0', '#E2E8F0', '#16181D'];
+}
+let cells = [], rowLabels = [], structKey = '', curRows = [], answerRow = -1;
+function layout(rows){
+  let minC = 0, maxC = 0; rows.forEach(r => { minC = Math.min(minC, r.offset || 0); maxC = Math.max(maxC, (r.offset || 0) + r.bits.length - 1); });
+  const ys = []; let y = 0; rows.forEach((r, i) => { if (i) y -= (r.small || rows[i-1].small) ? .95 : 1.2; ys.push(y); });
+  const cy = (ys[0] + ys[ys.length - 1]) / 2, cx = (minC + maxC) / 2;
+  return {pos:(ri, c) => [((rows[ri].offset || 0) + c - cx) * 1.08, ys[ri] - cy, 0], width:(maxC - minC + 1) * 1.08, height:ys[0] - ys[ys.length - 1] + 1, left:(minC - cx) * 1.08};
+}
+function setRows(rows, hl, opts){
+  opts = opts || {}; curRows = rows;
+  const key = rows.map(r => (r.offset || 0) + ':' + r.bits.length + ':' + (r.small ? 's' : '')).join('|');
+  const H = new Set((hl || []).map(h => h[0] + ',' + h[1]));
+  if (!st){ draw2D(rows, H, opts); return; }
+  const L = layout(rows);
+  if (key !== structKey){
+    cells.forEach(c => st.scene.remove(c.m)); rowLabels.forEach(d => d.remove()); cells = []; rowLabels = []; structKey = key;
+    const geo = new THREE.BoxGeometry(.9, .9, .9);
+    rows.forEach((r, ri) => {
+      r.bits.forEach((b, c) => { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:0xffffff, roughness:.5, emissive:0x000000})); m.userData = {ri, c}; st.scene.add(m); cells.push({m, ri, c, prev:undefined}); });
+      const a = new THREE.Object3D(); a.position.set(L.left - .55, L.pos(ri, 0)[1], 0); st.scene.add(a); const d = st.label(a, r.label); d.style.transform = 'translate(-100%,-50%)'; rowLabels.push(d);
+    });
+    const narrow = (st.renderer.domElement.parentElement.clientWidth || 800) < 560;
+    const f = fitCamera(st, L.width + (narrow ? 3 : 4.5), L.height + 1.2, [narrow ? -.6 : -.9, 0, 0]); moveCamera(st, f.pos, f.target, .7);
+  }
+  rows.forEach((r, ri) => { if (rowLabels[ri]) rowLabels[ri].textContent = r.label; });
+  cells.forEach(cell => {
+    const r = rows[cell.ri], b = r.bits[cell.c], drop = opts.drop && cell.ri === 0 && cell.c === 0;
+    const lk = look(b, r, cell.c, drop), p = L.pos(cell.ri, cell.c), hi = H.has(cell.ri + ',' + cell.c), s = (r.small ? .62 : 1) * (hi ? 1.12 : 1);
+    cell.m.visible = !!lk;
+    if (!lk) return;
+    cell.m.material.map = cubeTex(lk[0], lk[1], lk[2]); cell.m.material.needsUpdate = true;
+    const em = hi ? [.55, .33, 0] : [0, 0, 0]; tw(cell.m.material.emissive, {r:em[0], g:em[1], b:em[2], duration:.35});
+    tw(cell.m.position, {x:drop ? p[0] - 1.1 : p[0], y:drop ? p[1] + .5 : p[1], z:hi ? .35 : 0, duration:drop ? 1.1 : .4, ease:drop ? 'back.in(1.4)' : 'power2.out'});
+    if (drop && hasGSAP) gsap.fromTo(cell.m.rotation, {z:0}, {z:1.2, duration:1.1});
+    tw(cell.m.scale, {x:s, y:s, z:s, duration:.35});
+    if (cell.prev !== undefined && cell.prev !== null && b !== null && cell.prev !== b && hasGSAP) gsap.fromTo(cell.m.rotation, {x:0}, {x:Math.PI * 2, duration:.6, ease:'power2.inOut'});
+    cell.prev = b;
+  });
+}
+if (st){
+  onPick(st, () => cells.map(c => c.m), o => { if (o.userData.ri === answerRow) toggleAnswerBit(o.userData.c); });
+} else {
+  const fb = document.createElement('div'); fb.className = 'fallback2d';
+  fb.innerHTML = '<svg viewBox="0 0 640 300" id="fbsvg" role="img" aria-label="The registers in this round, one square per bit"></svg>';
+  document.getElementById('stage').appendChild(fb);
+}
+function draw2D(rows, H, opts){
+  const svg = document.getElementById('fbsvg'); if (!svg) return;
+  let minC = 0, maxC = 0; rows.forEach(r => { minC = Math.min(minC, r.offset || 0); maxC = Math.max(maxC, (r.offset || 0) + r.bits.length - 1); });
+  const cols = maxC - minC + 1, sz = Math.min(44, 470 / cols), left = 150;
+  let y = 14, s = '';
+  rows.forEach((r, ri) => {
+    const h = r.small ? sz * .6 : sz;
+    s += '<text x="' + (left - 10) + '" y="' + (y + h * .68) + '" text-anchor="end" font-size="14" fill="#16181D">' + r.label.replace(/</g, '&lt;') + '</text>';
+    r.bits.forEach((b, c) => {
+      const drop = opts.drop && ri === 0 && c === 0, lk = look(b, r, c, drop); if (!lk) return;
+      const x = left + ((r.offset || 0) + c - minC) * sz, hi = H.has(ri + ',' + c);
+      s += '<g data-ri="' + ri + '" data-c="' + c + '"' + (ri === answerRow ? ' style="cursor:pointer"' : '') + '><rect x="' + (x + 2) + '" y="' + (y + (drop ? 8 : 0)) + '" width="' + (sz - 4) + '" height="' + (h - 4) + '" rx="5" fill="' + lk[1] + '" stroke="' + (hi ? '#F59E0B' : '#94A3B8') + '" stroke-width="' + (hi ? 4 : 1) + '"/><text x="' + (x + sz / 2) + '" y="' + (y + (drop ? 8 : 0) + h * .62) + '" text-anchor="middle" font-size="' + (r.small ? 12 : 18) + '" font-family="IBM Plex Mono, monospace" fill="' + lk[2] + '">' + lk[0] + '</text></g>';
+    });
+    y += h + (r.small ? 4 : 12);
+  });
+  svg.setAttribute('viewBox', '0 0 640 ' + Math.max(120, y + 10));
+  svg.innerHTML = s;
+  svg.querySelectorAll('g[data-ri]').forEach(g => g.onclick = () => { if (+g.dataset.ri === answerRow) toggleAnswerBit(+g.dataset.c); });
+}
+
+const $ = s => document.querySelector(s);
+let game = [], rn = 0, pts = 0, done = false, ansBits = null, log = [];
+function esc(s){ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function start(){ game = makeGame(); rn = 0; pts = 0; log = []; $('#final').hidden = true; $('#game').hidden = false; show(); }
+function show(){
+  const q = game[rn]; done = false;
+  $('#round').textContent = 'Round ' + (rn + 1) + ' of ' + game.length; $('#bar').style.width = (rn / game.length * 100) + '%'; $('#pts').textContent = pts;
+  $('#qtype').textContent = q.name; $('#qhead').innerHTML = q.prompt; $('#showline').textContent = q.show || ''; $('#showline').hidden = !q.show;
+  const box = $('#fields'); box.innerHTML = '';
+  q.fields.forEach(f => {
+    const d = document.createElement('div'); d.className = 'field';
+    if (f.kind === 'yn'){ d.innerHTML = '<label id="l' + f.id + '">' + f.label + ' (' + f.pts + ' points)</label><div class="yn" role="group" aria-labelledby="l' + f.id + '"><button type="button" class="btn" data-v="yes" aria-pressed="false">Yes</button><button type="button" class="btn" data-v="no" aria-pressed="false">No</button></div>';
+      d.querySelectorAll('.yn .btn').forEach(b => b.onclick = () => { if (done) return; d.querySelectorAll('.yn .btn').forEach(x => x.setAttribute('aria-pressed', x === b)); d.dataset.val = b.dataset.v; }); }
+    else { const im = f.kind === 'num' ? 'inputmode="text"' : f.kind === 'dec' ? 'inputmode="decimal"' : f.kind === 'bin' || f.kind === 'bin8' ? 'inputmode="numeric"' : '';
+      d.innerHTML = '<label for="in' + f.id + '">' + f.label + (q.fields.length > 1 ? ' (' + f.pts + ' points)' : '') + '</label><input id="in' + f.id + '" ' + im + ' maxlength="' + (f.kind === 'char' ? 1 : 24) + '" spellcheck="false">'; }
+    d.dataset.id = f.id; box.appendChild(d);
+  });
+  // bit-pattern answers can be built by clicking the "?" cubes
+  const binField = q.fields.find(f => f.kind === 'bin' || f.kind === 'bin8');
+  answerRow = binField ? q.qrows.length - 1 : -1; ansBits = binField ? new Array(8).fill(null) : null;
+  $('#hint').textContent = binField ? 'Click a "?" cube to set that bit to 1, click again for 0. The text box updates as you click. Drag to orbit.' : 'Drag to orbit, scroll or pinch to zoom.';
+  if (binField) $('#in' + binField.id).addEventListener('input', e => { const v = e.target.value.replace(/\s/g, ''); if (/^[01]{0,8}$/.test(v)){ ansBits = new Array(8).fill(null); const p = v.split('').map(Number); for (let i = 0; i < p.length; i++) ansBits[8 - p.length + i] = p[i]; drawQuestion(); } });
+  $('#check').hidden = false; $('#next').hidden = true; $('#fb').innerHTML = ''; $('#player').hidden = true; player.reset([]);
+  drawQuestion();
+  const first = box.querySelector('input, button'); if (first && rn) first.focus({preventScroll:true});
+  if (hasGSAP) gsap.from('#qhead, #showline, #fields .field', {opacity:0, y:8, stagger:.05, duration:.25});
+}
+function drawQuestion(){
+  const q = game[rn], rows = q.qrows.map((r, i) => i === answerRow && ansBits ? Object.assign({}, r, {bits:ansBits.slice()}) : r);
+  setRows(rows, []);
+}
+function toggleAnswerBit(c){
+  if (done || !ansBits) return;
+  ansBits[c] = ansBits[c] === 1 ? 0 : 1;
+  const f = game[rn].fields.find(f => f.kind === 'bin' || f.kind === 'bin8'), inp = $('#in' + f.id);
+  inp.value = ansBits.map(b => b === null ? 0 : b).join('');
+  drawQuestion();
+}
+$('#ansform').onsubmit = e => {
+  e.preventDefault(); if (done) return;
+  const q = game[rn], inputs = {}; let missing = false;
+  $('#fields').querySelectorAll('.field').forEach(d => { const f = q.fields.find(x => x.id === d.dataset.id); const v = f.kind === 'yn' ? d.dataset.val : d.querySelector('input').value; if (v === undefined || String(v).trim() === '') missing = true; inputs[f.id] = v; });
+  if (missing){ $('#fb').innerHTML = '<div class="feedback info">Answer every part first.</div>'; return; }
+  done = true;
+  const g = grade(q, inputs); pts += g.pts; $('#pts').textContent = pts;
+  const yours = q.fields.map(f => f.kind === 'yn' ? (inputs[f.id] === 'yes' ? 'overflow' : 'no overflow') : inputs[f.id]).join(', ');
+  log.push({n:rn + 1, name:q.name, yours, right:answerText(q), pts:g.pts});
+  const head = g.pts === 10 ? 'Correct (+10).' : g.pts ? 'Partly right (+' + g.pts + ').' : 'Not this time (+0).';
+  $('#fb').innerHTML = '<div class="feedback ' + (g.pts === 10 ? 'ok' : g.pts ? 'info' : 'bad') + '"><strong>' + head + '</strong> The answer is <strong class="mono">' + esc(answerText(q)) + '</strong>. ' + g.notes.join(' ') + ' Watch the worked solution below.</div>';
+  $('#fields').querySelectorAll('input, .yn .btn').forEach(x => x.disabled = true);
+  $('#check').hidden = true; $('#next').hidden = false; $('#next').textContent = rn === game.length - 1 ? 'See my score' : 'Next round';
+  $('#player').hidden = false; answerRow = -1;
+  player.reset(steps(q), 'Press Play for the worked solution, or Step forward to go one step at a time.');
+  $('#next').focus({preventScroll:true});
+};
+$('#next').onclick = () => {
+  rn++;
+  if (rn >= game.length){
+    $('#game').hidden = true; $('#final').hidden = false; $('#finalpts').textContent = pts;
+    $('#finalmsg').textContent = pts >= 90 ? 'Excellent. You read bits the way the hardware does.' : pts >= 70 ? 'Good work. Replay the worked solutions for the rounds you missed, then try again with new numbers.' : 'Keep practicing. Open the Bit pattern explorer, try the same kinds of numbers, and come back for a new set.';
+    $('#summary tbody').innerHTML = log.map(r => '<tr><td>' + r.n + '</td><td>' + esc(r.name) + '</td><td class="mono">' + esc(r.yours) + '</td><td class="mono">' + esc(r.right) + '</td><td>' + r.pts + '</td></tr>').join('');
+    $('#again').focus(); return;
+  }
+  show();
+};
+$('#again').onclick = start;
+
+const player = makePlayer(document.getElementById('player'), [], (i, s) => setRows(s.rows, s.hl, {drop:s.drop}));
+start();
+
+</script>
+</body>
+</html>

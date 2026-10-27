@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bit pattern explorer</title>
+<meta name="description" content="EGN 325 Week 2 interactive: Flip 32 bits in a 3D register and see the same pattern read as an unsigned number, a signed number, hexadecimal, a floating point value, and text.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  .stage3d{position:relative;width:100%;aspect-ratio:16/10;min-height:240px;border-radius:var(--radius);overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1B2433,#0B1018);touch-action:none}
+  .stage3d canvas{position:absolute;inset:0;display:block;width:100%!important;height:100%!important}
+  .grid>*{min-width:0}
+  .stage3d .fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#D7E3F4;padding:16px;text-align:center}
+  .stage3d .label3d{position:absolute;pointer-events:none;font:600 12px var(--sans);color:#fff;background:rgba(15,23,34,.75);padding:2px 6px;border-radius:6px;transform:translate(-50%,-50%);white-space:nowrap}
+  .stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .caption{min-height:3em;margin-top:10px;padding:10px 12px;border-left:4px solid var(--au-red);background:var(--au-red-soft);border-radius:6px}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+
+  .modes{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+  .modes .btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .bitcard{container-type:inline-size}
+  .bytes{display:grid;gap:10px;grid-template-columns:max-content;justify-content:start}
+  @container (min-width:560px){.bytes{grid-template-columns:repeat(2,max-content)}}
+  @container (min-width:1100px){.bytes{grid-template-columns:repeat(4,max-content)}}
+  .byte{display:flex;flex-direction:column;gap:4px}
+  .byte .lbl{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .byte .row{display:flex;gap:3px}
+  .bit{width:30px;height:38px;border-radius:6px;border:1px solid #CBD2DA;background:#fff;font:600 16px var(--mono);cursor:pointer;color:var(--ink);padding:0}
+  .bit.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .colored .bit.f-s{box-shadow:inset 0 -4px 0 var(--au-red)}
+  .colored .bit.f-e{box-shadow:inset 0 -4px 0 var(--net-blue)}
+  .colored .bit.f-m{box-shadow:inset 0 -4px 0 var(--net-purple)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--ink-2);margin:10px 0 0}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+  .setters{display:grid;gap:10px;margin-top:6px}
+  @container (min-width:620px){.setters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+  .setter{display:flex;gap:6px;min-width:0}
+  .setter input{flex:1;min-width:0;width:100%}
+  .reads td:first-child{color:var(--muted);width:42%}
+  .reads td{font-family:var(--mono);word-break:break-all}
+  .reads td.big{font-size:17px;font-weight:600;color:var(--ink)}
+  .fields{font-family:var(--mono);font-size:14px;line-height:1.7;background:#F5F6F8;border-radius:10px;padding:10px 12px;word-break:break-all}
+  .fields .s{color:var(--au-red);font-weight:600}.fields .e{color:var(--net-blue);font-weight:600}.fields .m{color:var(--net-purple);font-weight:600}
+  .chars{display:flex;gap:8px;flex-wrap:wrap}
+  .ch{min-width:54px;text-align:center;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff}
+  .ch b{display:block;font-size:20px;font-family:var(--mono)}
+  .ch span{font-size:11px;color:var(--muted)}
+
+  .stagewrap{display:grid;gap:14px}
+  #stage.stage3d{max-height:min(560px,75vh)}
+  .hint3d{font-size:13px;color:var(--muted);margin:8px 0 0}
+  .fallback2d{position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;padding:8px}
+  .fallback2d svg{width:100%;height:100%}
+
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 2 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 2 · Explorer</span>
+    <h1>Bit pattern explorer</h1>
+    <p class="lede">Flip 32 bits in a 3D register and see the same pattern read as an unsigned number, a signed number, hexadecimal, a floating point value, and text.</p>
+  </section>
+
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Click any bit to flip it between 0 and 1, or use a preset such as 0.1 or -1.</li>
+      <li>Watch the right side: the same 32 bits read five different ways.</li>
+      <li>Type a value in one of the boxes (a whole number, hexadecimal, a decimal number, or up to four letters) to see its bits.</li>
+      <li>Turn on the float colors to see the sign, exponent, and fraction fields of a floating point number.</li>
+    </ol>
+  </details>
+
+  <section class="card" aria-labelledby="b0" style="margin-bottom:16px">
+    <h2 id="b0">The register in 3D</h2>
+    <div class="stage3d" id="stage" aria-label="Thirty-two bit cubes in four rows of eight. Raised red-lit cubes are 1, flat gray cubes are 0."></div>
+    <p class="hint3d">Click a cube to flip that bit. Drag to orbit, scroll or pinch to zoom. The buttons below the 2D bits do the same thing.</p>
+    <div class="modes" role="group" aria-label="Guided explanations">
+      <button class="btn" data-mode="float" aria-pressed="true">Explain these bits as a floating point number</button>
+      <button class="btn" data-mode="neg">Explain two’s complement: make it negative</button>
+      <button class="btn" data-mode="text">Explain these bits as text</button>
+    </div>
+    <div id="player"></div>
+  </section>
+
+  <div class="grid two">
+    <section class="card bitcard" aria-labelledby="b1">
+      <h2 id="b1">32 bits (2D controls)</h2>
+      <div class="bytes" id="bytes" role="group" aria-label="32 bits, most significant first"></div>
+      <div class="legend" id="legend" hidden><span><i style="background:var(--au-red)"></i>Sign (1 bit)</span><span><i style="background:var(--net-blue)"></i>Exponent (8 bits)</span><span><i style="background:var(--net-purple)"></i>Fraction (23 bits)</span></div>
+      <div class="tools">
+        <button class="btn" id="colorbtn" aria-pressed="false">Show float colors</button>
+        <button class="btn" id="invert">Flip all bits</button>
+        <button class="btn" id="plus1">Add 1</button>
+        <button class="btn" id="clear">All zeros</button>
+      </div>
+      <h3>Presets</h3>
+      <div class="tools" id="presets"></div>
+      <h3>Set the bits from a value</h3>
+      <div class="setters">
+        <form class="setter" id="fInt"><input type="text" id="vInt" inputmode="numeric" placeholder="Whole number, e.g. -45" aria-label="Whole number"><button class="btn">Set</button></form>
+        <form class="setter" id="fHex"><input type="text" id="vHex" placeholder="Hex, e.g. 3DCCCCCD" aria-label="Hexadecimal"><button class="btn">Set</button></form>
+        <form class="setter" id="fFloat"><input type="text" id="vFloat" inputmode="decimal" placeholder="Decimal number, e.g. 0.1" aria-label="Decimal number for floating point"><button class="btn">Set</button></form>
+        <form class="setter" id="fText"><input type="text" id="vText" maxlength="4" placeholder="Up to 4 letters, e.g. Hi!" aria-label="Text, up to four characters"><button class="btn">Set</button></form>
+      </div>
+      <div id="msg" aria-live="polite"></div>
+    </section>
+
+    <aside class="card" aria-labelledby="b2">
+      <h2 id="b2">The same bits, read five ways</h2>
+      <table class="data reads" id="reads"></table>
+      <h3 style="margin-top:16px">As a floating point number (IEEE 754 single precision)</h3>
+      <div class="fields" id="fields"></div>
+      <p id="floatnote" style="font-size:14px;color:var(--ink-2)"></p>
+      <h3>As text (four ASCII bytes)</h3>
+      <div class="chars" id="chars"></div>
+    </aside>
+  </div>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · EGN 325 Computer Architecture<div class="byline" style="margin-top:4px;font-weight:600;color:#3B4250;">By Professor De Leon</div></footer>
+
+<script>
+// All logic inline. Guard GSAP so the page still works if the CDN fails:
+const hasGSAP = typeof window.gsap !== 'undefined';
+// Any localStorage use must be wrapped in try/catch and be optional.
+const hasTHREE = typeof window.THREE !== 'undefined';
+/* ---- 3D stage helper (Three.js r147 UMD). Usage:
+   const st = make3D(document.getElementById('stage'), {camera:[6,5,8]});
+   if (st) { st.scene.add(mesh); st.onFrame(t => {...}); } else { draw the 2D fallback }
+   Labels: st.label(object3D, 'text') keeps an HTML label over a 3D object. ---- */
+function make3D(el, opts = {}) {
+  const ok = typeof window.THREE !== 'undefined' && (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })();
+  if (!ok) { el.insertAdjacentHTML('beforeend', '<div class="fallback">3D view unavailable on this device. The step-by-step view below shows the same thing.</div>'); return null; }
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 500);
+  camera.position.set(...(opts.camera || [6, 5, 8]));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(5, 10, 7); scene.add(dir);
+  let controls = null;
+  if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(...(opts.target || [0, 0, 0])); }
+  const labels = []; const frames = [];
+  function label(obj, text) { const d = document.createElement('div'); d.className = 'label3d'; d.textContent = text; el.appendChild(d); labels.push({ obj, d }); return d; }
+  function resize() { const w = el.clientWidth, h = el.clientHeight || w / 1.6; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(el); resize();
+  const v = new THREE.Vector3();
+  (function loop(t) {
+    frames.forEach(f => f(t)); if (controls) controls.update(); renderer.render(scene, camera);
+    labels.forEach(({ obj, d }) => { obj.getWorldPosition(v); v.project(camera); d.style.left = ((v.x + 1) / 2 * el.clientWidth) + 'px'; d.style.top = ((1 - v.y) / 2 * el.clientHeight) + 'px'; d.style.display = v.z < 1 ? '' : 'none'; });
+    requestAnimationFrame(loop);
+  })(0);
+  return { THREE, scene, camera, renderer, controls, label, onFrame: f => frames.push(f) };
+}
+
+
+/* ---------------- page logic ---------------- */
+
+const $ = s => document.querySelector(s);
+let bits = new Array(32).fill(0);   // bits[0] is the most significant bit (bit 31)
+let colored = false;
+
+// ---------- pure functions (tested in node) ----------
+function toU32(b){ let v = 0; for (const x of b) v = v*2 + x; return v; }
+function fromU32(v){ const b = []; for (let i=31;i>=0;i--) b.push(Math.floor(v / 2**i) % 2); return b; }
+function toI32(b){ const u = toU32(b); return u >= 2**31 ? u - 2**32 : u; }
+function hex(b){ return toU32(b).toString(16).toUpperCase().padStart(8,'0'); }
+function toFloat(b){ const dv = new DataView(new ArrayBuffer(4)); dv.setUint32(0, toU32(b)); return dv.getFloat32(0); }
+function fromFloat(x){ const dv = new DataView(new ArrayBuffer(4)); dv.setFloat32(0, x); return fromU32(dv.getUint32(0)); }
+function fields(b){
+  const s = b[0], e = toU32(b.slice(1,9).concat(new Array(0))) , m = b.slice(9);
+  const eRaw = b.slice(1,9).reduce((a,x)=>a*2+x,0), mRaw = m.reduce((a,x)=>a*2+x,0);
+  let kind = 'normal';
+  if (eRaw === 0) kind = mRaw === 0 ? 'zero' : 'subnormal';
+  else if (eRaw === 255) kind = mRaw === 0 ? 'infinity' : 'nan';
+  return {s, eRaw, mRaw, kind};
+}
+// exact decimal value of a finite float32, using BigInt (no rounding)
+function exactDecimal(b){
+  const f = fields(b);
+  if (f.kind === 'infinity') return (f.s ? '-' : '') + 'Infinity';
+  if (f.kind === 'nan') return 'NaN';
+  let M = BigInt(f.mRaw), E;
+  if (f.kind === 'zero') return f.s ? '-0' : '0';
+  if (f.kind === 'normal'){ M += 1n << 23n; E = f.eRaw - 127 - 23; } else { E = -126 - 23; }
+  let str;
+  if (E >= 0) str = (M << BigInt(E)).toString();
+  else {
+    const k = -E, num = M * 5n ** BigInt(k);           // value = num / 10^k
+    let digits = num.toString().padStart(k+1, '0');
+    let intPart = digits.slice(0, digits.length-k), frac = digits.slice(digits.length-k).replace(/0+$/,'');
+    str = intPart + (frac ? '.' + frac : '');
+  }
+  return (f.s ? '-' : '') + str;
+}
+function asciiBytes(b){
+  const out = [];
+  for (let i=0;i<4;i++){ const v = toU32(b.slice(i*8,i*8+8)); out.push({v, ch: v>=32 && v<=126 ? String.fromCharCode(v) : null}); }
+  return out;
+}
+if (typeof module !== 'undefined') module.exports = {toU32, fromU32, toI32, hex, toFloat, fromFloat, fields, exactDecimal, asciiBytes};
+
+// ---------- UI ----------
+function grouped(b){ return b.join('').replace(/(.{8})(?=.)/g,'$1 '); }
+let render = function(){
+  const box = $('#bytes'); box.innerHTML = '';
+  box.classList.toggle('colored', colored);
+  for (let y=0;y<4;y++){
+    const g = document.createElement('div'); g.className = 'byte';
+    g.innerHTML = '<span class="lbl">bits '+(31-y*8)+' to '+(24-y*8)+'</span>';
+    const row = document.createElement('div'); row.className = 'row';
+    for (let x=0;x<8;x++){
+      const i = y*8+x, btn = document.createElement('button');
+      btn.className = 'bit' + (bits[i] ? ' on' : '') + (i===0 ? ' f-s' : i<9 ? ' f-e' : ' f-m');
+      btn.textContent = bits[i]; btn.setAttribute('aria-label','Bit '+(31-i)+' is '+bits[i]);
+      btn.onclick = () => { bits[i] ^= 1; render(); };
+      row.appendChild(btn);
+    }
+    g.appendChild(row); box.appendChild(g);
+  }
+  const u = toU32(bits), s = toI32(bits), f = toFloat(bits), fd = fields(bits);
+  $('#reads').innerHTML =
+    '<tr><td>Binary</td><td>'+grouped(bits)+'</td></tr>'+
+    '<tr><td>Hexadecimal</td><td class="big">0x'+hex(bits)+'</td></tr>'+
+    '<tr><td>Unsigned whole number</td><td class="big">'+u.toLocaleString('en-US')+'</td></tr>'+
+    '<tr><td>Signed whole number (two’s complement)</td><td class="big">'+s.toLocaleString('en-US')+'</td></tr>'+
+    '<tr><td>Floating point (rounded)</td><td class="big">'+(Number.isNaN(f)?'NaN':Number.isFinite(f)?String(f):(f>0?'Infinity':'-Infinity'))+'</td></tr>';
+  const sb = bits[0], eb = bits.slice(1,9).join(''), mb = bits.slice(9).join('');
+  let formula = '';
+  if (fd.kind === 'normal') formula = '(-1)<sup>'+fd.s+'</sup> × 1.'+mb.replace(/0+$/,'')+'<sub>2</sub> × 2<sup>'+fd.eRaw+' - 127 = '+(fd.eRaw-127)+'</sup>';
+  else if (fd.kind === 'subnormal') formula = 'Subnormal (exponent bits all 0): (-1)<sup>'+fd.s+'</sup> × 0.'+mb+'<sub>2</sub> × 2<sup>-126</sup>';
+  else if (fd.kind === 'zero') formula = 'Exponent and fraction all 0: this is zero.';
+  else if (fd.kind === 'infinity') formula = 'Exponent all 1 and fraction 0: infinity.';
+  else formula = 'Exponent all 1 and fraction not 0: NaN (not a number).';
+  $('#fields').innerHTML = 'Sign <span class="s">'+sb+'</span> · Exponent <span class="e">'+eb+'</span> ('+fd.eRaw+') · Fraction <span class="m">'+mb+'</span><br>'+formula+'<br>Exact stored value: '+exactDecimal(bits);
+  $('#floatnote').textContent = fd.kind === 'normal' && exactDecimal(bits).replace('-','').split('.')[1] && exactDecimal(bits).replace('-','').split('.')[1].length > 7
+    ? 'Notice the long exact value: most decimal fractions cannot be stored exactly in binary, so the computer keeps the closest value it can.' : '';
+  $('#chars').innerHTML = asciiBytes(bits).map(c => '<div class="ch"><b>'+(c.ch===null?'·':c.ch.replace('<','&lt;'))+'</b><span>'+c.v+(c.ch===null?' (not printable)':'')+'</span></div>').join('');
+}
+function setU32(v, note){ bits = fromU32(((v % 2**32) + 2**32) % 2**32); $('#msg').innerHTML = note ? '<div class="feedback info">'+note+'</div>' : ''; render(); }
+$('#colorbtn').onclick = e => { colored = !colored; e.currentTarget.setAttribute('aria-pressed', colored); e.currentTarget.textContent = colored ? 'Hide float colors' : 'Show float colors'; $('#legend').hidden = !colored; render(); };
+$('#invert').onclick = () => { bits = bits.map(x => 1-x); $('#msg').innerHTML = '<div class="feedback info">All bits flipped. For a signed number, flipping every bit and then adding 1 gives the negative (two’s complement).</div>'; render(); };
+$('#plus1').onclick = () => { const u = toU32(bits); setU32(u+1, u === 2**32-1 ? 'Overflow: 1111...1111 + 1 wraps around to all zeros, because there is no 33rd bit.' : u === 2**31-1 ? 'Signed overflow: the largest positive signed number plus 1 becomes the most negative one.' : ''); };
+$('#clear').onclick = () => setU32(0);
+const PRESETS = [['0.1 (float)', () => bits = fromFloat(0.1)], ['1.0 (float)', () => bits = fromFloat(1)], ['-2.5 (float)', () => bits = fromFloat(-2.5)],
+  ['-1', () => bits = fromU32(2**32-1)], ['65', () => bits = fromU32(65)], ['Largest signed', () => bits = fromU32(2**31-1)], ['Text "Hi!?"', () => bits = fromU32(0x4869213F)]];
+PRESETS.forEach(([n,fn]) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = n; b.onclick = () => { fn(); $('#msg').innerHTML=''; render(); }; $('#presets').appendChild(b); });
+$('#fInt').onsubmit = e => { e.preventDefault(); const t = $('#vInt').value.trim().replace(/,/g,''); if (!/^-?\d+$/.test(t)) return setU32(toU32(bits), 'Type a whole number such as 200 or -45.'); const v = Number(t);
+  if (v < -(2**31) || v > 2**32-1) return setU32(toU32(bits), 'That needs more than 32 bits. Use a number from -2,147,483,648 to 4,294,967,295.'); setU32(v < 0 ? v + 2**32 : v); };
+$('#fHex').onsubmit = e => { e.preventDefault(); const t = $('#vHex').value.trim().replace(/^0x/i,''); if (!/^[0-9a-f]{1,8}$/i.test(t)) return setU32(toU32(bits), 'Type 1 to 8 hexadecimal digits (0 to 9 and A to F).'); setU32(parseInt(t,16)); };
+$('#fFloat').onsubmit = e => { e.preventDefault(); const t = $('#vFloat').value.trim(); const v = Number(t); if (t === '' || Number.isNaN(v)) return setU32(toU32(bits), 'Type a number such as 0.1 or -2.5.'); bits = fromFloat(v); $('#msg').innerHTML = Math.fround(v) !== v ? '<div class="feedback info">'+t+' cannot be stored exactly in 32 bits. The bits hold the closest float: '+exactDecimal(bits)+'</div>' : ''; render(); };
+$('#fText').onsubmit = e => { e.preventDefault(); const t = $('#vText').value; if (!t || [...t].some(c => c.charCodeAt(0) < 32 || c.charCodeAt(0) > 126)) return setU32(toU32(bits), 'Use up to four plain keyboard characters (letters, digits, punctuation).');
+  let v = 0; for (let i=0;i<4;i++) v = v*256 + (i < t.length ? t.charCodeAt(i) : 0); setU32(v); };
+
+/* Step player: Play / Pause / Step back / Step forward with a narrated caption. GSAP drives autoplay when present. */
+function makePlayer(root, steps, apply){
+  root.innerHTML = '<div class="stepper"><button class="btn" data-a="back">Step back</button><button class="btn primary" data-a="play">Play</button><button class="btn" data-a="next">Step forward</button><span class="pill" data-a="count"></span></div><div class="caption" aria-live="polite"></div>';
+  let i = -1, timer = null;
+  const cap = root.querySelector('.caption'), cnt = root.querySelector('[data-a=count]'), play = root.querySelector('[data-a=play]');
+  function go(k){ if (!steps.length) return; i = Math.max(0, Math.min(steps.length-1, k)); cap.innerHTML = steps[i].text; cnt.textContent = 'Step '+(i+1)+' of '+steps.length; apply(i, steps[i]); }
+  function stop(){ if (timer){ hasGSAP ? timer.kill() : clearTimeout(timer); timer = null; } play.textContent = 'Play'; }
+  function tick(){ if (i >= steps.length-1){ stop(); return; } go(i+1); timer = hasGSAP ? gsap.delayedCall(3.4, tick) : setTimeout(tick, 3400); }
+  play.onclick = () => { if (timer){ stop(); return; } if (i >= steps.length-1) i = -1; play.textContent = 'Pause'; tick(); };
+  root.querySelector('[data-a=next]').onclick = () => { stop(); go(i+1); };
+  root.querySelector('[data-a=back]').onclick = () => { stop(); go(i-1); };
+  const api = { go, stop, get index(){ return i; }, reset(ns, intro){ stop(); steps = ns; i = -1; cap.innerHTML = intro || 'Press Play, or Step forward to go one step at a time.'; cnt.textContent = 'Step 0 of '+steps.length; } };
+  api.reset(steps);
+  return api;
+}
+/* Tween helper: animate with GSAP when available, otherwise jump to the end state. */
+function tw(target, vars){ if (hasGSAP) return gsap.to(target, Object.assign({duration:.6, ease:'power2.out'}, vars)); Object.keys(vars).forEach(k => { if (!['duration','ease','delay','onComplete','overwrite'].includes(k)) target[k] = vars[k]; }); if (vars.onComplete) vars.onComplete(); }
+/* Keep a set of points in view: move the camera along its current direction so the given width fits. */
+function fitCamera(st, width, height, center){
+  const cam = st.camera, el = st.renderer.domElement.parentElement;
+  const aspect = (el.clientWidth || 1) / (el.clientHeight || 1);
+  const vfov = cam.fov * Math.PI / 180, need = Math.max(height / 2 / Math.tan(vfov/2), width / 2 / (Math.tan(vfov/2) * aspect)) * 1.18;
+  const c = new THREE.Vector3(...(center || [0,0,0]));
+  const dir = cam.position.clone().sub(st.controls ? st.controls.target : c).normalize();
+  return { pos: c.clone().add(dir.multiplyScalar(need + 1)), target: c };
+}
+function moveCamera(st, pos, target, dur){
+  if (st.controls){ tw(st.controls.target, {x:target.x, y:target.y, z:target.z, duration:dur||.9}); }
+  tw(st.camera.position, {x:pos.x, y:pos.y, z:pos.z, duration:dur||.9});
+}
+/* Click picking for 3D meshes. */
+function onPick(st, meshes, fn){
+  const ray = new THREE.Raycaster(), m = new THREE.Vector2(), el = st.renderer.domElement;
+  let down = null;
+  el.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  el.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX-down[0], e.clientY-down[1]) > 6) return;   // ignore drags (orbiting)
+    const r = el.getBoundingClientRect();
+    m.x = (e.clientX - r.left) / r.width * 2 - 1; m.y = -(e.clientY - r.top) / r.height * 2 + 1;
+    ray.setFromCamera(m, st.camera);
+    const hit = ray.intersectObjects(meshes(), false)[0];
+    if (hit) fn(hit.object);
+  });
+}
+// ---------- 3D register ----------
+const st = make3D(document.getElementById('stage'), {camera:[0, 2.2, 11], target:[0, 0, 0]});
+const cubes = [];
+const COL = {off:0xC9D1DB, on:0x16181D, s:0xE1141E, e:0x2563EB, m:0x7C3AED, glow:0xF59E0B};
+function bitPos(i){ const row = Math.floor(i/8), col = i%8; return [(col-3.5)*1.05, (1.5-row)*1.15, 0]; }
+let hiSet = new Set();
+if (st){
+  const g = new THREE.BoxGeometry(0.86, 0.86, 0.86);
+  for (let i=0;i<32;i++){
+    const mat = new THREE.MeshStandardMaterial({color:COL.off, roughness:.45, metalness:.1, emissive:0x000000});
+    const c = new THREE.Mesh(g, mat); c.position.set(...bitPos(i)); c.userData.i = i; st.scene.add(c); cubes.push(c);
+  }
+  for (let r=0;r<4;r++){ const a = new THREE.Object3D(); a.position.set(-4.95, (1.5-r)*1.15, 0); st.scene.add(a); st.label(a, 'bits '+(31-r*8)+'-'+(24-r*8)); }
+  const base = new THREE.Mesh(new THREE.BoxGeometry(9.6, 5.2, .2), new THREE.MeshStandardMaterial({color:0x223047, roughness:.9}));
+  base.position.set(0, 0, -.7); st.scene.add(base);
+  onPick(st, () => cubes, o => { bits[o.userData.i] ^= 1; render(); });
+} else {
+  const fb = document.createElement('div'); fb.className = 'fallback2d';
+  fb.innerHTML = '<svg viewBox="0 0 470 250" id="fbsvg" role="img" aria-label="32 bits as squares"></svg>';
+  document.getElementById('stage').appendChild(fb);
+}
+function fitAll(){ if (!st) return; const f = fitCamera(st, 11.5, 6.4, [0,0,0]); moveCamera(st, f.pos, f.target); }
+function fieldColor(i){ return i===0 ? COL.s : i<9 ? COL.e : COL.m; }
+function update3D(){
+  if (st){
+    cubes.forEach((c,i) => {
+      const on = bits[i] === 1, hl = hiSet.has(i);
+      const col = new THREE.Color(colored ? (on ? fieldColor(i) : 0xE5E9F0) : (on ? COL.on : COL.off));
+      tw(c.material.color, {r:col.r, g:col.g, b:col.b, duration:.35});
+      const em = new THREE.Color(hl ? COL.glow : 0x000000);
+      tw(c.material.emissive, {r:em.r*.55, g:em.g*.55, b:em.b*.55, duration:.35});
+      tw(c.position, {z: on ? .38 : 0, duration:.35});
+      tw(c.scale, {x: hl?1.12:1, y: hl?1.12:1, z: hl?1.12:1, duration:.35});
+    });
+  } else {
+    const svg = document.getElementById('fbsvg'); if (!svg) return;
+    svg.innerHTML = bits.map((b,i) => { const r = Math.floor(i/8), c = i%8, x = 20+c*55, y = 15+r*58;
+      const fill = colored ? (b ? ['#E1141E','#2563EB','#7C3AED'][i===0?0:i<9?1:2] : '#E5E9F0') : (b ? '#16181D' : '#E5E9F0');
+      return '<g data-i="'+i+'" style="cursor:pointer"><rect x="'+x+'" y="'+y+'" width="46" height="46" rx="6" fill="'+fill+'" stroke="'+(hiSet.has(i)?'#F59E0B':'#94A3B8')+'" stroke-width="'+(hiSet.has(i)?5:1)+'"/><text x="'+(x+23)+'" y="'+(y+30)+'" text-anchor="middle" font-size="18" font-family="monospace" fill="'+(b?'#fff':'#16181D')+'">'+b+'</text></g>'; }).join('');
+    svg.querySelectorAll('g').forEach(g => g.onclick = () => { bits[+g.dataset.i] ^= 1; render(); });
+  }
+}
+function focusBits(list){
+  hiSet = new Set(list);
+  if (!st) { update3D(); return; }
+  update3D();
+  if (!list.length){ fitAll(); return; }
+  const ps = list.map(bitPos), xs = ps.map(p=>p[0]), ys = ps.map(p=>p[1]);
+  const cx = (Math.min(...xs)+Math.max(...xs))/2, cy = (Math.min(...ys)+Math.max(...ys))/2;
+  const w = Math.max(...xs)-Math.min(...xs)+2.2, h = Math.max(...ys)-Math.min(...ys)+2.2;
+  const f = fitCamera(st, Math.max(w,3), Math.max(h,2.5), [cx,cy,0]); moveCamera(st, f.pos, f.target);
+}
+// ---------- guided explanations ----------
+let mode = 'float';
+function stepsFor(m){
+  const fd = fields(bits), eb = bits.slice(1,9).join(''), mb = bits.slice(9).join('');
+  if (m === 'float'){
+    const S = [
+      {text:'<strong>Step 1, the sign bit.</strong> The leftmost bit (bit 31) is the sign. It is <strong>'+fd.s+'</strong>, so the number is '+(fd.s ? 'negative' : 'positive')+'.', hl:[0]},
+      {text:'<strong>Step 2, the exponent.</strong> The next 8 bits, <span class="mono">'+eb+'</span>, are the exponent field. As a whole number that is <strong>'+fd.eRaw+'</strong>. Floats store the exponent with a bias of 127, so the power of two is '+fd.eRaw+' − 127 = <strong>'+(fd.eRaw-127)+'</strong>.', hl:[1,2,3,4,5,6,7,8]},
+      {text:'<strong>Step 3, the fraction.</strong> The last 23 bits are the fraction. A normal float has a hidden 1 in front, so the significand is 1.'+(mb.replace(/0+$/,'')||'0')+' in binary.', hl:Array.from({length:23},(_,k)=>k+9)}
+    ];
+    if (fd.kind === 'normal') S.push({text:'<strong>Step 4, put it together.</strong> Value = sign × 1.fraction × 2<sup>'+(fd.eRaw-127)+'</sup> = <strong>'+String(toFloat(bits))+'</strong> (rounded for display).', hl:[]});
+    else S.push({text:'<strong>Step 4, a special case.</strong> These exponent bits mark a '+fd.kind+' value, so the usual formula does not apply. The value is <strong>'+exactDecimal(bits)+'</strong>.', hl:[]});
+    S.push({text:'<strong>Step 5, the exact stored value.</strong> The bits hold exactly <span class="mono">'+exactDecimal(bits)+'</span>. If that is not the number you typed, the computer kept the closest value 32 bits can hold. That is why 0.1 + 0.2 is not exactly 0.3.', hl:[]});
+    return S;
+  }
+  if (m === 'neg'){
+    const start = bits.slice(), before = toI32(start), flipped = start.map(x=>1-x), plus = fromU32((toU32(flipped)+1) % 2**32);
+    let k = 31; while (k > 0 && flipped[k] === 1) k--;
+    return [
+      {text:'<strong>Step 1.</strong> These bits hold the signed number <strong>'+before.toLocaleString('en-US')+'</strong>. To change the sign, computers use two’s complement: flip every bit, then add 1.', hl:[], set:start},
+      {text:'<strong>Step 2, flip every bit.</strong> Every 0 becomes 1 and every 1 becomes 0. That alone gives '+toI32(flipped).toLocaleString('en-US')+', one less than the answer.', hl:Array.from({length:32},(_,j)=>j), set:flipped},
+      {text:'<strong>Step 3, add 1.</strong> Adding 1 at the right end turns the trailing 1s into 0s and the first 0 into a 1. The highlighted bits are the ones the carry changed.', hl:Array.from({length:32-k},(_,j)=>31-j), set:plus},
+      {text:'<strong>Step 4, the result.</strong> The register now holds <strong>'+toI32(plus).toLocaleString('en-US')+'</strong>. '+(before === -(2**31) ? 'Special case: the most negative number has no positive partner in 32 bits, so it stays the same. That is overflow.' : 'Check: '+before.toLocaleString('en-US')+' + ('+toI32(plus).toLocaleString('en-US')+') = 0.'), hl:[], set:plus}
+    ];
+  }
+  const cs = asciiBytes(bits);
+  return cs.map((c,j) => ({text:'<strong>Byte '+(j+1)+' (bits '+(31-j*8)+' to '+(24-j*8)+').</strong> <span class="mono">'+bits.slice(j*8,j*8+8).join('')+'</span> = '+c.v+(c.ch===null ? ', which is not a printable ASCII character (printable codes run from 32 to 126).' : ', the ASCII code for <strong>"'+c.ch.replace('<','&lt;')+'"</strong>.'), hl:Array.from({length:8},(_,q)=>j*8+q)}))
+    .concat([{text:'Text is stored as numbers. ASCII uses one byte per character. Unicode (UTF-8) uses one to four bytes, so it can also store ñ, é, and emoji.', hl:[]}]);
+}
+const player = makePlayer(document.getElementById('player'), [], (i, step) => {
+  if (step.set){ bits = step.set.slice(); render(true); }
+  focusBits(step.hl || []);
+});
+function resetPlayer(){ hiSet = new Set(); player.reset(stepsFor(mode)); }
+document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => {
+  mode = b.dataset.mode; document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', x===b));
+  if (mode === 'float' && !colored) document.getElementById('colorbtn').click();
+  resetPlayer(); update3D(); fitAll();
+});
+const render2D = render;
+render = function(fromPlayer){ render2D(); if (fromPlayer !== true){ resetPlayer(); } update3D(); };
+bits = fromFloat(0.1); colored = true;
+document.getElementById('colorbtn').setAttribute('aria-pressed','true'); document.getElementById('colorbtn').textContent = 'Hide float colors'; document.getElementById('legend').hidden = false;
+render();
+if (st){ const f = fitCamera(st, 11.5, 6.4, [0,0,0]); st.camera.position.copy(f.pos); }
+
+</script>
+</body>
+</html>
