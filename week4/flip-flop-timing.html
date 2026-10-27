@@ -156,7 +156,9 @@
   .stage .gl{position:absolute;inset:0;display:block;z-index:1}
   .stage .labels{position:absolute!important;top:0;left:0;z-index:2}
   .stage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
-  .nogl{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;text-align:center;color:var(--silk-dim);font-size:12.5px;z-index:4;background:rgba(6,23,20,.85)}
+  .nogl{position:absolute;left:0;right:0;top:0;padding:7px 12px;text-align:center;color:var(--silk-dim);font-size:12px;z-index:4;background:rgba(6,23,20,.9);border-bottom:1px solid var(--line)}
+  .stage:has(.nogl:not([hidden])) .hud-top{top:44px}
+  .stage:has(.nogl:not([hidden])) .flat{top:34px;height:calc(100% - 34px)}
   .hud{position:absolute;z-index:3;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .hud button,.hud a{pointer-events:auto}
   .hud-top{top:14px;left:16px;right:16px}
@@ -200,6 +202,7 @@
   .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
   @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
   @media(max-width:860px){
+    .app .stage .zoomctl{top:56px;right:10px;transform:none;flex-direction:row}
     .app{grid-template-columns:1fr;height:auto}
     .app .stage{height:62vh;min-height:360px}
     .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
@@ -308,9 +311,9 @@
   #regD.bits{display:flex;gap:6px;margin:0;grid-column:auto}
   #regD .sw{min-width:64px;justify-content:center}
   .cells{display:flex;gap:8px;perspective:400px;flex-wrap:wrap}
-  .cell{width:56px;height:56px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font:600 22px var(--font-mono);background:#13312b;color:#5e8072;border:1px solid var(--line)}
-  .cell small{font-size:9.5px;font-weight:500;opacity:.8;letter-spacing:.06em}
-  .cell.on{background:var(--led);color:#06220f;border-color:var(--led);box-shadow:0 0 14px rgba(143,227,136,.55)}
+  .cells .cell{width:56px;height:56px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font:600 22px var(--font-mono);background:#13312b;color:#5e8072;border:1px solid var(--line)}
+  .cells .cell small{font-size:9.5px;font-weight:500;opacity:.8;letter-spacing:.06em}
+  .cells .cell.on{background:var(--led);color:#06220f;border-color:var(--led);box-shadow:0 0 14px rgba(143,227,136,.55)}
   .cntval{margin-top:10px;font:500 14px var(--font-mono);color:var(--out)}
   #quizScore{margin-top:10px}
   .tabs{margin:0}
@@ -319,7 +322,7 @@
   .panel footer{font-size:12px;color:var(--silk-dim);border-top:1px solid var(--line);padding-top:12px}
   .help{font-size:13.5px;color:var(--silk-dim);margin:0 0 10px}
   .cells{gap:6px}
-  .cell{width:52px;height:52px}
+  .cells .cell{width:52px;height:52px}
 </style>
 </head>
 <body>
@@ -328,7 +331,7 @@
     <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
       <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
     </a>
-    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 4 · Interactive A</div>
+    <div class="crumb"><a href="../index.html"><b>EGN 325</b> Computer Architecture</a> · Week 4 · Interactive A</div>
   </div>
 </header>
 
@@ -337,7 +340,7 @@
     <h2 id="flow-h" class="vh">Clocked storage in 3D: drag to orbit, scroll or pinch to zoom, click a D pad to flip it or a chip to read what it does</h2>
     <div class="hud hud-top">
       <ol class="phases" id="rail" aria-label="Clock phase"></ol>
-      <div class="ticks" id="hudTick">slot <b>·</b></div>
+      <div class="ticks" id="hudTick">slot <b>0</b> of 16</div>
       <p class="credit">By Professor De Leon</p>
     </div>
     <div class="hud hud-bottom">
@@ -352,6 +355,7 @@
         <button type="button" data-view="timing" class="on">Timing</button>
         <button type="button" data-view="register">Register</button>
         <button type="button" data-view="counter">Counter</button>
+        <button type="button" id="follow" aria-pressed="false" title="Move the camera to each step">Follow</button>
       </div>
     </div>
     <div class="nogl" id="nogl" hidden>The 3D board needs WebGL and the 3D libraries, which are not available here. The flat board shows the same circuit and steps, and the panel has every value.</div>
@@ -727,7 +731,17 @@ function Lab3D(stage, opts) {
   function viewFor(name) {
     const b = views[name] || views.overview;
     const tgt = new T.Vector3(...b.tgt), pos = new T.Vector3(...b.pos);
-    const want = b.want || 1.25, f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    const want = b.want || 1.25;
+    let f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    if (name === 'overview' || !views[name]) {
+      // the overview (and FIT) must show the whole board width, also on narrow phone screens,
+      // leaving room for the zoom buttons at the right edge
+      const tanH = Math.tan(T.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+      const need = (B.w / 2 + 0.5) / (tanH * 0.92) + B.d * 0.25;
+      f = Math.max(f, need / pos.distanceTo(tgt));
+      controls.maxDistance = Math.max(controls.maxDistance, need * 1.3);
+      if (scene.fog) { scene.fog.near = Math.max(scene.fog.near, need * 1.1); scene.fog.far = Math.max(scene.fog.far, need * 2.6); }
+    }
     pos.sub(tgt).multiplyScalar(f).add(tgt);
     return {pos: pos, tgt: tgt};
   }
@@ -821,10 +835,10 @@ function Lab3D(stage, opts) {
 // buildRibbon(), reveal(cur, animate), regView(animate), regTick(loaded), cntView(animate), cntTick(), show(tab, animate)
 const CSSV = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const FB = {
-  lane0: -3.4, pitch: 0.9, lanes: {clk: -5.9, d: -4.8, lq: -3.7, fq: -2.6},
+  lane0: -3.4, pitch: 0.9, lanes: {clk: -6.3, d: -4.9, lq: -3.5, fq: -2.1},
   chips: {
-    clk: {x: -9.6, z: -5.9, w: 1.7, d: 0.9, nm: 'CLOCK'}, din: {x: -9.6, z: -4.8, w: 1.7, d: 0.9, nm: 'D IN'},
-    latch: {x: -6.3, z: -3.7, w: 1.8, d: 0.9, nm: 'D LATCH'}, ff: {x: -6.3, z: -2.6, w: 1.8, d: 0.9, nm: 'FLIP-FLOP'},
+    clk: {x: -9.6, z: -6.3, w: 1.7, d: 0.9, nm: 'CLOCK'}, din: {x: -9.6, z: -4.9, w: 1.7, d: 0.9, nm: 'D IN'},
+    latch: {x: -6.2, z: -3.5, w: 1.8, d: 0.9, nm: 'D LATCH'}, ff: {x: -6.2, z: -2.1, w: 1.8, d: 0.9, nm: 'FLIP-FLOP'},
     d3: {x: -9.6, z: 1.7, w: 1.2, d: 0.9, nm: 'D3'}, d2: {x: -8.1, z: 1.7, w: 1.2, d: 0.9, nm: 'D2'}, d1: {x: -6.6, z: 1.7, w: 1.2, d: 0.9, nm: 'D1'}, d0: {x: -5.1, z: 1.7, w: 1.2, d: 0.9, nm: 'D0'},
     le: {x: -3.3, z: 1.7, w: 1.2, d: 0.9, nm: 'LE'}, rclk: {x: -3.3, z: 4.5, w: 1.2, d: 0.9, nm: 'CLK'},
     q3: {x: -9.6, z: 4.5, w: 1.2, d: 1.2, nm: 'Q3', cell: true}, q2: {x: -8.1, z: 4.5, w: 1.2, d: 1.2, nm: 'Q2', cell: true}, q1: {x: -6.6, z: 4.5, w: 1.2, d: 1.2, nm: 'Q1', cell: true}, q0: {x: -5.1, z: 4.5, w: 1.2, d: 1.2, nm: 'Q0', cell: true},
@@ -832,18 +846,18 @@ const FB = {
     add: {x: 9.6, z: 3.1, w: 1.5, d: 1.2, nm: 'PLUS 1'}, cclk: {x: 9.6, z: 5.3, w: 1.3, d: 0.8, nm: 'CLK'}
   },
   traces: [
-    {pts: [{x: -8.75, z: -5.9}, {x: -3.7, z: -5.9}], bus: 'clk'}, {pts: [{x: -8.75, z: -4.8}, {x: -3.7, z: -4.8}], bus: 'd'},
-    {pts: [{x: -5.4, z: -3.7}, {x: -3.7, z: -3.7}], bus: 'lq'}, {pts: [{x: -5.4, z: -2.6}, {x: -3.7, z: -2.6}], bus: 'fq'},
-    {pts: [{x: -8.4, z: -5.9}, {x: -8.4, z: -3.85}, {x: -7.2, z: -3.85}], bus: 'clk'}, {pts: [{x: -8.2, z: -5.9}, {x: -8.2, z: -2.75}, {x: -7.2, z: -2.75}], bus: 'clk'},
-    {pts: [{x: -7.8, z: -4.8}, {x: -7.8, z: -3.55}, {x: -7.2, z: -3.55}], bus: 'd'}, {pts: [{x: -7.6, z: -4.8}, {x: -7.6, z: -2.45}, {x: -7.2, z: -2.45}], bus: 'd'},
+    {pts: [{x: -8.75, z: -6.3}, {x: -3.7, z: -6.3}], bus: 'clk'}, {pts: [{x: -8.75, z: -4.9}, {x: -3.7, z: -4.9}], bus: 'd'},
+    {pts: [{x: -5.3, z: -3.5}, {x: -3.7, z: -3.5}], bus: 'lq'}, {pts: [{x: -5.3, z: -2.1}, {x: -3.7, z: -2.1}], bus: 'fq'},
+    {pts: [{x: -8.4, z: -6.3}, {x: -8.4, z: -3.65}, {x: -7.1, z: -3.65}], bus: 'clk'}, {pts: [{x: -8.2, z: -6.3}, {x: -8.2, z: -2.25}, {x: -7.1, z: -2.25}], bus: 'clk'},
+    {pts: [{x: -7.8, z: -4.9}, {x: -7.8, z: -3.35}, {x: -7.1, z: -3.35}], bus: 'd'}, {pts: [{x: -7.6, z: -4.9}, {x: -7.6, z: -1.95}, {x: -7.1, z: -1.95}], bus: 'd'},
     {pts: [{x: -9.6, z: 2.15}, {x: -9.6, z: 3.9}], bus: 'reg'}, {pts: [{x: -8.1, z: 2.15}, {x: -8.1, z: 3.9}], bus: 'reg'}, {pts: [{x: -6.6, z: 2.15}, {x: -6.6, z: 3.9}], bus: 'reg'}, {pts: [{x: -5.1, z: 2.15}, {x: -5.1, z: 3.9}], bus: 'reg'},
     {pts: [{x: -3.3, z: 2.15}, {x: -3.3, z: 3.0}, {x: -10.2, z: 3.0}], bus: 'le'}, {pts: [{x: -3.3, z: 4.95}, {x: -3.3, z: 5.5}, {x: -10.2, z: 5.5}], bus: 'rclk'},
     {pts: [{x: 7.7, z: 3.1}, {x: 8.85, z: 3.1}], bus: 'cnt', lines: 4}, {pts: [{x: 9.6, z: 2.5}, {x: 9.6, z: 1.4}, {x: 4.85, z: 1.4}, {x: 4.85, z: 2.5}], bus: 'cnt', lines: 4},
     {pts: [{x: 8.95, z: 5.3}, {x: 4.85, z: 5.3}, {x: 4.85, z: 3.7}], bus: 'cclk'}
   ],
   paths: {
-    dToFf: [{x: -8.75, z: -4.8}, {x: -7.6, z: -4.8}, {x: -7.6, z: -2.45}, {x: -7.2, z: -2.45}],
-    dToLatch: [{x: -8.75, z: -4.8}, {x: -7.8, z: -4.8}, {x: -7.8, z: -3.55}, {x: -7.2, z: -3.55}],
+    dToFf: [{x: -8.75, z: -4.9}, {x: -7.6, z: -4.9}, {x: -7.6, z: -1.95}, {x: -7.1, z: -1.95}],
+    dToLatch: [{x: -8.75, z: -4.9}, {x: -7.8, z: -4.9}, {x: -7.8, z: -3.35}, {x: -7.1, z: -3.35}],
     regD: i => [{x: FB.chips['d' + i].x, z: 2.15}, {x: FB.chips['d' + i].x, z: 3.9}],
     cntBack: [{x: 9.6, z: 2.5}, {x: 9.6, z: 1.4}, {x: 4.85, z: 1.4}, {x: 4.85, z: 2.5}]
   },
@@ -862,20 +876,22 @@ FB.slotX = t => FB.lane0 + t * FB.pitch + FB.pitch / 2;
 
 function FlipLab(stage, onPick, onInfo){
   const lab = Lab3D(stage, {
-    board: {w: 24, d: 15, cx: 0, cz: 0, silk: 'CLOCKED STORAGE  REV 1.0  EGN 325 WEEK 4', seed: 41},
-    views: {overview: {pos: [0, 19, 15], tgt: [0, 0, 0], want: 1.5}, timing: {pos: [0.6, 17, 7.6], tgt: [0.6, 0, -3.8], want: 1.9},
+    // the board runs 4 units past the analyzer on the right, so the zoom buttons never cover a lane on phones
+    board: {w: 28.4, d: 15, cx: 2.2, cz: 0, silk: 'CLOCKED STORAGE  REV 1.0  EGN 325 WEEK 4', seed: 41},
+    views: {overview: {pos: [2.2, 19, 15], tgt: [2.2, 0, 0], want: 1.5}, timing: {pos: [0.6, 17, 7.2], tgt: [0.6, 0, -4.2], want: 1.9},
       register: {pos: [-6.4, 10.5, 12], tgt: [-6.4, 0, 3.2], want: 1.3}, counter: {pos: [6, 10.5, 12], tgt: [6, 0, 3.2], want: 1.3}}
   });
   if (!lab) return null;
   window.__lab = lab; // test hook: the camera and controls
+  if (lab.scene.fog){ lab.scene.fog.near = 60; lab.scene.fog.far = 130; } // phones fit the whole board from farther away; keep it out of the fog
   const HI = c => new lab.T.Color(c).multiplyScalar(0.35); // highlight glow kept dark so chips do not wash out to white
   const T = lab.T, scene = lab.scene;
   const C = {on: CSSV('--led'), addr: CSSV('--addr'), data: CSSV('--data'), copper: CSSV('--copper'), ctrl: CSSV('--ctrl'), bad: CSSV('--bad')};
-  lab.silkRect(-10.9, -4.9, -6.6, -2.0); lab.silkRect(-3.6, 11.3, -6.6, -2.0); lab.silkRect(-10.9, -2.4, 0.6, 6.1); lab.silkRect(1.6, 10.8, 0.6, 6.1);
-  lab.zone('clocked storage', -7.9, -6.95); lab.zone('logic analyzer · 16 time slots', 3.8, -6.95, C.addr);
+  lab.silkRect(-10.9, -4.7, -7.0, -1.05); lab.silkRect(-3.6, 11.3, -7.0, -1.05); lab.silkRect(-10.9, -2.4, 0.6, 6.1); lab.silkRect(1.6, 10.8, 0.6, 6.1);
+  lab.zone('clocked storage', -6.4, -7.25); lab.zone('logic analyzer · 16 time slots', 3.8, -7.25, C.addr);
   lab.zone('4-bit register', -6.6, 6.5); lab.zone('4-bit counter', 6.2, 6.5);
-  [['clk', 'CLK'], ['d', 'D'], ['lq', 'LATCH Q'], ['fq', 'FF Q']].forEach(([k, t]) => lab.zone(t, 11.85, FB.lanes[k], k === 'clk' ? C.addr : C.on));
-  for (let t = 0; t < N; t++) lab.label(String(t), 'zone', FB.slotX(t), 0.05, -1.95);
+  [['clk', 'CLK'], ['d', 'D'], ['lq', 'LATCH Q'], ['fq', 'FF Q']].forEach(([k, t]) => lab.zone(t, FB.lane0 + 0.6, FB.lanes[k] - 0.6, k === 'clk' ? C.addr : C.on));
+  for (let t = 0; t < N; t++) lab.label(String(t), 'zone', FB.slotX(t), 0.05, -1.35);
   const mats = {clk: lab.busMat(C.addr), d: lab.busMat(C.on), lq: lab.busMat(C.on), fq: lab.busMat(C.on), reg: lab.busMat(C.on), le: lab.busMat(C.ctrl), rclk: lab.busMat(C.addr), cnt: lab.busMat(C.on), cclk: lab.busMat(C.addr)};
   FB.traces.forEach(t => lab.trace(t.pts, t.lines || 1, mats[t.bus]));
   const ledOn = new T.MeshStandardMaterial({color: new T.Color(C.on).multiplyScalar(0.6), emissive: new T.Color(C.on), emissiveIntensity: 0.42, roughness: .4});
@@ -897,7 +913,7 @@ function FlipLab(stage, onPick, onInfo){
   const edgeMat = new T.MeshStandardMaterial({color: C.addr, emissive: new T.Color(C.addr), emissiveIntensity: 0.5});
   const edges = []; for (let t = 0; t < N; t++){ const m = new T.Mesh(new T.ConeGeometry(0.16, 0.34, 3), edgeMat); m.position.set(FB.lane0 + t * FB.pitch, 0.3, FB.lanes.clk - 0.55); m.visible = false; scene.add(m); edges.push(m); }
   const cursor = new T.Mesh(lab.unit, new T.MeshBasicMaterial({color: C.addr, transparent: true, opacity: 0.18, depthWrite: false}));
-  cursor.scale.set(FB.pitch, 0.5, 4.3); cursor.position.set(FB.slotX(0), 0.25, (FB.lanes.clk + FB.lanes.fq) / 2); cursor.visible = false; scene.add(cursor);
+  cursor.scale.set(FB.pitch, 0.5, 4.9); cursor.position.set(FB.slotX(0), 0.25, (FB.lanes.clk + FB.lanes.fq) / 2); cursor.visible = false; scene.add(cursor);
   // clicking a D pad flips it (the kit's picking only covers chips)
   const layer = stage.querySelector('.labels'), ray = new T.Raycaster(), mouse = new T.Vector2(); let down = null;
   layer.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
@@ -932,6 +948,7 @@ function FlipLab(stage, onPick, onInfo){
     if (cur < 0){ cursor.visible = false; return; }
     cursor.visible = true;
     if (animate) gsap.to(cursor.position, {x: FB.slotX(cur), duration: 0.45, ease: 'power2.out', overwrite: 'auto'}); else cursor.position.x = FB.slotX(cur);
+    if (animate && api.follow && api.follow()) lab.focusOn(FB.slotX(cur), -4.2, 7);
     if (!animate) return;
     if (isEdge(cur)){
       lab.glowBus(mats.clk); lab.hi(R.clk, HI(C.addr)); lab.hi(R.ff, HI(C.addr));
@@ -948,7 +965,7 @@ function FlipLab(stage, onPick, onInfo){
   }
   let prevQ = [0, 0, 0, 0];
   function regTick(loaded){
-    lab.clear(); lab.glowBus(mats.rclk); lab.hi(R.rclk, HI(C.addr));
+    lab.clear(); lab.glowBus(mats.rclk); lab.hi(R.rclk, HI(C.addr)); if (api.follow && api.follow()) lab.focusOn(-6.4, 3.2, 8);
     if (loaded){ lab.glowBus(mats.le); S.regD.forEach((v, i) => lab.fly(FB.paths.regD(3 - i), String(v), v ? C.on : C.copper, {y: 0.5, dur: 0.6})); }
     else lab.hi(R.le, HI(C.ctrl));
     S.regQ.forEach((v, i) => { if (v !== prevQ[i]) lab.pop(R['q' + (3 - i)]); });
@@ -962,14 +979,17 @@ function FlipLab(stage, onPick, onInfo){
   }
   let prevC = 0;
   function cntTick(){
-    lab.clear(); lab.glowBus(mats.cclk); lab.glowBus(mats.cnt); lab.hi(R.cclk, HI(C.addr));
+    lab.clear(); lab.glowBus(mats.cclk); lab.glowBus(mats.cnt); lab.hi(R.cclk, HI(C.addr)); if (api.follow && api.follow()) lab.focusOn(6, 3.2, 8);
     lab.fly(FB.paths.cntBack, toBits(S.cnt).join(''), C.on, {y: 0.5, dur: 0.7});
     const a = toBits(prevC), b = toBits(S.cnt); b.forEach((v, i) => { if (v !== a[i]) lab.pop(R['c' + (3 - i)]); });
     prevC = S.cnt; cntView();
   }
   let intro = false;
-  function show(tab, animate){ if (!intro){ intro = true; lab.intro(); setTimeout(() => lab.setView(tab), 1900); return; } lab.setView(tab, !animate); }
-  return {kind: '3d', buildRibbon, reveal, regView, regTick, cntView, cntTick, show, view: n => lab.setView(n)};
+  // on phones the tab switches use the overview, which the kit fits to the full board width beside the zoom buttons
+  const viewOf = tab => stage.clientWidth < 700 ? 'overview' : tab;
+  function show(tab, animate){ if (!intro){ intro = true; lab.intro(); setTimeout(() => lab.setView(viewOf(S.tab)), 1900); return; } lab.setView(viewOf(tab), !animate); }
+  const api = {kind: '3d', buildRibbon, reveal, regView, regTick, cntView, cntTick, show, view: n => lab.setView(n), follow: null};
+  return api;
 }
 
 function FlipFlat(stage, onPick, onInfo){
@@ -979,8 +999,8 @@ function FlipFlat(stage, onPick, onInfo){
   stage.appendChild(svg);
   const mk = (tag, at, parent) => { const e = document.createElementNS(NS, tag); Object.keys(at).forEach(k => e.setAttribute(k, at[k])); (parent || svg).appendChild(e); return e; };
   mk('rect', {x: 4, y: 4, width: 856, height: 532, rx: 12, fill: '#0d302a', stroke: '#2a5c51'});
-  [[-10.9, -4.9, -6.6, -2.0], [-3.6, 11.3, -6.6, -2.0], [-10.9, -2.4, 0.6, 6.1], [1.6, 10.8, 0.6, 6.1]].forEach(([a, b, c, d]) => mk('rect', {x: X(a), y: Y(c), width: (b - a) * S0, height: (d - c) * S0, fill: 'none', stroke: 'rgba(232,239,228,.3)'}));
-  [['CLOCKED STORAGE', -7.9, -6.95], ['LOGIC ANALYZER · 16 TIME SLOTS', 3.8, -6.95], ['4-BIT REGISTER', -6.6, 6.6], ['4-BIT COUNTER', 6.2, 6.6]].forEach(([t, x, z]) => { mk('text', {x: X(x), y: Y(z), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 10, 'letter-spacing': 1.5}).textContent = t; });
+  [[-10.9, -4.7, -7.0, -1.05], [-3.6, 11.3, -7.0, -1.05], [-10.9, -2.4, 0.6, 6.1], [1.6, 10.8, 0.6, 6.1]].forEach(([a, b, c, d]) => mk('rect', {x: X(a), y: Y(c), width: (b - a) * S0, height: (d - c) * S0, fill: 'none', stroke: 'rgba(232,239,228,.3)'}));
+  [['CLOCKED STORAGE', -7.8, -7.15], ['LOGIC ANALYZER · 16 TIME SLOTS', 3.8, -7.15], ['4-BIT REGISTER', -6.6, 6.6], ['4-BIT COUNTER', 6.2, 6.6]].forEach(([t, x, z]) => { mk('text', {x: X(x), y: Y(z), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 10, 'letter-spacing': 1.5}).textContent = t; });
   const busCol = {clk: C.addr, d: C.on, lq: C.on, fq: C.on, reg: C.on, le: CSSV('--ctrl'), rclk: C.addr, cnt: C.on, cclk: C.addr};
   FB.traces.forEach(t => mk('polyline', {points: t.pts.map(p => X(p.x) + ',' + Y(p.z)).join(' '), fill: 'none', stroke: busCol[t.bus], 'stroke-opacity': .5, 'stroke-width': (t.lines || 1) * 2 + 1, 'stroke-linejoin': 'round'}));
   const pads = {}, edges = [];
@@ -988,7 +1008,7 @@ function FlipFlat(stage, onPick, onInfo){
     for (let t = 0; t < N; t++){ const at = {x: X(FB.slotX(t) - (FB.pitch - 0.12) / 2), y: Y(FB.lanes[k] - 0.35), width: (FB.pitch - 0.12) * S0, height: 0.7 * S0, rx: 3};
       if (k === 'd') Object.assign(at, {'data-slot': t, tabindex: 0, role: 'button', 'aria-label': 'D at slot ' + t + ', tap to flip', style: 'cursor:pointer'});
       pads[k].push(mk('rect', at)); } });
-  for (let t = 0; t < N; t++){ edges.push(mk('path', {d: `M${X(FB.lane0 + t * FB.pitch) - 5},${Y(FB.lanes.clk - 0.55) + 4} l5,-8 l5,8 z`, fill: C.addr})); mk('text', {x: X(FB.slotX(t)), y: Y(-1.95), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 9}).textContent = t; }
+  for (let t = 0; t < N; t++){ edges.push(mk('path', {d: `M${X(FB.lane0 + t * FB.pitch) - 5},${Y(FB.lanes.clk - 0.55) + 4} l5,-8 l5,8 z`, fill: C.addr})); mk('text', {x: X(FB.slotX(t)), y: Y(-1.3), 'text-anchor': 'middle', fill: '#9db6ac', 'font-size': 9}).textContent = t; }
   const cursor = mk('rect', {x: 0, y: Y(FB.lanes.clk - 0.5), width: FB.pitch * S0, height: (FB.lanes.fq - FB.lanes.clk + 1) * S0, fill: 'rgba(242,179,61,.16)', stroke: C.addr, opacity: 0});
   const R = {};
   Object.keys(FB.chips).forEach(k => {
@@ -1011,7 +1031,7 @@ function FlipFlat(stage, onPick, onInfo){
   }
   function regView(){ S.regD.forEach((v, i) => bit('d' + (3 - i), v)); S.regQ.forEach((v, i) => bit('q' + (3 - i), v)); bit('le', S.le); R.rclk.v.textContent = '↑'; }
   function cntView(){ toBits(S.cnt).forEach((v, i) => bit('c' + (3 - i), v)); R.add.v.textContent = counterStep(S.cnt); R.cclk.v.textContent = '↑'; }
-  return {kind: '2d', buildRibbon, reveal, regView, regTick: () => regView(), cntView, cntTick: () => cntView(), show(){}, view(){}};
+  return {kind: '2d', buildRibbon, reveal, regView, regTick: () => regView(), cntView, cntTick: () => cntView(), show(){}, view(){}, follow: null};
 }
 /* ---- page code ---- */
 // Shared logic engine for the Week 3 pages (gate circuits) and Week 4 pages (timing, state machines).
@@ -1301,7 +1321,7 @@ function renderLive(){
     items = [['Q', b.join(''), leds(b), 'binary'], ['Decimal', S.cnt, '', 'value'], ['Hex', S.cnt.toString(16).toUpperCase(), '', 'hexadecimal'], ['Next', nx, leds(toBits(nx)), 'after one tick']];
   }
   $('live').innerHTML = items.map(([n, v, bits, sub]) => { const ch = liveWas[S.tab + n] !== undefined && liveWas[S.tab + n] !== String(v); return `<div class="reg kv${String(v) === '1' ? ' one' : ''}${ch ? ' flash' : ''}"><span class="rn">${n}</span><span class="rv">${v}</span><span class="rf">${sub}</span><span class="rs"></span>${bits}</div>`; }).join('');
-  $('hudTick').innerHTML = S.tab === 'timing' ? (S.cur < 0 ? 'slot <b>·</b>' : 'slot <b>' + S.cur + '</b> · CLK <b>' + CLK[S.cur] + '</b>') : S.tab === 'register' ? 'Q <b>' + S.regQ.join('') + '</b> · LE <b>' + S.le + '</b>' : 'count <b>' + S.cnt + '</b>';
+  $('hudTick').innerHTML = S.tab === 'timing' ? (S.cur < 0 ? 'slot <b>0</b> of 16' : 'slot <b>' + S.cur + '</b> of 16 · CLK <b>' + CLK[S.cur] + '</b>') : S.tab === 'register' ? 'Q <b>' + S.regQ.join('') + '</b> · LE <b>' + S.le + '</b>' : 'count <b>' + S.cnt + '</b>';
   items.forEach(([n, v]) => { liveWas[S.tab + n] = String(v); });
   setTimeout(() => document.querySelectorAll('#live .reg.flash').forEach(e => e.classList.remove('flash')), 650);
 }
@@ -1433,6 +1453,11 @@ if (R){ R.buildRibbon(); R.regView(false); R.cntView(false); }
 renderTiming(); renderReg(); renderCnt();
 $('regNote').textContent = 'Set D and LE, then press Clock tick.'; $('cntNote').textContent = 'Press Clock tick to count up by one.';
 document.querySelectorAll('.views button[data-view]').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.views button[data-view]').forEach(x => x.classList.toggle('on', x === b)); R.view(b.dataset.view); }));
+let follow = stageEl.clientWidth >= 700;
+R.follow = () => follow;
+const setFollow = on => { follow = on; $('follow').classList.toggle('on', on); $('follow').setAttribute('aria-pressed', on ? 'true' : 'false'); };
+setFollow(follow);
+$('follow').addEventListener('click', () => setFollow(!follow));
 document.addEventListener('keydown', e => {
   const tag = e.target && e.target.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SUMMARY') return;

@@ -156,7 +156,9 @@
   .stage .gl{position:absolute;inset:0;display:block;z-index:1}
   .stage .labels{position:absolute!important;top:0;left:0;z-index:2}
   .stage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
-  .nogl{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;text-align:center;color:var(--silk-dim);font-size:12.5px;z-index:4;background:rgba(6,23,20,.85)}
+  .nogl{position:absolute;left:0;right:0;top:0;padding:7px 12px;text-align:center;color:var(--silk-dim);font-size:12px;z-index:4;background:rgba(6,23,20,.9);border-bottom:1px solid var(--line)}
+  .stage:has(.nogl:not([hidden])) .hud-top{top:44px}
+  .stage:has(.nogl:not([hidden])) .flat{top:34px;height:calc(100% - 34px)}
   .hud{position:absolute;z-index:3;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .hud button,.hud a{pointer-events:auto}
   .hud-top{top:14px;left:16px;right:16px}
@@ -200,6 +202,7 @@
   .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
   @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
   @media(max-width:860px){
+    .app .stage .zoomctl{top:56px;right:10px;transform:none;flex-direction:row}
     .app{grid-template-columns:1fr;height:auto}
     .app .stage{height:62vh;min-height:360px}
     .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
@@ -275,7 +278,7 @@
     <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
       <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
     </a>
-    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 8 · Interactive A</div>
+    <div class="crumb"><a href="../index.html"><b>EGN 325</b> Computer Architecture</a> · Week 8 · Interactive A</div>
   </div>
 </header>
 
@@ -303,6 +306,7 @@
         <button type="button" data-view="overview" class="on">Overview</button>
         <button type="button" data-view="front">IF and ID</button>
         <button type="button" data-view="back">EX to WB</button>
+        <button type="button" id="follow" class="on" aria-pressed="true" title="Move the camera to where the action is each cycle">Follow</button>
       </div>
     </div>
     <div class="nogl" id="nogl" hidden>The 3D board needs WebGL and the 3D libraries, which are not available here. The flat board shows the same cycles, and the panel has every value.</div>
@@ -628,7 +632,17 @@ function Lab3D(stage, opts) {
   function viewFor(name) {
     const b = views[name] || views.overview;
     const tgt = new T.Vector3(...b.tgt), pos = new T.Vector3(...b.pos);
-    const want = b.want || 1.25, f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    const want = b.want || 1.25;
+    let f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    if (name === 'overview' || !views[name]) {
+      // the overview (and FIT) must show the whole board width, also on narrow phone screens,
+      // leaving room for the zoom buttons at the right edge
+      const tanH = Math.tan(T.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+      const need = (B.w / 2 + 0.5) / (tanH * 0.92) + B.d * 0.25;
+      f = Math.max(f, need / pos.distanceTo(tgt));
+      controls.maxDistance = Math.max(controls.maxDistance, need * 1.3);
+      if (scene.fog) { scene.fog.near = Math.max(scene.fog.near, need * 1.1); scene.fog.far = Math.max(scene.fog.far, need * 2.6); }
+    }
     pos.sub(tgt).multiplyScalar(f).add(tgt);
     return {pos: pos, tgt: tgt};
   }
@@ -830,7 +844,7 @@ const CL = { addr: css('--addr'), data: css('--data'), ok: css('--ok'), bad: css
 const SCOL = { IF: css('--addr'), ID: css('--ctrl'), EX: css('--data'), MEM: css('--oper'), WB: css('--alu') };
 const SPEEDS = [0.25, 0.5, 1, 2, 3, 4];
 const ICOL = i => '#' + COLORS[i % COLORS.length].toString(16).padStart(6, '0');
-let speed = 1, awaiting = null, pscore = { ok: 0, n: 0 }, tl = null, G = null;
+let speed = 1, awaiting = null, pscore = { ok: 0, n: 0 }, tl = null, G = null, follow = true;
 const STAGE_INFO = {
   IF: '<b>Fetch (IF).</b> The processor reads the next instruction from program memory, at the address in the program counter.',
   ID: '<b>Decode (ID).</b> The control unit works out what the instruction means and reads its source registers from the register file. An instruction that needs a value that is not ready yet waits here: that is a stall.',
@@ -894,11 +908,12 @@ function Graphics3D(stage){
     kind: '3d',
     set(key, val, sub){ R[key].val.textContent = val; R[key].sub.textContent = sub || ''; },
     fly: (path, text, color, o) => lab.fly(path, text, color, Object.assign({ y: 0.85 }, o || {})),
-    hi: (key, color) => lab.hi(R[key], color),
+    hi: (key, color) => { lab.hi(R[key], color); gsap.to(R[key].mat, { emissiveIntensity: 0.3, duration: 0.3, overwrite: 'auto' }); },   // softer glow keeps the label readable
     clear: () => lab.clear(), clearPackets: () => lab.clearPackets(),
     pop: key => lab.pop(R[key]),
     bus: name => lab.glowBus(mats[name]),
     view: name => lab.setView(name),
+    focus: x => lab.focusOn(x, 0, 12),
     onPick: null
   };
   return api;
@@ -941,7 +956,7 @@ function Graphics2D(stage){
     hi(key, color){ const p = parts[key]; if (!p) return; p.r.setAttribute('stroke', color); p.r.setAttribute('stroke-width', 3.5); p.r.setAttribute('stroke-opacity', 1); active.add(p); },
     clear(){ active.forEach(p => { p.r.setAttribute('stroke', p.base); p.r.setAttribute('stroke-width', 1.5); }); active.clear(); },
     clearPackets(){ svg.querySelectorAll('g[opacity]').forEach(g => g.remove()); },
-    pop(){}, view(){},
+    pop(){}, view(){}, focus(){},
     bus(name){ (buses[name] || []).forEach(l => { l.setAttribute('stroke-opacity', 1); setTimeout(() => l.setAttribute('stroke-opacity', .45), 900); }); },
     onPick: null
   };
@@ -973,6 +988,12 @@ const addTo = (t, tw, pos) => { if (t && tw) t.add(tw, pos); };
 function animateTo(c){
   // packets for the move from cycle c - 1 to cycle c
   const ev = events(c), t = gsap.timeline();
+  if (follow){
+    // follow the action: a stall in ID, a forward into EX, or the middle of the busy stages
+    const busy = STAGES.filter(sg => S.instrs.some((_, j) => stageAt(S.sch, j, c) === sg || (sg === 'ID' && stageAt(S.sch, j, c) === 'stall')));
+    const x = ev.stalls.length ? SXZ.ID.x : ev.fwd.length ? SXZ.EX.x + 1.5 : busy.length ? (SXZ[busy[0]].x + SXZ[busy[busy.length - 1]].x) / 2 : 0;
+    G.focus(x);
+  }
   t.call(() => { G.clearPackets(); }, null, 0);
   S.instrs.forEach((ins, i) => {
     const a = POS(stageAt(S.sch, i, c - 1)), b = POS(stageAt(S.sch, i, c));
@@ -1158,6 +1179,8 @@ sp.addEventListener('input', applySpeed); applySpeed();
 $('pqOpts').addEventListener('click', e => { const b = e.target.closest('button'); if (b) answerPredict(b.dataset.k); });
 $('predict').addEventListener('change', e => { if (!e.target.checked){ const a = awaiting; hidePredict(); if (a && playing && a.after) a.after(); show(false); } });
 $$('.views button[data-view]').forEach(b => b.addEventListener('click', () => { $$('.views button[data-view]').forEach(x => x.classList.toggle('on', x === b)); G.view(b.dataset.view); }));
+$('follow').addEventListener('click', () => { follow = !follow; $('follow').classList.toggle('on', follow); $('follow').setAttribute('aria-pressed', follow); });
+if (stage.clientWidth < 700){ follow = false; $('follow').classList.remove('on'); $('follow').setAttribute('aria-pressed', 'false'); }
 document.addEventListener('keydown', e => {
   const t = e.target, tag = t && t.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SUMMARY') return;

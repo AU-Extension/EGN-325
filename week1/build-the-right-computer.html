@@ -156,7 +156,9 @@
   .stage .gl{position:absolute;inset:0;display:block;z-index:1}
   .stage .labels{position:absolute!important;top:0;left:0;z-index:2}
   .stage .flat{position:absolute;inset:0;width:100%;height:100%;z-index:1}
-  .nogl{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;text-align:center;color:var(--silk-dim);font-size:12.5px;z-index:4;background:rgba(6,23,20,.85)}
+  .nogl{position:absolute;left:0;right:0;top:0;padding:7px 12px;text-align:center;color:var(--silk-dim);font-size:12px;z-index:4;background:rgba(6,23,20,.9);border-bottom:1px solid var(--line)}
+  .stage:has(.nogl:not([hidden])) .hud-top{top:44px}
+  .stage:has(.nogl:not([hidden])) .flat{top:34px;height:calc(100% - 34px)}
   .hud{position:absolute;z-index:3;pointer-events:none;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .hud button,.hud a{pointer-events:auto}
   .hud-top{top:14px;left:16px;right:16px}
@@ -200,6 +202,7 @@
   .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*80ms)}
   @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
   @media(max-width:860px){
+    .app .stage .zoomctl{top:56px;right:10px;transform:none;flex-direction:row}
     .app{grid-template-columns:1fr;height:auto}
     .app .stage{height:62vh;min-height:360px}
     .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
@@ -277,7 +280,7 @@
     <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
       <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
     </a>
-    <div class="crumb"><b>EGN 325</b> Computer Architecture · Week 1 · Interactive B</div>
+    <div class="crumb"><a href="../index.html"><b>EGN 325</b> Computer Architecture</a> · Week 1 · Interactive B</div>
   </div>
 </header>
 
@@ -589,7 +592,17 @@ function Lab3D(stage, opts) {
   function viewFor(name) {
     const b = views[name] || views.overview;
     const tgt = new T.Vector3(...b.tgt), pos = new T.Vector3(...b.pos);
-    const want = b.want || 1.25, f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    const want = b.want || 1.25;
+    let f = camera.aspect < want ? Math.min(2.4, want / camera.aspect) : 1;
+    if (name === 'overview' || !views[name]) {
+      // the overview (and FIT) must show the whole board width, also on narrow phone screens,
+      // leaving room for the zoom buttons at the right edge
+      const tanH = Math.tan(T.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
+      const need = (B.w / 2 + 0.5) / (tanH * 0.92) + B.d * 0.25;
+      f = Math.max(f, need / pos.distanceTo(tgt));
+      controls.maxDistance = Math.max(controls.maxDistance, need * 1.3);
+      if (scene.fog) { scene.fog.near = Math.max(scene.fog.near, need * 1.1); scene.fog.far = Math.max(scene.fog.far, need * 2.6); }
+    }
     pos.sub(tgt).multiplyScalar(f).add(tgt);
     return {pos: pos, tgt: tgt};
   }
@@ -785,7 +798,7 @@ $('#check').onclick = () => {
   $('#fb').innerHTML = '<div class="feedback '+(mOk&&rOk?'ok':(mOk||rOk)?'info':'bad')+'"><strong>'+head+'</strong> '+b.why+chips+'</div>';
   bestPos = perm.indexOf(b.best); pickedPos = perm.indexOf(picked); highlightPart(PART_OF_REASON[b.ok[0]]);
   $('#check').hidden = true; $('#next').hidden = false;
-  $('#player').hidden = false; player.reset(explainSteps(b, perm), 'Press Play for a step-by-step explanation of this buyer, or Step forward to go one step at a time.');
+  $('#player').hidden = false; player.reset(explainSteps(b, perm), 'Press Play for a step-by-step explanation of this buyer, or Step to go one step at a time.');
   $('#next').textContent = idx === BUYERS.length-1 ? 'See my score' : 'Next buyer';
   $('#next').focus();
 };
